@@ -38,8 +38,8 @@
                 <div class="col-md-6">
                     <label class="form-label text-muted small fw-bold">Designated Role <span class="text-danger">*</span></label>
                     <select name="role" class="form-select" required>
-                        {% for role in roles %}
-                            <option value="{{ role }}" {% if profile.role == role %}selected{% endif %}>{{ role }}</option>
+                        {% for r_code, r_label in role_choices %}
+                            <option value="{{ r_code }}" {% if profile.role == r_code %}selected{% endif %}>{{ r_label }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -49,6 +49,7 @@
                 </div>
             </div>
 
+            {% if is_super_admin %}
             <div class="mb-4">
                 <label class="form-label text-muted small fw-bold">Associated Tenant Firm <span class="text-danger">*</span></label>
                 <select name="tenant" class="form-select" required>
@@ -57,8 +58,25 @@
                         <option value="{{ t.id }}" {% if profile.tenant.id == t.id %}selected{% endif %}>{{ t.company_name }} ({{ t.name }})</option>
                     {% endfor %}
                 </select>
-                <div class="form-text text-muted">All data accessed by this user will be isolated to this tenant.</div>
+                <div class="form-text text-muted">Super Admin option: Assign target tenant firm.</div>
             </div>
+            {% else %}
+                {% if current_tenant %}
+                <div class="mb-4">
+                    <label class="form-label text-muted small fw-bold">Associated Firm</label>
+                    <input type="text" class="form-control bg-light" value="{{ current_tenant.company_name }}" disabled>
+                </div>
+                {% endif %}
+            {% endif %}
+
+            {% if target_user %}
+            <div class="form-check mb-4 bg-light p-3 rounded-3 border">
+                <input class="form-check-input ms-0 me-2" type="checkbox" name="reset_role_perms" value="1" id="chkReset">
+                <label class="form-check-label text-dark fw-semibold small" for="chkReset">
+                    🔄 Reset user permissions to newly selected Role Defaults
+                </label>
+            </div>
+            {% endif %}
 
             <div class="d-flex gap-2 justify-content-end">
                 <button type="submit" class="btn btn-success px-4 rounded-pill">Save User Details</button>

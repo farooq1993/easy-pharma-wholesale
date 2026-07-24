@@ -3,81 +3,126 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from wholesaleApp.models.permissions import UserProfile
 from wholesaleApp.models.tenant import Tenant
-from wholesaleApp.views.security_helpers import get_user_permissions_context
+from wholesaleApp.views.security_helpers import (
+    get_user_permissions_context,
+    apply_role_default_permissions,
+    tenant_owner_required
+)
 
 # ==================== USER MANAGEMENT CRUD ====================
 
+@tenant_owner_required
 def user_list(request):
-    """List all employees/users with search & actions."""
-    if not request.user.is_superuser:
-        messages.error(request, "Access Denied: Only Shop Owners can manage users.")
-        return redirect('home')
+    """List all employees/staff users belonging to the logged-in Tenant Owner's firm or all tenants for Super Admin."""
+    current_profile = getattr(request.user, 'profile', None)
+    
+    if request.user.is_superuser or (current_profile and current_profile.is_super_admin):
+        users = User.objects.filter(is_superuser=False).select_related('profile__tenant')
+    else:
+        # Tenant Owner sees only users in their firm
+        tenant = request.tenant or (current_profile.tenant if current_profile else None)
+        if tenant:
+            users = User.objects.filter(profile__tenant=tenant, is_superuser=False).select_related('profile__tenant')
+        else:
+            users = User.objects.none()
 
-    users = User.objects.filter(is_superuser=False).select_related('profile__tenant')
     context = {
         'users': users,
-        'page_title': 'User Management (Staff & Field Boys)',
+        'page_title': 'User Management (Staff & Roles)',
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'master/user_list.html', context)
 
 
+@tenant_owner_required
 def user_create(request):
-    """Create a new employee user & auto profile creation."""
-    if not request.user.is_superuser:
-        messages.error(request, "Access Denied: Only Shop Owners can add users.")
-        return redirect('home')
+    """Create a new staff user & auto-assign role-based default permissions."""
+    current_profile = getattr(request.user, 'profile', None)
+    is_sa = request.user.is_superuser or (current_profile and current_profile.is_super_admin)
+
+    # Role choices available
+    if is_sa:
+        role_choices = UserProfile.ROLE_CHOICES
+    else:
+        # Shop Owners create staff roles for their shop
+        role_choices = [
+            ('Manager', 'Store Manager'),
+            ('Salesman', 'Salesman / Billing Clerk'),
+            ('Inventory', 'Inventory & Purchase Clerk'),
+            ('Delivery Boy', 'Delivery Boy / Field Operator'),
+        ]
 
     if request.method == 'POST':
         username = request.POST['username'].strip()
         email = request.POST.get('email', '').strip()
         password = request.POST['password']
-        role = request.POST.get('role', 'Employee')
+        role = request.POST.get('role', 'Salesman')
         mobile = request.POST.get('mobile', '').strip()
-        tenant_id = request.POST.get('tenant')
+        
+        if is_sa:
+            tenant_id = request.POST.get('tenant')
+            tenant_obj = Tenant.objects.filter(id=tenant_id).first() if tenant_id else None
+        else:
+            tenant_obj = request.tenant or (current_profile.tenant if current_profile else None)
 
         if User.objects.filter(username__iexact=username).exists():
             messages.error(request, f"User with username '{username}' already exists.")
         else:
-            # Create django User
+            # Create Django user
             user = User.objects.create_user(username=username, email=email, password=password)
             
-            # Retrieve or create profile (signal might have run, but let's be safe)
+            # Setup User Profile
             profile, created = UserProfile.objects.get_or_create(user=user)
             profile.role = role
             profile.mobile = mobile
-            if tenant_id:
-                profile.tenant_id = tenant_id
+            profile.tenant = tenant_obj
             profile.save()
 
-            messages.success(request, f"Employee user '{username}' successfully created!")
+            # Apply Role Preset Default Permissions
+            apply_role_default_permissions(user)
+
+            messages.success(request, f"Staff user '{username}' successfully created with '{role}' role defaults!")
             return redirect('user_list')
 
     tenants = Tenant.objects.filter(is_active=True)
     context = {
-        'roles': ['Employee', 'Salesman', 'Delivery Boy'],
+        'role_choices': role_choices,
         'tenants': tenants,
+        'is_super_admin': is_sa,
         'page_title': 'Add New Staff / Field Operator',
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'master/user_form.html', context)
 
 
+@tenant_owner_required
 def user_edit(request, pk):
-    """Edit existing employee user details."""
-    if not request.user.is_superuser:
-        messages.error(request, "Access Denied: Only Shop Owners can edit users.")
-        return redirect('home')
+    """Edit existing staff user details and sync role default permissions if role changes."""
+    current_profile = getattr(request.user, 'profile', None)
+    is_sa = request.user.is_superuser or (current_profile and current_profile.is_super_admin)
 
-    target_user = get_object_or_404(User, id=pk, is_superuser=False)
+    if is_sa:
+        target_user = get_object_or_404(User, id=pk, is_superuser=False)
+        role_choices = UserProfile.ROLE_CHOICES
+    else:
+        # Shop Owners edit staff within their firm
+        tenant = request.tenant or (current_profile.tenant if current_profile else None)
+        target_user = get_object_or_404(User, id=pk, profile__tenant=tenant, is_superuser=False)
+        role_choices = [
+            ('Manager', 'Store Manager'),
+            ('Salesman', 'Salesman / Billing Clerk'),
+            ('Inventory', 'Inventory & Purchase Clerk'),
+            ('Delivery Boy', 'Delivery Boy / Field Operator'),
+        ]
+
     profile, created = UserProfile.objects.get_or_create(user=target_user)
 
     if request.method == 'POST':
         username = request.POST['username'].strip()
         email = request.POST.get('email', '').strip()
-        role = request.POST.get('role', 'Employee')
+        role = request.POST.get('role', profile.role)
         mobile = request.POST.get('mobile', '').strip()
-        tenant_id = request.POST.get('tenant')
+        reset_perms = request.POST.get('reset_role_perms') == '1'
 
         if User.objects.filter(username__iexact=username).exclude(id=pk).exists():
             messages.error(request, f"Username '{username}' is already in use by another user.")
@@ -86,38 +131,55 @@ def user_edit(request, pk):
             target_user.email = email
             target_user.save()
 
+            role_changed = (profile.role != role)
             profile.role = role
             profile.mobile = mobile
-            if tenant_id:
-                profile.tenant_id = tenant_id
-            else:
-                profile.tenant = None
+            
+            if is_sa:
+                tenant_id = request.POST.get('tenant')
+                if tenant_id:
+                    profile.tenant_id = tenant_id
+                else:
+                    profile.tenant = None
             profile.save()
 
-            messages.success(request, f"User '{username}' details updated successfully!")
+            # Auto sync permissions if role changed or explicitly requested
+            if role_changed or reset_perms:
+                apply_role_default_permissions(target_user)
+                messages.success(request, f"User '{username}' role updated to '{role}' and default permissions synced.")
+            else:
+                messages.success(request, f"User '{username}' details updated successfully!")
+
             return redirect('user_list')
 
     tenants = Tenant.objects.filter(is_active=True)
     context = {
         'target_user': target_user,
         'profile': profile,
-        'roles': ['Employee', 'Salesman', 'Delivery Boy'],
+        'role_choices': role_choices,
         'tenants': tenants,
+        'is_super_admin': is_sa,
         'page_title': f"Edit Staff: {target_user.username}",
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'master/user_form.html', context)
 
 
+@tenant_owner_required
 def user_delete(request, pk):
-    """Delete an employee user."""
-    if not request.user.is_superuser:
-        messages.error(request, "Access Denied: Only Shop Owners can delete users.")
-        return redirect('home')
+    """Delete a staff user."""
+    current_profile = getattr(request.user, 'profile', None)
+    is_sa = request.user.is_superuser or (current_profile and current_profile.is_super_admin)
 
-    target_user = get_object_or_404(User, id=pk, is_superuser=False)
+    if is_sa:
+        target_user = get_object_or_404(User, id=pk, is_superuser=False)
+    else:
+        tenant = request.tenant or (current_profile.tenant if current_profile else None)
+        target_user = get_object_or_404(User, id=pk, profile__tenant=tenant, is_superuser=False)
+
     username = target_user.username
     target_user.delete()
 
-    messages.success(request, f"Employee user '{username}' deleted successfully!")
+    messages.success(request, f"Staff user '{username}' deleted successfully!")
     return redirect('user_list')
+

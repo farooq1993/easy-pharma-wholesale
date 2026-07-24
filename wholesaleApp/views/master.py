@@ -261,16 +261,31 @@ def HomeView(request):
     return render(request, 'includes/home.html', context)
 
 
+from wholesaleApp.views.security_helpers import (
+    seed_default_permissions,
+    get_user_permissions_context,
+    apply_role_default_permissions,
+    tenant_owner_required,
+    ROLE_DEFAULT_PERMISSIONS
+)
+
+@tenant_owner_required
 def user_permission_matrix(request):
-    """View to show the dynamic user permissions matrix for the Shop Owner."""
-    # Seed permissions dynamically
+    """View to show the dynamic user permissions matrix for Shop Owners and SaaS Super Admins."""
     seed_default_permissions()
     
-    if not request.user.is_superuser:
-        messages.error(request, "Access Denied: Only Shop Owners can manage permissions.")
-        return redirect('home')
+    current_profile = getattr(request.user, 'profile', None)
+    is_sa = request.user.is_superuser or (current_profile and current_profile.is_super_admin)
 
-    users = User.objects.filter(is_superuser=False)
+    if is_sa:
+        users = User.objects.filter(is_superuser=False).select_related('profile__tenant')
+    else:
+        tenant = request.tenant or (current_profile.tenant if current_profile else None)
+        if tenant:
+            users = User.objects.filter(profile__tenant=tenant, is_superuser=False).select_related('profile__tenant')
+        else:
+            users = User.objects.none()
+
     modules = AppGroupModule.objects.filter(is_active=True).prefetch_related('features')
     
     # Pre-fetch user permissions: {user_id: {feature_codename: is_granted}}
@@ -282,27 +297,39 @@ def user_permission_matrix(request):
 
     if request.method == "POST":
         user_id = request.POST.get("user_id")
+        action = request.POST.get("action")
         target_user = get_object_or_404(User, id=user_id)
         
-        # Reset all permissions for this user first
-        UserFeaturePermission.objects.filter(user=target_user).update(is_granted=False)
-        
-        # Get checked feature codenames from POST
-        granted_features = request.POST.getlist("features")
-        for codename in granted_features:
-            feature = AppFeature.objects.filter(codename=codename, is_active=True).first()
-            if feature:
-                perm, created = UserFeaturePermission.objects.get_or_create(user=target_user, feature=feature)
-                perm.is_granted = True
-                perm.save()
-                
-        messages.success(request, f"Permissions updated successfully for user {target_user.username}.")
+        # Verify access to target user
+        if not is_sa:
+            tenant = request.tenant or (current_profile.tenant if current_profile else None)
+            if hasattr(target_user, 'profile') and target_user.profile.tenant != tenant:
+                messages.error(request, "Access Denied: Cannot modify user outside your tenant firm.")
+                return redirect('user_permission_matrix')
+
+        if action == "apply_defaults":
+            apply_role_default_permissions(target_user)
+            messages.success(request, f"Default role permissions applied for user '{target_user.username}'.")
+        else:
+            # Custom selection saved
+            UserFeaturePermission.objects.filter(user=target_user).update(is_granted=False)
+            granted_features = request.POST.getlist("features")
+            for codename in granted_features:
+                feature = AppFeature.objects.filter(codename=codename, is_active=True).first()
+                if feature:
+                    perm, created = UserFeaturePermission.objects.get_or_create(user=target_user, feature=feature)
+                    perm.is_granted = True
+                    perm.save()
+                    
+            messages.success(request, f"Custom permissions updated successfully for user '{target_user.username}'.")
+            
         return redirect('user_permission_matrix')
 
     context = {
         'users': users,
         'modules': modules,
         'user_perms_dict': user_perms_dict,
+        'role_defaults': ROLE_DEFAULT_PERMISSIONS,
         'page_title': 'User Access & Permissions Matrix',
         'user_perms': get_user_permissions_context(request.user)
     }

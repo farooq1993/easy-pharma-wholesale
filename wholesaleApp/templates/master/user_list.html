@@ -6,7 +6,7 @@
 {% block content %}
 <div class="card shadow-sm border-0 rounded-4">
     <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-primary fw-bold"><i class="bi bi-people-fill"></i> Registered Staff & Operators</h5>
+        <h5 class="mb-0 text-primary fw-bold"><i class="bi bi-people-fill"></i> Registered Staff & Role Management</h5>
         <a href="{% url 'user_create' %}" class="btn btn-primary rounded-pill px-4">
             <i class="bi bi-person-plus-fill"></i> Add New User
         </a>
@@ -20,6 +20,7 @@
                         <th>Email ID</th>
                         <th>Mobile</th>
                         <th>Role / Designation</th>
+                        <th>Firm / Shop</th>
                         <th>Status</th>
                         <th class="text-center" style="width: 25%;">Actions</th>
                     </tr>
@@ -39,9 +40,16 @@
                             <td>{{ u.email|default:"—" }}</td>
                             <td>{{ u.profile.mobile|default:"—" }}</td>
                             <td>
-                                <span class="badge bg-indigo-subtle text-indigo px-3 py-2 rounded-pill" style="background-color: #e0e7ff; color: #4338ca;">
-                                    {{ u.profile.role }}
+                                <span class="badge bg-indigo-subtle text-indigo px-3 py-2 rounded-pill fw-semibold" style="background-color: #e0e7ff; color: #4338ca;">
+                                    {{ u.profile.get_role_display|default:u.profile.role|default:"Salesman" }}
                                 </span>
+                            </td>
+                            <td>
+                                {% if u.profile.tenant %}
+                                    <span class="badge bg-light text-dark border">{{ u.profile.tenant.company_name }}</span>
+                                {% else %}
+                                    <span class="text-muted small">—</span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if u.is_active %}
@@ -55,10 +63,10 @@
                                     <a href="{% url 'user_permission_matrix' %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
                                         <i class="bi bi-shield-lock"></i> Set Permissions
                                     </a>
-                                    <a href="{% url 'user_edit' u.id %}" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
+                                    <a href="{% url 'user_edit' u.id %}" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" title="Edit Staff">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <a href="{% url 'user_delete' u.id %}" class="btn btn-sm btn-outline-danger rounded-circle" onclick="return confirm('Are you sure you want to delete user {{ u.username }}?');" style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
+                                    <a href="{% url 'user_delete' u.id %}" class="btn btn-sm btn-outline-danger rounded-circle" onclick="return confirm('Are you sure you want to delete user {{ u.username }}?');" style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center;" title="Delete Staff">
                                         <i class="bi bi-trash"></i>
                                     </a>
                                 </div>
@@ -66,7 +74,7 @@
                         </tr>
                     {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <i class="bi bi-people display-4 d-block mb-3"></i>
                                 No employee users created in this system yet. Click "Add New User" to begin.
                             </td>

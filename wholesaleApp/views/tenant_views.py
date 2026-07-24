@@ -1,16 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from wholesaleApp.models.tenant import Tenant
-from wholesaleApp.views.security_helpers import get_user_permissions_context
+from wholesaleApp.views.security_helpers import get_user_permissions_context, superadmin_required
 
-@login_required
+@superadmin_required
 def tenant_list(request):
     """List all tenants/firms in the system."""
-    if not request.user.is_superuser:
-        messages.error(request, "Access Denied: Only administrators can manage tenants.")
-        return redirect('home')
-        
     tenants = Tenant.objects.all()
     context = {
         'tenants': tenants,
@@ -20,13 +15,9 @@ def tenant_list(request):
     return render(request, 'tenant/tenant_list.html', context)
 
 
-@login_required
+@superadmin_required
 def tenant_create(request):
     """Create a new tenant/firm."""
-    if not request.user.is_superuser:
-        messages.error(request, "Access Denied: Only administrators can manage tenants.")
-        return redirect('home')
-        
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         company_name = request.POST.get('company_name', '').strip()
@@ -60,13 +51,9 @@ def tenant_create(request):
     return render(request, 'tenant/tenant_form.html', context)
 
 
-@login_required
+@superadmin_required
 def tenant_edit(request, pk):
     """Edit details of an existing tenant/firm."""
-    if not request.user.is_superuser:
-        messages.error(request, "Access Denied: Only administrators can manage tenants.")
-        return redirect('home')
-        
     tenant = get_object_or_404(Tenant, id=pk)
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
@@ -99,3 +86,4 @@ def tenant_edit(request, pk):
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'tenant/tenant_form.html', context)
+

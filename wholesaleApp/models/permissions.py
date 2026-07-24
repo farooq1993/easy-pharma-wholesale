@@ -50,19 +50,33 @@ from wholesaleApp.models.tenant import Tenant
 # ==================== USER PROFILE (ROLES) ====================
 class UserProfile(models.Model):
     ROLE_CHOICES = (
-        ('Owner', 'Owner'),
-        ('Employee', 'Employee'),
-        ('Salesman', 'Salesman'),
-        ('Delivery Boy', 'Delivery Boy'),
+        ('Super Admin', 'SaaS Platform Admin'),
+        ('Owner', 'Tenant Shop Owner'),
+        ('Manager', 'Store Manager'),
+        ('Salesman', 'Salesman / Billing Clerk'),
+        ('Inventory', 'Inventory & Purchase Clerk'),
+        ('Delivery Boy', 'Delivery Boy / Field Operator'),
     )
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     tenant = models.ForeignKey(Tenant, on_delete=models.SET_NULL, null=True, blank=True, related_name='user_profiles')
-    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='Employee')
+    role = models.CharField(max_length=50, choices=ROLE_CHOICES, default='Salesman')
     mobile = models.CharField(max_length=15, blank=True, null=True)
 
     class Meta:
         verbose_name = "User Profile"
         verbose_name_plural = "User Profiles"
+
+    @property
+    def is_super_admin(self):
+        return self.user.is_superuser or self.role == 'Super Admin'
+
+    @property
+    def is_tenant_owner(self):
+        return self.role == 'Owner'
+
+    @property
+    def is_tenant_admin(self):
+        return self.is_super_admin or self.is_tenant_owner
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"

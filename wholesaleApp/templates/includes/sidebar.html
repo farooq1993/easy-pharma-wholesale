@@ -173,9 +173,11 @@
                 </a>
                 <div class="collapse ms-3" id="settingsCollapse">
                     <ul class="nav flex-column">
-                        {% if user.is_superuser %}
+                        {% if user.is_superuser or user_profile.is_super_admin %}
                         <li class="nav-item"><a href="{% url 'tenant_list' %}" class="nav-link text-light">Tenant Management (Firms)</a></li>
-                        <li class="nav-item"><a href="{% url 'user_list' %}" class="nav-link text-light">User Management (CRUD)</a></li>
+                        {% endif %}
+                        {% if user.is_superuser or user_profile.is_tenant_admin %}
+                        <li class="nav-item"><a href="{% url 'user_list' %}" class="nav-link text-light">User Management (Roles & Staff)</a></li>
                         <li class="nav-item"><a href="{% url 'user_permission_matrix' %}" class="nav-link text-light">User Permissions Matrix</a></li>
                         {% endif %}
                         <li class="nav-item"><a href="#" class="nav-link text-light">Company Profile</a></li>

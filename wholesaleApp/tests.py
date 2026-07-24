@@ -288,6 +288,8 @@ class PermissionMatrixTests(TestCase):
         
     def test_unauthorized_user_is_blocked_from_invoicing(self):
         self.client.force_login(self.employee)
+        # Explicitly revoke sales_create for unauthorized test
+        UserFeaturePermission.objects.filter(user=self.employee, feature=self.sales_create_feature).update(is_granted=False)
         
         # Try to view invoice creation
         response = self.client.get(reverse('invoice_create'))
@@ -298,10 +300,10 @@ class PermissionMatrixTests(TestCase):
         self.client.force_login(self.employee)
         
         # Grant sales_create permission
-        UserFeaturePermission.objects.create(
+        UserFeaturePermission.objects.update_or_create(
             user=self.employee,
             feature=self.sales_create_feature,
-            is_granted=True
+            defaults={'is_granted': True}
         )
         
         response = self.client.get(reverse('invoice_create'))
@@ -380,7 +382,7 @@ class AuthAndReportsTests(TestCase):
         
         from wholesaleApp.models import AppFeature, UserFeaturePermission
         feature_out = AppFeature.objects.get(codename="report_outstanding")
-        UserFeaturePermission.objects.create(user=self.user, feature=feature_out, is_granted=True)
+        UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_out, defaults={'is_granted': True})
 
     def test_login_page_renders(self):
         response = self.client.get(reverse('login'))
@@ -922,11 +924,11 @@ class SalesPaymentAndLedgerTests(TestCase):
         feature_payment = AppFeature.objects.get(codename="payment_collection")
         feature_outstanding = AppFeature.objects.get(codename="report_outstanding")
         
-        UserFeaturePermission.objects.create(user=self.user, feature=feature_sales, is_granted=True)
-        UserFeaturePermission.objects.create(user=self.user, feature=feature_cust, is_granted=True)
-        UserFeaturePermission.objects.create(user=self.user, feature=feature_ledger, is_granted=True)
-        UserFeaturePermission.objects.create(user=self.user, feature=feature_payment, is_granted=True)
-        UserFeaturePermission.objects.create(user=self.user, feature=feature_outstanding, is_granted=True)
+        UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_sales, defaults={'is_granted': True})
+        UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_cust, defaults={'is_granted': True})
+        UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_ledger, defaults={'is_granted': True})
+        UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_payment, defaults={'is_granted': True})
+        UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_outstanding, defaults={'is_granted': True})
         
         self.area = AreaMaster.objects.create(city="Test City", code="TC1")
         self.retailer = CustomerMaster.objects.create(
@@ -1221,7 +1223,7 @@ class SalesPaymentAndLedgerTests(TestCase):
         response = self.client.get(ledger_url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Payment Received")
-        self.assertNotContains(response, "Sales Invoice")
+        self.assertNotContains(response, "INV-2026")
         # The display opening balance (initial_balance) should be 112.00 (since invoice was on 2026-07-05)
         self.assertContains(response, "112.00")
 
@@ -1268,6 +1270,60 @@ class SalesPaymentAndLedgerTests(TestCase):
         response_other = self.client.get(reverse('report_outstanding'), {'area': other_area.id})
         self.assertEqual(response_other.status_code, 200)
         self.assertNotContains(response_other, "Test Retailer")
+
+
+class MultiTenantRBACTests(TestCase):
+    def setUp(self):
+        from wholesaleApp.views.security_helpers import seed_default_permissions
+        seed_default_permissions()
+
+        # 1. Super Admin User
+        self.super_admin = User.objects.create_superuser(username="superadmin", password="password123")
+        
+        # 2. Tenant Shop Owner User
+        self.tenant_owner = User.objects.create_user(username="shop_owner", password="password123")
+        self.tenant_owner.profile.role = "Owner"
+        self.tenant_owner.profile.save()
+
+        # 3. Staff Salesman User
+        self.salesman = User.objects.create_user(username="salesman_john", password="password123")
+        self.salesman.profile.role = "Salesman"
+        self.salesman.profile.save()
+
+    def test_super_admin_can_access_tenant_management(self):
+        self.client.force_login(self.super_admin)
+        response = self.client.get(reverse('tenant_list'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_tenant_owner_blocked_from_tenant_management(self):
+        self.client.force_login(self.tenant_owner)
+        response = self.client.get(reverse('tenant_list'))
+        self.assertEqual(response.status_code, 302) # Blocked & redirected to home
+
+    def test_tenant_owner_can_access_user_management_and_matrix(self):
+        self.client.force_login(self.tenant_owner)
+        response = self.client.get(reverse('user_list'))
+        self.assertEqual(response.status_code, 200)
+        
+        response_matrix = self.client.get(reverse('user_permission_matrix'))
+        self.assertEqual(response_matrix.status_code, 200)
+
+    def test_salesman_blocked_from_user_management(self):
+        self.client.force_login(self.salesman)
+        response = self.client.get(reverse('user_list'))
+        self.assertEqual(response.status_code, 302)
+        
+        response_matrix = self.client.get(reverse('user_permission_matrix'))
+        self.assertEqual(response_matrix.status_code, 302)
+
+    def test_role_default_permissions_auto_applied(self):
+        from wholesaleApp.views.security_helpers import apply_role_default_permissions, has_feature_access
+        
+        # Apply role defaults for Salesman
+        apply_role_default_permissions(self.salesman)
+        self.assertTrue(has_feature_access(self.salesman, 'sales_create'))
+        self.assertFalse(has_feature_access(self.salesman, 'product_crud'))
+
 
 
 

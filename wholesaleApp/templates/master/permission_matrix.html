@@ -42,8 +42,8 @@
                 <div class="d-flex align-items-center gap-3">
                     <span class="fs-1">⚙️</span>
                     <div>
-                        <h4 class="fw-bold text-dark mb-1">SaaS Access Controls & Permissions</h4>
-                        <p class="text-muted mb-0">Manage roles and toggle fine-grained feature-level access for billing employees, salesmen, and delivery boys.</p>
+                        <h4 class="fw-bold text-dark mb-1">Role-Based Access Control (RBAC) & Feature Permissions</h4>
+                        <p class="text-muted mb-0">Manage roles and toggle fine-grained feature-level access for Store Managers, Salesmen, Inventory Clerks, and Delivery Boys.</p>
                     </div>
                 </div>
             </div>
@@ -54,14 +54,21 @@
 <div class="row g-4">
     <!-- User Selection Sidebar -->
     <div class="col-md-4">
-        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-people-fill"></i> Select Employee / User</h5>
+        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-people-fill"></i> Select Employee / Staff</h5>
         <div class="d-flex flex-column gap-3">
             {% for u in users %}
-                <button type="button" class="btn text-start p-3 user-card bg-white shadow-sm w-100" onclick="showUserPermissions('{{ u.id }}', '{{ u.username }}')">
+                <button type="button" class="btn text-start p-3 user-card bg-white shadow-sm w-100" onclick="showUserPermissions('{{ u.id }}', '{{ u.username }}', '{{ u.profile.role|default:"Staff" }}')">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
                             <h6 class="fw-bold text-dark mb-1">👤 {{ u.username }}</h6>
-                            <span class="badge bg-light text-secondary border small">{{ u.email|default:"Staff Operator" }}</span>
+                            <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle small" style="font-size: 11px;">
+                                    {{ u.profile.get_role_display|default:u.profile.role|default:"Salesman" }}
+                                </span>
+                                {% if u.profile.tenant %}
+                                    <span class="badge bg-light text-secondary border small" style="font-size: 10px;">{{ u.profile.tenant.company_name }}</span>
+                                {% endif %}
+                            </div>
                         </div>
                         <i class="bi bi-chevron-right text-muted"></i>
                     </div>
@@ -69,7 +76,7 @@
             {% empty %}
                 <div class="alert alert-info text-center py-4 rounded-4 shadow-sm">
                     <i class="bi bi-info-circle fs-4 d-block mb-2"></i>
-                    No staff/employees found in this tenant database yet.
+                    No staff/employees found in this database yet.
                 </div>
             {% endfor %}
         </div>
@@ -82,17 +89,24 @@
                 {% csrf_token %}
                 <input type="hidden" name="user_id" id="userIdInput">
                 
-                <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 fw-bold text-primary">
-                        🔐 Permissions for: <span id="selectedUserName" class="text-dark"></span>
-                    </h5>
-                    <button type="submit" class="btn btn-primary rounded-pill px-4">
-                        <i class="bi bi-save"></i> Save Permissions
-                    </button>
+                <div class="card-header bg-white py-3 border-bottom-0 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div>
+                        <h5 class="mb-0 fw-bold text-primary">
+                            🔐 Permissions for: <span id="selectedUserName" class="text-dark"></span>
+                        </h5>
+                        <small class="text-muted">Assigned Role: <span id="selectedUserRole" class="fw-semibold text-indigo"></span></small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" name="action" value="apply_defaults" class="btn btn-outline-secondary rounded-pill px-3 btn-sm">
+                            <i class="bi bi-arrow-counterclockwise"></i> Apply Role Defaults
+                        </button>
+                        <button type="submit" name="action" value="save_custom" class="btn btn-primary rounded-pill px-4 btn-sm">
+                            <i class="bi bi-save"></i> Save Permissions
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="card-body p-4 border-top">
-                    <!-- Dynamic Modules and Features rendering directly from Database Master tables -->
                     <div class="row g-4">
                         {% for module in modules %}
                             <div class="col-12">
@@ -148,11 +162,12 @@
         {% endfor %}
     };
 
-    function showUserPermissions(userId, userName) {
+    function showUserPermissions(userId, userName, userRole) {
         document.getElementById("placeholderCard").style.display = "none";
         document.getElementById("matrixCard").style.display = "block";
         document.getElementById("userIdInput").value = userId;
         document.getElementById("selectedUserName").textContent = userName;
+        document.getElementById("selectedUserRole").textContent = userRole;
 
         // Reset all switches
         document.querySelectorAll(".feature-checkbox").forEach(chk => {
