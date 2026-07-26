@@ -5,6 +5,8 @@ from wholesaleApp.urls.products import urlpatterns as producturl
 from wholesaleApp.urls.purchase import urlpatterns as purchaseurl
 from wholesaleApp.urls.sales import urlpatterns as salesurl
 from wholesaleApp.urls.reports import urlpatterns as reportsurl
+from wholesaleApp.urls.scheme import urlpatterns as schemeurl
 
 
-urlpatterns = masterurl + customerurl + supplierurl + producturl + purchaseurl + salesurl + reportsurl
+urlpatterns = masterurl + customerurl + supplierurl + producturl + purchaseurl + salesurl + reportsurl + schemeurl
+

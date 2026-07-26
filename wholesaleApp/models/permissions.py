@@ -54,6 +54,7 @@ class UserProfile(models.Model):
         ('Owner', 'Tenant Shop Owner'),
         ('Manager', 'Store Manager'),
         ('Salesman', 'Salesman / Billing Clerk'),
+        ('MR', 'Medical Representative (MR)'),
         ('Inventory', 'Inventory & Purchase Clerk'),
         ('Delivery Boy', 'Delivery Boy / Field Operator'),
     )

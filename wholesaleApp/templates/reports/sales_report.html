@@ -25,77 +25,85 @@
     </div>
 </div>
 
-<!-- Summaries Row -->
-<div class="row g-3 mb-4 text-center">
-    <div class="col-6 col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
-            <span class="text-muted small">Total Taxable Value</span>
-            <h4 class="fw-bold text-dark mb-0 mt-1">₹{{ totals.gross|default:"0.00"|floatformat:2 }}</h4>
+<!-- Summaries & Data Table wrapped for PDF Export -->
+<div id="reportContent" class="bg-transparent">
+    <!-- Summaries Row -->
+    <div class="row g-3 mb-4 text-center">
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
+                <span class="text-muted small">Total Taxable Value</span>
+                <h4 class="fw-bold text-dark mb-0 mt-1">₹{{ totals.gross|default:"0.00"|floatformat:2 }}</h4>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
+                <span class="text-muted small">Total Discount</span>
+                <h4 class="fw-bold text-danger mb-0 mt-1">-₹{{ totals.discount|default:"0.00"|floatformat:2 }}</h4>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
+                <span class="text-muted small">Total GST Tax Collected</span>
+                <h4 class="fw-bold text-success mb-0 mt-1">+₹{{ totals.gst|default:"0.00"|floatformat:2 }}</h4>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm border-0 rounded-4 bg-primary text-white p-3">
+                <span class="text-white-50 small">Net Revenue</span>
+                <h4 class="fw-bold mb-0 mt-1">₹{{ totals.net|default:"0.00"|floatformat:2 }}</h4>
+            </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
-            <span class="text-muted small">Total Discount</span>
-            <h4 class="fw-bold text-danger mb-0 mt-1">-₹{{ totals.discount|default:"0.00"|floatformat:2 }}</h4>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
-            <span class="text-muted small">Total GST Tax Collected</span>
-            <h4 class="fw-bold text-success mb-0 mt-1">+₹{{ totals.gst|default:"0.00"|floatformat:2 }}</h4>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 bg-primary text-white p-3">
-            <span class="text-white-50 small">Net Revenue</span>
-            <h4 class="fw-bold mb-0 mt-1">₹{{ totals.net|default:"0.00"|floatformat:2 }}</h4>
-        </div>
-    </div>
-</div>
 
-<!-- Data Table -->
-<div class="card shadow-sm border-0 rounded-4">
-    <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-receipt"></i> Sales Bills List</h5>
-        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="window.print()">
-            <i class="bi bi-printer"></i> Print Statement
-        </button>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Invoice No</th>
-                        <th>Chemist / Customer</th>
-                        <th>Invoice Date</th>
-                        <th class="text-end">Taxable Gross</th>
-                        <th class="text-end">Discount</th>
-                        <th class="text-end">GST Tax</th>
-                        <th class="text-end pe-4">Net Receivable</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for inv in invoices %}
+    <!-- Data Table -->
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-receipt"></i> Sales Bills List</h5>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print Statement
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="exportReportToPDF('reportContent', 'GST_Sales_Summary.pdf')">
+                    <i class="bi bi-file-pdf"></i> Export PDF
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
-                            <td class="ps-4"><strong>{{ inv.invoice_number }}</strong></td>
-                            <td>{{ inv.customer.name }}</td>
-                            <td>{{ inv.invoice_date|date:"Y-m-d" }}</td>
-                            <td class="text-end">₹{{ inv.gross_amount|floatformat:2 }}</td>
-                            <td class="text-end text-danger">-₹{{ inv.discount_amount|floatformat:2 }}</td>
-                            <td class="text-end text-success">+₹{{ inv.gst_amount|floatformat:2 }}</td>
-                            <td class="text-end fw-bold pe-4 text-primary">₹{{ inv.net_amount|floatformat:2 }}</td>
+                            <th class="ps-4">Invoice No</th>
+                            <th>Chemist / Customer</th>
+                            <th>Invoice Date</th>
+                            <th class="text-end">Taxable Gross</th>
+                            <th class="text-end">Discount</th>
+                            <th class="text-end">GST Tax</th>
+                            <th class="text-end pe-4">Net Receivable</th>
                         </tr>
-                    {% empty %}
-                        <tr>
-                            <td colspan="7" class="text-center py-5 text-muted">
-                                <i class="bi bi-file-earmark-bar-graph display-4 d-block mb-3"></i>
-                                No sales transactions found in this date range.
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for inv in invoices %}
+                            <tr>
+                                <td class="ps-4"><strong>{{ inv.invoice_number }}</strong></td>
+                                <td>{{ inv.customer.name }}</td>
+                                <td>{{ inv.invoice_date|date:"Y-m-d" }}</td>
+                                <td class="text-end">₹{{ inv.gross_amount|floatformat:2 }}</td>
+                                <td class="text-end text-danger">-₹{{ inv.discount_amount|floatformat:2 }}</td>
+                                <td class="text-end text-success">+₹{{ inv.gst_amount|floatformat:2 }}</td>
+                                <td class="text-end fw-bold pe-4 text-primary">₹{{ inv.net_amount|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-5 text-muted">
+                                    <i class="bi bi-file-earmark-bar-graph display-4 d-block mb-3"></i>
+                                    No sales transactions found in this date range.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

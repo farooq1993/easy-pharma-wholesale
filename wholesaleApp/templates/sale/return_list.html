@@ -1,0 +1,69 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-arrow-left-right text-primary me-2"></i>Sales Returns (Credit Notes)</h5>
+        <a href="{% url 'sales_return_create' %}" class="btn btn-primary rounded-pill px-4 shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> New Sales Return
+        </a>
+    </div>
+
+    <div class="col-12">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0 table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Date</th>
+                                <th>Return No.</th>
+                                <th>Customer / Chemist</th>
+                                <th>Items Returned</th>
+                                <th>Remarks</th>
+                                <th class="text-end">Refund Value</th>
+                                <th class="text-center pe-4" style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ret in returns %}
+                                <tr>
+                                    <td class="ps-4 font-monospace small">{{ ret.return_date|date:"Y-m-d" }}</td>
+                                    <td><strong class="text-dark">{{ ret.return_number }}</strong></td>
+                                    <td>
+                                        <span class="fw-semibold text-dark">{{ ret.customer.name }}</span>
+                                        <br>
+                                        <small class="text-muted">{{ ret.customer.city }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-secondary border px-2.5 py-1 rounded-pill">
+                                            {{ ret.items.count }} Item(s)
+                                        </span>
+                                    </td>
+                                    <td class="text-muted small">{{ ret.remarks|default:"—" }}</td>
+                                    <td class="text-end fw-bold text-success">₹{{ ret.net_amount|floatformat:2 }}</td>
+                                    <td class="text-center pe-4">
+                                        <a href="{% url 'sales_return_delete' ret.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="return confirm('Are you sure you want to delete this sales return record, revert stock changes, and customer balance?')" title="Delete Record">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center py-5 text-muted">
+                                        <i class="bi bi-arrow-left-right display-4 d-block mb-3 text-secondary"></i>
+                                        No sales returns recorded yet.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -30,6 +30,7 @@ class SalesInvoice(TenantModel):
     
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    assigned_delivery_boy = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_deliveries', verbose_name="Assigned Delivery Staff")
 
     class Meta:
         verbose_name = "Sales Invoice"
@@ -54,3 +55,38 @@ class SalesInvoiceItem(TenantModel):
 
     def __str__(self):
         return f"{self.product.name} - Qty: {self.quantity} (Batch: {self.batch.batch_number})"
+
+
+# ==================== SALES RETURN ====================
+class SalesReturn(TenantModel):
+    return_number = models.CharField(max_length=100, verbose_name="Return Number")
+    customer = models.ForeignKey(CustomerMaster, on_delete=models.PROTECT, related_name='sales_returns', verbose_name="Customer")
+    return_date = models.DateField(verbose_name="Return Date")
+    gross_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Gross Amount (₹)")
+    gst_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="GST Amount (₹)")
+    net_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Net Refund (₹)")
+    remarks = models.TextField(blank=True, null=True, verbose_name="Remarks")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Sales Return"
+        verbose_name_plural = "Sales Returns"
+        ordering = ['-return_date', '-id']
+
+    def __str__(self):
+        return f"SR: {self.return_number} - {self.customer.name}"
+
+
+class SalesReturnItem(TenantModel):
+    sales_return = models.ForeignKey(SalesReturn, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(ProductMaster, on_delete=models.PROTECT, verbose_name="Product")
+    batch = models.ForeignKey(ProductBatch, on_delete=models.PROTECT, verbose_name="Batch")
+    sale_rate = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Selling Rate (₹)")
+    quantity = models.IntegerField(verbose_name="Returned Qty")
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Total (₹)")
+
+    def __str__(self):
+        return f"{self.product.name} - Qty: {self.quantity} (Batch: {self.batch.batch_number})"
+

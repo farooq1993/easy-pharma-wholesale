@@ -1,0 +1,273 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <form method="POST" id="salesReturnForm">
+            {% csrf_token %}
+            
+            <!-- Master Info Card -->
+            <div class="card shadow-sm border-0 rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold text-dark mb-3"><i class="bi bi-file-earmark-diff text-primary me-2"></i>Return Details</h5>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-4 col-12">
+                            <label class="form-label text-muted small fw-bold">Select Customer <span class="text-danger">*</span></label>
+                            <select name="customer" id="customerSelect" class="form-select rounded-3" required>
+                                <option value="">-- Choose Customer --</option>
+                                {% for cust in customers %}
+                                    <option value="{{ cust.id }}">
+                                        {{ cust.name }} (Outstanding Dues: ₹{{ cust.opening_balance|floatformat:2 }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-4 col-12">
+                            <label class="form-label text-muted small fw-bold">Return Number / Credit Note No. <span class="text-danger">*</span></label>
+                            <input type="text" name="return_number" class="form-control rounded-3" placeholder="e.g. SR-2026-0001" value="SR-{% now 'Ymd-His' %}" required>
+                        </div>
+                        
+                        <div class="col-md-4 col-12">
+                            <label class="form-label text-muted small fw-bold">Return Date <span class="text-danger">*</span></label>
+                            <input type="date" name="return_date" class="form-control rounded-3" value="{% now 'Y-m-d' %}" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-bold">Remarks / Reason for Return</label>
+                            <input type="text" name="remarks" class="form-control rounded-3" placeholder="e.g. Expired stock return, damaged goods, incorrect billing">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items Table Card -->
+            <div class="card shadow-sm border-0 rounded-4 mb-4">
+                <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-box-seam text-primary me-2"></i>Returned Products</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="addItemBtn">
+                        <i class="bi bi-plus-lg"></i> Add Product
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0" id="itemsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-4" style="width: 30%;">Product Name</th>
+                                    <th style="width: 25%;">Batch Number / Expiry</th>
+                                    <th style="width: 12%;">Rate (₹)</th>
+                                    <th style="width: 10%;">Return Qty</th>
+                                    <th class="text-end" style="width: 15%;">Total</th>
+                                    <th class="text-center pe-4" style="width: 8%;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Rows will be added dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary & Calculations -->
+            <div class="row g-4 align-items-start">
+                <div class="col-md-6 col-12">
+                    <!-- Informative Card -->
+                    <div class="card shadow-sm border-0 rounded-4 bg-light">
+                        <div class="card-body p-4">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-info-circle-fill text-primary me-2"></i>Inventory &amp; Ledger Notes</h6>
+                            <ul class="small text-muted mb-0">
+                                <li>Submitting this return will **increase** the inventory stock of the selected batches (restocking).</li>
+                                <li>The customer's outstanding balance will be **reduced** by the Net Refund amount.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 col-12">
+                    <div class="card shadow-sm border-0 rounded-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Gross Taxable Amount:</span>
+                                <strong id="grossDisplay">₹0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">GST Tax (approx 12%):</span>
+                                <strong id="gstDisplay" class="text-success">+₹0.00</strong>
+                            </div>
+                            <hr>
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <span class="text-dark fw-bold fs-5">Net Refund Value:</span>
+                                <strong id="netDisplay" class="text-primary fs-4">₹0.00</strong>
+                            </div>
+                            
+                            <!-- Hidden inputs for form submission -->
+                            <input type="hidden" name="gross_amount" id="grossInput" value="0.00">
+                            <input type="hidden" name="gst_amount" id="gstInput" value="0.00">
+                            <input type="hidden" name="net_amount" id="netInput" value="0.00">
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary rounded-pill py-2.5 px-4 flex-grow-1">
+                                    <i class="bi bi-check-circle me-1"></i> Save Sales Return
+                                </button>
+                                <a href="{% url 'sales_return_list' %}" class="btn btn-outline-secondary rounded-pill py-2.5 px-4">
+                                    Cancel
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Template Row (Hidden) -->
+<table style="display: none;">
+    <tr id="rowTemplate">
+        <td class="ps-4">
+            <select name="product[]" class="form-select product-select" required>
+                <option value="">-- Select Product --</option>
+                {% for prod in products %}
+                    <option value="{{ prod.id }}">{{ prod.name }} (Pack: {{ prod.pack_size }})</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <select name="batch[]" class="form-select batch-select" required disabled>
+                <option value="">-- Choose Batch --</option>
+            </select>
+        </td>
+        <td>
+            <input type="number" step="0.01" name="sale_rate[]" class="form-control rate-input" placeholder="0.00" required>
+        </td>
+        <td>
+            <input type="number" name="quantity[]" class="form-control qty-input" min="1" value="1" required>
+        </td>
+        <td class="text-end">
+            <input type="number" step="0.01" name="total_amount[]" class="form-control total-input text-end border-0 bg-transparent fw-bold" readonly value="0.00">
+        </td>
+        <td class="text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn rounded-circle">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>
+</table>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const itemsTableBody = document.querySelector("#itemsTable tbody");
+        const addItemBtn = document.getElementById("addItemBtn");
+        const rowTemplate = document.getElementById("rowTemplate");
+
+        // Add Initial Row
+        addBlankRow();
+
+        addItemBtn.addEventListener("click", function() {
+            addBlankRow();
+        });
+
+        itemsTableBody.addEventListener("click", function(e) {
+            if (e.target.closest(".remove-row-btn")) {
+                const row = e.target.closest("tr");
+                row.remove();
+                calculateTotals();
+            }
+        });
+
+        itemsTableBody.addEventListener("input", function(e) {
+            if (e.target.classList.contains("qty-input") || e.target.classList.contains("rate-input")) {
+                const row = e.target.closest("tr");
+                calculateRowTotal(row);
+                calculateTotals();
+            }
+        });
+
+        itemsTableBody.addEventListener("change", function(e) {
+            const row = e.target.closest("tr");
+            if (e.target.classList.contains("product-select")) {
+                const productId = e.target.value;
+                const batchSelect = row.querySelector(".batch-select");
+                const rateInput = row.querySelector(".rate-input");
+                
+                if (!productId) {
+                    batchSelect.innerHTML = '<option value="">-- Choose Batch --</option>';
+                    batchSelect.disabled = true;
+                    rateInput.value = '';
+                    calculateRowTotal(row);
+                    calculateTotals();
+                    return;
+                }
+
+                // Fetch batches for product via AJAX
+                fetch(`/api/product/${productId}/batches/`)
+                    .then(response => response.json())
+                    .then(batches => {
+                        batchSelect.innerHTML = '<option value="">-- Choose Batch --</option>';
+                        batches.forEach(b => {
+                            batchSelect.innerHTML += `<option value="${b.id}" data-rate="${b.sale_rate}" data-exp="${b.expiry_date}">
+                                ${b.batch_number} (Exp: ${b.expiry_date} | Rate: ₹${b.sale_rate})
+                            </option>`;
+                        });
+                        batchSelect.disabled = false;
+                    });
+            }
+
+            if (e.target.classList.contains("batch-select")) {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                const rateInput = row.querySelector(".rate-input");
+
+                if (selectedOption && selectedOption.value) {
+                    const rate = selectedOption.getAttribute("data-rate");
+                    rateInput.value = rate;
+                } else {
+                    rateInput.value = '';
+                }
+                calculateRowTotal(row);
+                calculateTotals();
+            }
+        });
+
+        function addBlankRow() {
+            const newRow = rowTemplate.cloneNode(true);
+            newRow.removeAttribute("id");
+            itemsTableBody.appendChild(newRow);
+        }
+
+        function calculateRowTotal(row) {
+            const qty = parseInt(row.querySelector(".qty-input").value) || 0;
+            const rate = parseFloat(row.querySelector(".rate-input").value) || 0.00;
+            const total = qty * rate;
+            row.querySelector(".total-input").value = total.toFixed(2);
+        }
+
+        function calculateTotals() {
+            let gross = 0.00;
+            const totals = itemsTableBody.querySelectorAll(".total-input");
+            totals.forEach(t => {
+                gross += parseFloat(t.value) || 0.00;
+            });
+            
+            // Assume 12% average GST for returning products
+            const gst = gross * 0.12;
+            const net = gross + gst;
+
+            document.getElementById("grossDisplay").textContent = "₹" + gross.toFixed(2);
+            document.getElementById("gstDisplay").textContent = "+₹" + gst.toFixed(2);
+            document.getElementById("netDisplay").textContent = "₹" + net.toFixed(2);
+
+            document.getElementById("grossInput").value = gross.toFixed(2);
+            document.getElementById("gstInput").value = gst.toFixed(2);
+            document.getElementById("netInput").value = net.toFixed(2);
+        }
+    });
+</script>
+{% endblock %}

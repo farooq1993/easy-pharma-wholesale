@@ -41,111 +41,119 @@
     </div>
 </div>
 
-<!-- Total Dues Row -->
-<div class="row g-3 mb-4 text-center mt-2">
-    <div class="col-md-6">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3 border-start border-primary border-4">
-            <span class="text-muted small">Total Accounts Receivable (Customer Dues)</span>
-            <h3 class="fw-bold text-primary mb-0 mt-1">₹{{ total_receivable|floatformat:2 }}</h3>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3 border-start border-danger border-4">
-            <span class="text-muted small">Total Accounts Payable (Supplier Dues)</span>
-            <h3 class="fw-bold text-danger mb-0 mt-1">₹{{ total_payable|floatformat:2 }}</h3>
-        </div>
-    </div>
+<div class="d-flex justify-content-end mb-3 mt-2">
+    <button type="button" class="btn btn-outline-danger rounded-pill px-4" onclick="exportReportToPDF('reportContent', 'Outstanding_Ledger_Report.pdf')">
+        <i class="bi bi-file-pdf"></i> Export PDF Statement
+    </button>
 </div>
 
-<div class="row g-4">
-    <!-- Customer Receivables Column -->
-    <div class="col-lg-6">
-        <div class="card shadow-sm border-0 rounded-4">
-            <div class="card-header bg-white py-3 border-bottom-0">
-                <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-person-fill-down text-primary"></i> Customer Outstanding Ledger</h5>
+<div id="reportContent" class="bg-transparent">
+    <!-- Total Dues Row -->
+    <div class="row g-3 mb-4 text-center mt-2">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3 border-start border-primary border-4">
+                <span class="text-muted small">Total Accounts Receivable (Customer Dues)</span>
+                <h3 class="fw-bold text-primary mb-0 mt-1">₹{{ total_receivable|floatformat:2 }}</h3>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-4">Chemist / pharmacy Name</th>
-                                <th>Mobile</th>
-                                <th>Aging (Oldest Bill)</th>
-                                <th class="text-end pe-4">Balance Receivable</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in customers %}
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3 border-start border-danger border-4">
+                <span class="text-muted small">Total Accounts Payable (Supplier Dues)</span>
+                <h3 class="fw-bold text-danger mb-0 mt-1">₹{{ total_payable|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Customer Receivables Column -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-header bg-white py-3 border-bottom-0">
+                    <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-person-fill-down text-primary"></i> Customer Outstanding Ledger</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <td class="ps-4">
-                                        <strong>{{ c.name }}</strong>
-                                        <div class="text-muted small">{{ c.city }}</div>
-                                    </td>
-                                    <td>{{ c.mobile }}</td>
-                                    <td>
-                                        {% if c.oldest_date %}
-                                            <div class="text-dark small font-monospace">{{ c.oldest_date|date:"d-m-Y" }}</div>
-                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle font-monospace" style="font-size: 0.75rem;">
-                                                {{ c.pending_days }} Days
-                                            </span>
-                                        {% else %}
-                                            <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end fw-bold pe-4 text-primary">₹{{ c.opening_balance|floatformat:2 }}</td>
+                                    <th class="ps-4">Chemist / pharmacy Name</th>
+                                    <th>Mobile</th>
+                                    <th>Aging (Oldest Bill)</th>
+                                    <th class="text-end pe-4">Balance Receivable</th>
                                 </tr>
-                            {% empty %}
-                                <tr>
-                                    <td colspan="3" class="text-center py-5 text-muted">
-                                        <i class="bi bi-journal-check display-4 text-success d-block mb-3"></i>
-                                        All customer balances are fully cleared!
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {% for c in customers %}
+                                    <tr>
+                                        <td class="ps-4">
+                                            <strong>{{ c.name }}</strong>
+                                            <div class="text-muted small">{{ c.city }}</div>
+                                        </td>
+                                        <td>{{ c.mobile }}</td>
+                                        <td>
+                                            {% if c.oldest_date %}
+                                                <div class="text-dark small font-monospace">{{ c.oldest_date|date:"d-m-Y" }}</div>
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle font-monospace" style="font-size: 0.75rem;">
+                                                    {{ c.pending_days }} Days
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end fw-bold pe-4 text-primary">₹{{ c.opening_balance|floatformat:2 }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-5 text-muted">
+                                            <i class="bi bi-journal-check display-4 text-success d-block mb-3"></i>
+                                            All customer balances are fully cleared!
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Supplier Payables Column -->
-    <div class="col-lg-6">
-        <div class="card shadow-sm border-0 rounded-4">
-            <div class="card-header bg-white py-3 border-bottom-0">
-                <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-person-fill-up text-danger"></i> Supplier Outstanding Ledger</h5>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-4">Supplier / Manufacturer</th>
-                                <th>Mobile</th>
-                                <th class="text-end pe-4">Balance Payable</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for s in suppliers %}
+        <!-- Supplier Payables Column -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-header bg-white py-3 border-bottom-0">
+                    <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-person-fill-up text-danger"></i> Supplier Outstanding Ledger</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <td class="ps-4">
-                                        <strong>{{ s.name }}</strong>
-                                        <div class="text-muted small">{{ s.city }}</div>
-                                    </td>
-                                    <td>{{ s.mobile }}</td>
-                                    <td class="text-end fw-bold pe-4 text-danger">₹{{ s.opening_balance|floatformat:2 }}</td>
+                                    <th class="ps-4">Supplier Name</th>
+                                    <th>Mobile</th>
+                                    <th class="text-end pe-4">Balance Payable</th>
                                 </tr>
-                            {% empty %}
-                                <tr>
-                                    <td colspan="3" class="text-center py-5 text-muted">
-                                        <i class="bi bi-journal-check display-4 text-success d-block mb-3"></i>
-                                        No outstanding supplier balances.
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {% for s in suppliers %}
+                                    <tr>
+                                        <td class="ps-4">
+                                            <strong>{{ s.name }}</strong>
+                                            <div class="text-muted small">{{ s.city }}</div>
+                                        </td>
+                                        <td>{{ s.mobile }}</td>
+                                        <td class="text-end fw-bold pe-4 text-danger">₹{{ s.opening_balance|floatformat:2 }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="3" class="text-center py-5 text-muted">
+                                            <i class="bi bi-journal-check display-4 text-success d-block mb-3"></i>
+                                            No outstanding supplier balances.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

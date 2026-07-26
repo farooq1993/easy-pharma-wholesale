@@ -5,8 +5,13 @@ from wholesaleApp.views.sales_views import (
     invoice_edit,
     invoice_delete,
     invoice_print,
+    invoice_email_bulk,
+    delivery_management,
     get_product_batches,
-    get_product_last_purchase_rate
+    get_product_last_purchase_rate,
+    sales_return_list,
+    sales_return_create,
+    sales_return_delete
 )
 
 urlpatterns = [
@@ -16,8 +21,17 @@ urlpatterns = [
     path('sales/invoice/<int:pk>/edit/', invoice_edit, name='invoice_edit'),
     path('sales/invoice/<int:pk>/delete/', invoice_delete, name='invoice_delete'),
     path('sales/invoice/<int:pk>/print/', invoice_print, name='invoice_print'),
+    path('sales/invoice/email-bulk/', invoice_email_bulk, name='invoice_email_bulk'),
+    path('sales/delivery-management/', delivery_management, name='delivery_management'),
+
+
+    # Sales Returns
+    path('sales/return/list/', sales_return_list, name='sales_return_list'),
+    path('sales/return/create/', sales_return_create, name='sales_return_create'),
+    path('sales/return/<int:pk>/delete/', sales_return_delete, name='sales_return_delete'),
 
     # API batch/rate fetchers
     path('api/product/<int:pk>/batches/', get_product_batches, name='api_product_batches'),
     path('api/product/<int:pk>/last-purchase/', get_product_last_purchase_rate, name='api_product_last_purchase'),
 ]
+

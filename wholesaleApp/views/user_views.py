@@ -48,6 +48,7 @@ def user_create(request):
         role_choices = [
             ('Manager', 'Store Manager'),
             ('Salesman', 'Salesman / Billing Clerk'),
+            ('MR', 'Medical Representative (MR)'),
             ('Inventory', 'Inventory & Purchase Clerk'),
             ('Delivery Boy', 'Delivery Boy / Field Operator'),
         ]
@@ -111,6 +112,7 @@ def user_edit(request, pk):
         role_choices = [
             ('Manager', 'Store Manager'),
             ('Salesman', 'Salesman / Billing Clerk'),
+            ('MR', 'Medical Representative (MR)'),
             ('Inventory', 'Inventory & Purchase Clerk'),
             ('Delivery Boy', 'Delivery Boy / Field Operator'),
         ]

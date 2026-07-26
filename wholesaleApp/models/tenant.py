@@ -64,3 +64,26 @@ class TenantModel(models.Model):
                 if default_tenant:
                     self.tenant = default_tenant
         super().save(*args, **kwargs)
+
+
+class TenantEmailConfig(models.Model):
+    tenant = models.OneToOneField(Tenant, on_delete=models.CASCADE, related_name='email_config', verbose_name="Tenant / Firm")
+    email_host = models.CharField(max_length=255, default='smtp.gmail.com', verbose_name="SMTP Host")
+    email_port = models.IntegerField(default=587, verbose_name="SMTP Port")
+    email_use_tls = models.BooleanField(default=True, verbose_name="Use TLS")
+    email_use_ssl = models.BooleanField(default=False, verbose_name="Use SSL")
+    email_host_user = models.EmailField(max_length=255, verbose_name="SMTP Username / Email")
+    email_host_password = models.CharField(max_length=255, verbose_name="SMTP Password")
+    default_from_email = models.CharField(max_length=255, blank=True, null=True, verbose_name="Default Sender Display Name/Email", help_text="e.g. 'Your Company <sales@yourcompany.com>'")
+    is_active = models.BooleanField(default=True, verbose_name="Is Active")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Tenant Email Config"
+        verbose_name_plural = "Tenant Email Configs"
+
+    def __str__(self):
+        return f"Email Config for {self.tenant.company_name}"
+

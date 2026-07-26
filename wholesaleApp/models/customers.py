@@ -82,6 +82,7 @@ class CustomerMaster(TenantModel):
 
 class CustomerPayment(TenantModel):
     customer = models.ForeignKey(CustomerMaster, on_delete=models.CASCADE, related_name='payments', verbose_name="Customer")
+    invoice = models.ForeignKey('wholesaleApp.SalesInvoice', on_delete=models.SET_NULL, null=True, blank=True, related_name='payments', verbose_name="Adjusted Invoice")
     payment_date = models.DateField(verbose_name="Payment Date")
     amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Amount Received (₹)")
     payment_mode = models.CharField(

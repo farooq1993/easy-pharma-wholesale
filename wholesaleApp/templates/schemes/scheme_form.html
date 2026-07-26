@@ -1,0 +1,95 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-12">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-header bg-white py-3 border-bottom-0">
+                <h5 class="mb-0 text-dark fw-bold">
+                    <i class="bi bi-tag-fill text-primary me-2"></i>{% if scheme %}Edit Scheme Rule{% else %}Create New Scheme Rule{% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <div class="row g-3">
+                        <!-- Scheme Name -->
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-bold">Scheme Name / Title <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control rounded-3" placeholder="e.g. Buy 10 Get 1 Free, Monsoon Discount" value="{{ scheme.name|default:'' }}" required>
+                        </div>
+
+                        <!-- Product Selection -->
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-bold">Select Product <span class="text-danger">*</span></label>
+                            <select name="product" class="form-select rounded-3" required>
+                                <option value="">-- Choose Product --</option>
+                                {% for prod in products %}
+                                    <option value="{{ prod.id }}" {% if scheme.product.id == prod.id %}selected{% endif %}>
+                                        {{ prod.name }} (Pack: {{ prod.pack_size }} | Company: {{ prod.company.name }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Billed Qty -->
+                        <div class="col-md-4 col-12">
+                            <label class="form-label text-muted small fw-bold">Billed Qty</label>
+                            <input type="number" name="billed_qty" class="form-control rounded-3" min="0" value="{{ scheme.billed_qty|default:0 }}">
+                            <small class="text-muted">Minimum purchase quantity to trigger scheme</small>
+                        </div>
+
+                        <!-- Free Qty -->
+                        <div class="col-md-4 col-12">
+                            <label class="form-label text-muted small fw-bold">Free Qty</label>
+                            <input type="number" name="free_qty" class="form-control rounded-3" min="0" value="{{ scheme.free_qty|default:0 }}">
+                            <small class="text-muted">Free packs rewarded</small>
+                        </div>
+
+                        <!-- Discount Percentage -->
+                        <div class="col-md-4 col-12">
+                            <label class="form-label text-muted small fw-bold">Discount (%)</label>
+                            <input type="number" step="0.01" name="discount_percentage" class="form-control rounded-3" min="0" max="100" value="{{ scheme.discount_percentage|default:'0.00' }}">
+                            <small class="text-muted">Extra percentage discount</small>
+                        </div>
+
+                        <!-- Start Date -->
+                        <div class="col-md-6 col-12">
+                            <label class="form-label text-muted small fw-bold">Start Date <span class="text-danger">*</span></label>
+                            <input type="date" name="start_date" class="form-control rounded-3" value="{{ start_date_str|default:'' }}" required>
+                        </div>
+
+                        <!-- End Date -->
+                        <div class="col-md-6 col-12">
+                            <label class="form-label text-muted small fw-bold">End Date <span class="text-danger">*</span></label>
+                            <input type="date" name="end_date" class="form-control rounded-3" value="{{ end_date_str|default:'' }}" required>
+                        </div>
+
+                        <!-- Active status checkbox -->
+                        <div class="col-12 mt-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" name="is_active" id="isActiveSwitch" {% if scheme %}{% if scheme.is_active %}checked{% endif %}{% else %}checked{% endif %}>
+                                <label class="form-check-label fw-bold text-dark" for="isActiveSwitch">Enable this scheme rule immediately</label>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="col-12 mt-4 border-top pt-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary rounded-pill px-4">
+                                <i class="bi bi-check-circle me-1"></i> Save Scheme
+                            </button>
+                            <a href="{% url 'scheme_list' %}" class="btn btn-outline-secondary rounded-pill px-4">
+                                Cancel
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

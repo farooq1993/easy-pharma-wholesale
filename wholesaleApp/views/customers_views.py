@@ -29,11 +29,17 @@ def customer_create(request):
         
     areas = AreaMaster.objects.filter(is_active=True)
     if request.method == 'POST':
-        # Form handling (simple version)
+        # Form handling
         customer = CustomerMaster(
             name=request.POST['name'],
             customer_type=request.POST.get('customer_type', 'Retailer'),
             mobile=request.POST['mobile'],
+            alternate_mobile=request.POST.get('alternate_mobile', ''),
+            email=request.POST.get('email', ''),
+            gstin=request.POST.get('gstin', ''),
+            dl_number_1=request.POST.get('dl_number_1', ''),
+            dl_number_2=request.POST.get('dl_number_2', ''),
+            dl_number_3=request.POST.get('dl_number_3', ''),
             area_id=request.POST['area'],
             address=request.POST.get('address', ''),
             city=request.POST.get('city', ''),
@@ -79,6 +85,12 @@ def customer_edit(request, pk):
         customer.name = request.POST['name']
         customer.customer_type = request.POST.get('customer_type', 'Retailer')
         customer.mobile = request.POST['mobile']
+        customer.alternate_mobile = request.POST.get('alternate_mobile', '')
+        customer.email = request.POST.get('email', '')
+        customer.gstin = request.POST.get('gstin', '')
+        customer.dl_number_1 = request.POST.get('dl_number_1', '')
+        customer.dl_number_2 = request.POST.get('dl_number_2', '')
+        customer.dl_number_3 = request.POST.get('dl_number_3', '')
         customer.area_id = request.POST['area']
         customer.address = request.POST.get('address', '')
         customer.city = request.POST.get('city', '')
@@ -448,3 +460,107 @@ def customer_payment_delete(request, pk):
     
     messages.success(request, "Payment deleted and customer balance adjusted.")
     return redirect(f"/customer/ledger/?customer={customer.id}")
+
+
+def customer_payment_list(request):
+    """View to list all customer payments (collections)."""
+    from wholesaleApp.models import CustomerPayment
+    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    
+    payments = CustomerPayment.objects.all().select_related('customer')
+    context = {
+        'payments': payments,
+        'page_title': 'Customer Payments (Collection)',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'customers/payment_list.html', context)
+
+
+def get_customer_outstanding_invoices(request, customer_id):
+    """API endpoint to get outstanding credit invoices for a customer."""
+    from wholesaleApp.models.sales import SalesInvoice
+    from django.db.models import Sum
+    from django.db.models.functions import Coalesce
+    from decimal import Decimal
+    
+    invoices = SalesInvoice.objects.filter(
+        customer_id=customer_id,
+        payment_type='Credit',
+        status__in=['Pending', 'Delivered']
+    ).annotate(
+        paid_amount=Coalesce(Sum('payments__amount'), Decimal('0.00'))
+    )
+    
+    data = []
+    for inv in invoices:
+        outstanding = inv.net_amount - inv.paid_amount
+        if outstanding > 0:
+            data.append({
+                'id': inv.id,
+                'invoice_number': inv.invoice_number,
+                'invoice_date': inv.invoice_date.strftime('%Y-%m-%d'),
+                'net_amount': float(inv.net_amount),
+                'paid_amount': float(inv.paid_amount),
+                'outstanding_amount': float(outstanding)
+            })
+            
+    return JsonResponse(data, safe=False)
+
+
+@transaction.atomic
+def customer_payment_create(request):
+    """View to record customer payment directly and adjust against a specific invoice."""
+    from wholesaleApp.models import CustomerMaster, CustomerPayment
+    from wholesaleApp.views.security_helpers import get_user_permissions_context, log_activity
+    from decimal import Decimal
+    
+    customers = CustomerMaster.objects.filter(status=True, is_deleted=False)
+    
+    if request.method == 'POST':
+        customer_id = request.POST.get('customer')
+        invoice_id = request.POST.get('invoice')
+        payment_date = request.POST.get('payment_date')
+        amount = Decimal(request.POST.get('amount', 0))
+        payment_mode = request.POST.get('payment_mode', 'Cash')
+        reference_no = request.POST.get('reference_no', '')
+        remarks = request.POST.get('remarks', '')
+        
+        customer = get_object_or_404(CustomerMaster, id=customer_id)
+        
+        payment = CustomerPayment.objects.create(
+            customer=customer,
+            invoice_id=invoice_id if invoice_id else None,
+            payment_date=payment_date,
+            amount=amount,
+            payment_mode=payment_mode,
+            reference_no=reference_no,
+            remarks=remarks,
+            created_by=request.user if request.user.is_authenticated else None
+        )
+        
+        # Deduct from customer balance
+        customer.opening_balance -= amount
+        customer.save()
+        
+        invoice_repr = ""
+        if payment.invoice:
+            invoice_repr = f" adjusted against Invoice {payment.invoice.invoice_number}"
+        
+        log_activity(
+            request,
+            action='CREATE',
+            model_name='CustomerPayment',
+            object_id=payment.id,
+            object_repr=f"Payment from {customer.name}",
+            description=f"Received ₹{amount} via {payment_mode}{invoice_repr}"
+        )
+        
+        messages.success(request, f"Payment of ₹{amount} from {customer.name} recorded successfully{invoice_repr}.")
+        return redirect('customer_payment_list')
+        
+    context = {
+        'customers': customers,
+        'page_title': 'Record Customer Payment (Collection)',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'customers/payment_form.html', context)

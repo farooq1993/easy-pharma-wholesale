@@ -1324,6 +1324,362 @@ class MultiTenantRBACTests(TestCase):
         self.assertTrue(has_feature_access(self.salesman, 'sales_create'))
         self.assertFalse(has_feature_access(self.salesman, 'product_crud'))
 
+        # Test MR role defaults
+        mr_user = User.objects.create_user(username="testmr", password="password")
+        mr_user.profile.role = "MR"
+        mr_user.profile.save()
+        apply_role_default_permissions(mr_user)
+        self.assertTrue(has_feature_access(mr_user, 'sales_create'))
+        self.assertTrue(has_feature_access(mr_user, 'report_outstanding'))
+        self.assertFalse(has_feature_access(mr_user, 'product_crud'))
+
+
+from django.core import mail
+from django.test import override_settings
+from django.urls import reverse
+from unittest.mock import patch
+from wholesaleApp.models.tenant import TenantEmailConfig
+from wholesaleApp.utils.email_utils import send_invoice_email, send_invoice_email_async
+
+class InvoiceEmailTests(TestCase):
+    def setUp(self):
+        from wholesaleApp.models.tenant import Tenant
+        from wholesaleApp.models.customers import CustomerMaster, AreaMaster
+        from wholesaleApp.models.products import ProductMaster, ProductTypeMaster, CompanyMaster
+        from wholesaleApp.models.purchase import ProductBatch
+        from wholesaleApp.models.sales import SalesInvoice, SalesInvoiceItem
+        from django.contrib.auth.models import User
+        
+        self.user = User.objects.create_user(username="testuser", password="password")
+        self.tenant = Tenant.objects.create(name="test_tenant", company_name="Test Company", is_active=True)
+        self.area = AreaMaster.objects.create(tenant=self.tenant, city="Test City", code="TC")
+        self.customer = CustomerMaster.objects.create(
+            tenant=self.tenant,
+            name="Retail Chemist",
+            mobile="9876543210",
+            email="retailer@example.com",
+            area=self.area,
+            city="Test City",
+            state="Test State"
+        )
+        self.company = CompanyMaster.objects.create(tenant=self.tenant, name="Cipla Ltd", code="CIPLA")
+        self.prod_type = ProductTypeMaster.objects.create(tenant=self.tenant, name="Tablet")
+        self.product = ProductMaster.objects.create(
+            tenant=self.tenant,
+            name="Amoxicillin",
+            company=self.company,
+            product_type=self.prod_type,
+            hsn_code="3004",
+            gst_rate=12.00
+        )
+        self.batch = ProductBatch.objects.create(
+            product=self.product,
+            batch_number="B123",
+            expiry_date="2028-12-31",
+            mrp=100.00,
+            purchase_rate=70.00,
+            sale_rate=80.00,
+            quantity=50
+        )
+        self.invoice = SalesInvoice.objects.create(
+            tenant=self.tenant,
+            invoice_number="INV-2026-0001",
+            customer=self.customer,
+            invoice_date="2026-07-26",
+            gross_amount=80.00,
+            discount_amount=0.00,
+            gst_amount=9.60,
+            net_amount=89.60,
+            created_by=self.user
+        )
+        self.invoice_item = SalesInvoiceItem.objects.create(
+            tenant=self.tenant,
+            sales_invoice=self.invoice,
+            product=self.product,
+            batch=self.batch,
+            quantity=1,
+            sale_rate=80.00,
+            total_amount=89.60
+        )
+
+    def test_send_invoice_email_success(self):
+        mail.outbox = []
+        
+        result = send_invoice_email(self.invoice.id)
+        
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["retailer@example.com"])
+        self.assertIn("Tax Invoice INV-2026-0001", mail.outbox[0].subject)
+        self.assertIn("Amoxicillin", mail.outbox[0].body)
+
+    def test_send_invoice_email_no_customer_email(self):
+        self.customer.email = ""
+        self.customer.save()
+        mail.outbox = []
+        
+        result = send_invoice_email(self.invoice.id)
+        
+        self.assertFalse(result)
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(IS_PRODUCTION=True)
+    def test_send_invoice_email_production_no_config(self):
+        mail.outbox = []
+        
+        result = send_invoice_email(self.invoice.id)
+        
+        self.assertFalse(result)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_send_invoice_email_with_tenant_config(self):
+        config = TenantEmailConfig.objects.create(
+            tenant=self.tenant,
+            email_host="smtp.custom.com",
+            email_port=465,
+            email_host_user="custom@custom.com",
+            email_host_password="password",
+            email_use_tls=False,
+            email_use_ssl=True,
+            default_from_email="Custom Sender <custom@custom.com>",
+            is_active=True
+        )
+        mail.outbox = []
+        
+        with patch('wholesaleApp.utils.email_utils.get_connection') as mock_get_connection:
+            result = send_invoice_email(self.invoice.id)
+            self.assertTrue(result)
+            
+            mock_get_connection.assert_called_once_with(
+                backend='django.core.mail.backends.smtp.EmailBackend',
+                host='smtp.custom.com',
+                port=465,
+                username='custom@custom.com',
+                password='password',
+                use_tls=False,
+                use_ssl=True
+            )
+
+    def test_bulk_email_view_get(self):
+        self.client.force_login(self.user)
+        
+        with patch('wholesaleApp.views.security_helpers.has_feature_access', return_value=True):
+            response = self.client.get(reverse('invoice_email_bulk'))
+            self.assertEqual(response.status_code, 200)
+            self.assertTemplateUsed(response, 'sale/invoice_email_bulk.html')
+
+    def test_bulk_email_view_post(self):
+        self.client.force_login(self.user)
+        
+        with patch('wholesaleApp.views.security_helpers.has_feature_access', return_value=True):
+            with patch('wholesaleApp.utils.email_utils.send_invoice_email_async') as mock_send_async:
+                response = self.client.post(reverse('invoice_email_bulk'), {
+                    'invoice_ids': [self.invoice.id]
+                })
+                self.assertEqual(response.status_code, 302)
+                mock_send_async.assert_called_once()
+
+    def test_tenant_email_settings_unauthorized(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('tenant_email_settings'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_tenant_email_settings_get(self):
+        self.user.is_superuser = True
+        self.user.save()
+        self.client.force_login(self.user)
+        
+        session = self.client.session
+        session['active_tenant_id'] = self.tenant.id
+        session.save()
+
+        response = self.client.get(reverse('tenant_email_settings'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'tenant/email_settings.html')
+
+    def test_tenant_email_settings_post(self):
+        self.user.is_superuser = True
+        self.user.save()
+        self.client.force_login(self.user)
+        
+        session = self.client.session
+        session['active_tenant_id'] = self.tenant.id
+        session.save()
+
+        response = self.client.post(reverse('tenant_email_settings'), {
+            'email_host': 'smtp.gmail.com',
+            'email_port': '587',
+            'email_use_tls': 'on',
+            'email_host_user': 'sales@example.com',
+            'email_host_password': 'mypassword',
+            'default_from_email': 'Test <sales@example.com>',
+            'is_active': 'on'
+        })
+        self.assertEqual(response.status_code, 302)
+        
+        config = TenantEmailConfig.objects.get(tenant=self.tenant)
+        self.assertEqual(config.email_host, 'smtp.gmail.com')
+        self.assertEqual(config.email_port, 587)
+        self.assertEqual(config.email_host_user, 'sales@example.com')
+        self.assertEqual(config.email_host_password, 'mypassword')
+        self.assertTrue(config.email_use_tls)
+
+    def test_send_po_email_success(self):
+        from wholesaleApp.models.supplier import SupplierMaster
+        from wholesaleApp.models.purchase import PurchaseOrder, PurchaseOrderItem
+        from wholesaleApp.utils.email_utils import send_po_email
+        
+        supplier = SupplierMaster.objects.create(
+            tenant=self.tenant,
+            name="Test Supplier",
+            mobile="8888888888",
+            email="supplier@example.com",
+            city="City",
+            state="State"
+        )
+        po = PurchaseOrder.objects.create(
+            tenant=self.tenant,
+            po_number="PO-2026-0001",
+            supplier=supplier,
+            po_date="2026-07-26",
+            net_amount=80.00,
+            created_by=self.user
+        )
+        PurchaseOrderItem.objects.create(
+            tenant=self.tenant,
+            purchase_order=po,
+            product=self.product,
+            quantity=1,
+            expected_rate=80.00
+        )
+        
+        mail.outbox = []
+        result = send_po_email(po.id)
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["supplier@example.com"])
+        self.assertIn("Purchase Order PO-2026-0001", mail.outbox[0].subject)
+        self.assertIn("Amoxicillin", mail.outbox[0].body)
+
+    def test_po_email_send_view(self):
+        from wholesaleApp.models.supplier import SupplierMaster
+        from wholesaleApp.models.purchase import PurchaseOrder
+        
+        self.client.force_login(self.user)
+        supplier = SupplierMaster.objects.create(
+            tenant=self.tenant,
+            name="Test Supplier",
+            mobile="8888888888",
+            email="supplier@example.com",
+            city="City",
+            state="State"
+        )
+        po = PurchaseOrder.objects.create(
+            tenant=self.tenant,
+            po_number="PO-2026-0001",
+            supplier=supplier,
+            po_date="2026-07-26",
+            net_amount=80.00,
+            created_by=self.user
+        )
+        
+        with patch('wholesaleApp.utils.email_utils.send_po_email_async') as mock_send_async:
+            response = self.client.get(reverse('po_email_send', args=[po.id]))
+            self.assertEqual(response.status_code, 302)
+            mock_send_async.assert_called_once_with(po)
+
+    def test_po_list_view_whatsapp_urls(self):
+        from wholesaleApp.models.supplier import SupplierMaster
+        from wholesaleApp.models.purchase import PurchaseOrder
+        
+        self.client.force_login(self.user)
+        supplier = SupplierMaster.objects.create(
+            tenant=self.tenant,
+            name="Test Supplier",
+            mobile="8888888888",
+            email="supplier@example.com",
+            city="City",
+            state="State"
+        )
+        po = PurchaseOrder.objects.create(
+            tenant=self.tenant,
+            po_number="PO-2026-0001",
+            supplier=supplier,
+            po_date="2026-07-26",
+            net_amount=80.00,
+            created_by=self.user
+        )
+        
+        response = self.client.get(reverse('po_list'))
+        self.assertEqual(response.status_code, 200)
+        orders = response.context['orders']
+        order = list(orders)[0]
+        self.assertTrue(hasattr(order, 'whatsapp_url'))
+        self.assertIn("https://wa.me/8888888888", order.whatsapp_url)
+
+    def test_delivery_management_view_get(self):
+        self.client.force_login(self.user)
+        
+        session = self.client.session
+        session['active_tenant_id'] = self.tenant.id
+        session.save()
+
+        with patch('wholesaleApp.views.security_helpers.has_feature_access', return_value=True):
+            response = self.client.get(reverse('delivery_management'))
+            self.assertEqual(response.status_code, 200)
+            self.assertTemplateUsed(response, 'sale/delivery_management.html')
+            self.assertIn(self.invoice, response.context['unassigned_invoices'])
+
+    def test_delivery_management_assign_post(self):
+        from wholesaleApp.models.permissions import UserProfile
+        self.client.force_login(self.user)
+        
+        # Create a delivery boy user
+        delivery_boy = User.objects.create_user(username="deliveryboy", password="password")
+        profile = delivery_boy.profile
+        profile.tenant = self.tenant
+        profile.role = "Delivery Boy"
+        profile.save()
+        
+        session = self.client.session
+        session['active_tenant_id'] = self.tenant.id
+        session.save()
+
+        with patch('wholesaleApp.views.security_helpers.has_feature_access', return_value=True):
+            response = self.client.post(reverse('delivery_management'), {
+                'action': 'assign',
+                'invoice_ids': [self.invoice.id],
+                'delivery_staff': delivery_boy.id
+            })
+            self.assertEqual(response.status_code, 302)
+            
+            # Verify assigned successfully in DB
+            self.invoice.refresh_from_db()
+            self.assertEqual(self.invoice.assigned_delivery_boy, delivery_boy)
+
+    def test_delivery_management_update_status_post(self):
+        self.client.force_login(self.user)
+        
+        session = self.client.session
+        session['active_tenant_id'] = self.tenant.id
+        session.save()
+
+        with patch('wholesaleApp.views.security_helpers.has_feature_access', return_value=True):
+            response = self.client.post(reverse('delivery_management'), {
+                'action': 'update_status',
+                'invoice_id': self.invoice.id,
+                'new_status': 'Delivered'
+            })
+            self.assertEqual(response.status_code, 302)
+            
+            # Verify status updated
+            self.invoice.refresh_from_db()
+            self.assertEqual(self.invoice.status, 'Delivered')
+
+
+
+
+
 
 
 

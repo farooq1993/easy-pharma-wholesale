@@ -1,0 +1,88 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0 rounded-4 max-width-700 mx-auto">
+    <div class="card-header bg-white py-4 border-bottom-0 px-4">
+        <h5 class="mb-1 text-primary fw-bold">
+            <i class="bi bi-envelope-gear-fill me-2"></i> {{ page_title }}
+        </h5>
+        <p class="text-muted small mb-0">Configure your business firm's SMTP server to send automatic invoice emails to retailers.</p>
+    </div>
+    <div class="card-body px-4 pb-4">
+        
+        <form method="POST">
+            {% csrf_token %}
+            
+            <div class="bg-light p-3 rounded-3 mb-4 border">
+                <h6 class="fw-bold mb-2 small text-dark"><i class="bi bi-info-circle-fill text-primary me-2"></i>Firm Name: {{ tenant.company_name }}</h6>
+                <div class="small text-muted font-monospace">Identifier: {{ tenant.name }}</div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-8">
+                    <label class="form-label text-muted small fw-bold">SMTP Host / Server <span class="text-danger">*</span></label>
+                    <input type="text" name="email_host" class="form-control" value="{{ config.email_host }}" placeholder="e.g. smtp.gmail.com" required>
+                    <div class="form-text small text-muted">SMTP host address of your mail provider.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-bold">SMTP Port <span class="text-danger">*</span></label>
+                    <input type="number" name="email_port" class="form-control" value="{{ config.email_port }}" placeholder="e.g. 587" required>
+                    <div class="form-text small text-muted">Usually 587 (TLS) or 465 (SSL).</div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label text-muted small fw-bold">SMTP Username / Email <span class="text-danger">*</span></label>
+                    <input type="email" name="email_host_user" class="form-control" value="{{ config.email_host_user }}" placeholder="e.g. sales@yourfirm.com" required>
+                    <div class="form-text small text-muted">The email address used to log into the SMTP server.</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label text-muted small fw-bold">SMTP Password / App Password <span class="text-danger">*</span></label>
+                    <input type="password" name="email_host_password" class="form-control" placeholder="{% if config.email_host_password %}••••••••••••{% else %}Enter password{% endif %}" {% if not config.email_host_password %}required{% endif %}>
+                    <div class="form-text small text-muted">{% if config.email_host_password %}Leave blank to keep current password.{% else %}SMTP login password or Gmail App Password.{% endif %}</div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label text-muted small fw-bold">Sender Display Name & Default From Email</label>
+                <input type="text" name="default_from_email" class="form-control" value="{{ config.default_from_email|default:'' }}" placeholder="e.g. EasyPharma Sales &lt;sales@yourfirm.com&gt;">
+                <div class="form-text small text-muted">Format: <code>Your Name &lt;your-email@domain.com&gt;</code> or just <code>your-email@domain.com</code>. Fallback is the SMTP username.</div>
+            </div>
+
+            <div class="row mb-4 align-items-center">
+                <div class="col-md-6">
+                    <div class="form-check form-switch py-1">
+                        <input class="form-check-input" type="checkbox" name="email_use_tls" id="useTlsSwitch" {% if config.email_use_tls %}checked{% endif %}>
+                        <label class="form-check-label text-muted small fw-bold" for="useTlsSwitch">Use TLS Security (Recommended)</label>
+                    </div>
+                    <div class="form-check form-switch py-1">
+                        <input class="form-check-input" type="checkbox" name="email_use_ssl" id="useSslSwitch" {% if config.email_use_ssl %}checked{% endif %}>
+                        <label class="form-check-label text-muted small fw-bold" for="useSslSwitch">Use SSL Security</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check form-switch py-1">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="isActiveSwitch" {% if config.is_active %}checked{% endif %}>
+                        <label class="form-check-label text-muted small fw-bold" for="isActiveSwitch">Enable Email Sending (Is Active)</label>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="text-secondary border-light-subtle my-4">
+
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'home' %}" class="btn btn-outline-secondary px-4 py-2 rounded-3">
+                    <i class="bi bi-x-circle me-1"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-primary px-5 py-2 rounded-3">
+                    <i class="bi bi-save-fill me-1"></i> Save Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

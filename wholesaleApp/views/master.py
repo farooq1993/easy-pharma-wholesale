@@ -365,3 +365,35 @@ def switch_tenant(request):
             messages.success(request, "Switched to administrator view (All Tenants).")
             
     return redirect(request.META.get('HTTP_REFERER', 'home'))
+
+
+def activity_log_list(request):
+    """View to list all activity logs for the current tenant."""
+    from wholesaleApp.models.logs import ActivityLog
+    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    
+    if not request.user.is_authenticated:
+        return redirect('login')
+        
+    profile = getattr(request.user, 'profile', None)
+    is_admin = request.user.is_superuser or (profile and (profile.role in ['Super Admin', 'Owner'] or profile.is_tenant_admin))
+    if not is_admin:
+        messages.error(request, "Access Denied: You do not have permission to view System Activity Logs.")
+        return redirect('home')
+
+    logs = ActivityLog.objects.all().select_related('user')
+    
+    # Optional search filtering
+    action_filter = request.GET.get('action')
+    model_filter = request.GET.get('model_name')
+    if action_filter:
+        logs = logs.filter(action=action_filter)
+    if model_filter:
+        logs = logs.filter(model_name__icontains=model_filter)
+        
+    context = {
+        'logs': logs[:500], # Limit to last 500 logs for performance
+        'page_title': 'System Activity Logs',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'master/activity_log_list.html', context)

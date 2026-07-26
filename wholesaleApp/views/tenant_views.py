@@ -87,3 +87,70 @@ def tenant_edit(request, pk):
     }
     return render(request, 'tenant/tenant_form.html', context)
 
+
+def tenant_email_settings(request):
+    """View for Tenant Admin/Owner to configure SMTP details for sending bills."""
+    from wholesaleApp.models.tenant import TenantEmailConfig
+    
+    # Check permissions
+    is_admin = request.user.is_superuser
+    if not is_admin and hasattr(request.user, 'profile'):
+        is_admin = request.user.profile.is_tenant_admin or request.user.profile.is_super_admin
+        
+    if not is_admin:
+        messages.error(request, "Access Denied: You do not have permission to manage email settings.")
+        return redirect('home')
+
+    tenant = getattr(request, 'tenant', None)
+    if not tenant:
+        messages.error(request, "No active Tenant/Firm detected in the context.")
+        return redirect('home')
+
+    # Get or create SMTP config for this tenant
+    config, created = TenantEmailConfig.objects.get_or_create(tenant=tenant)
+
+    if request.method == 'POST':
+        email_host = request.POST.get('email_host', '').strip()
+        email_port = request.POST.get('email_port', '').strip()
+        email_use_tls = request.POST.get('email_use_tls') == 'on'
+        email_use_ssl = request.POST.get('email_use_ssl') == 'on'
+        email_host_user = request.POST.get('email_host_user', '').strip()
+        email_host_password = request.POST.get('email_host_password', '').strip()
+        default_from_email = request.POST.get('default_from_email', '').strip()
+        is_active = request.POST.get('is_active') == 'on'
+
+        # Basic validations
+        if not email_host or not email_host_user or not email_port:
+            messages.error(request, "SMTP Host, Port, and Username/Email are required.")
+        else:
+            try:
+                config.email_host = email_host
+                config.email_port = int(email_port)
+                config.email_use_tls = email_use_tls
+                config.email_use_ssl = email_use_ssl
+                config.email_host_user = email_host_user
+                
+                # Only update password if a new value is entered
+                if email_host_password:
+                    config.email_host_password = email_host_password
+                    
+                config.default_from_email = default_from_email
+                config.is_active = is_active
+                config.save()
+                
+                messages.success(request, f"SMTP Email configuration for '{tenant.company_name}' updated successfully.")
+                return redirect('tenant_email_settings')
+            except ValueError:
+                messages.error(request, "Invalid Port number.")
+            except Exception as e:
+                messages.error(request, f"Error saving configuration: {str(e)}")
+
+    context = {
+        'config': config,
+        'tenant': tenant,
+        'page_title': 'Email Configuration (SMTP)',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'tenant/email_settings.html', context)
+
+

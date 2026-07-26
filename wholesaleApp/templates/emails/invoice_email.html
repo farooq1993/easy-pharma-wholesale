@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Invoice</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f6f9; font-family: 'Segoe UI', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; color: #333333;">
+
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f6f9; padding: 20px 0;">
+        <tr>
+            <td align="center">
+                
+                <!-- Card Container -->
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #e1e4e8;">
+                    
+                    <!-- Header with Gradient Accent -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%); padding: 30px 24px; text-align: left;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td>
+                                        <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">
+                                            {{ tenant.company_name|default:"easyPharma Wholesale" }}
+                                        </h1>
+                                        <p style="margin: 4px 0 0 0; color: #e0e7ff; font-size: 13px;">
+                                            {{ tenant.address|default:"" }}
+                                        </p>
+                                    </td>
+                                    <td align="right" valign="top" style="white-space: nowrap;">
+                                        <span style="background-color: rgba(255, 255, 255, 0.2); color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 6px 12px; border-radius: 50px; letter-spacing: 0.5px;">
+                                            Tax Invoice
+                                        </span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Body Content -->
+                    <tr>
+                        <td style="padding: 24px;">
+                            
+                            <!-- Invoice Meta Info -->
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-bottom: 1px solid #f0f0f0; padding-bottom: 20px;">
+                                <tr>
+                                    <td width="50%" valign="top">
+                                        <h4 style="margin: 0 0 6px 0; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Bill To:</h4>
+                                        <h3 style="margin: 0 0 4px 0; color: #1f2937; font-size: 15px; font-weight: 700;">{{ customer.name }}</h3>
+                                        <p style="margin: 0; color: #4b5563; font-size: 13px; line-height: 1.4;">
+                                            {{ customer.address|default:"-" }}<br>
+                                            Mobile: {{ customer.mobile }}
+                                            {% if customer.gstin %}<br>GSTIN: {{ customer.gstin }}{% endif %}
+                                        </p>
+                                    </td>
+                                    <td width="50%" align="right" valign="top">
+                                        <table role="presentation" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="right" style="padding-bottom: 6px; font-size: 13px; color: #4b5563;"><strong>Invoice No:</strong></td>
+                                                <td style="padding-bottom: 6px; padding-left: 10px; font-size: 13px; color: #1f2937; font-family: monospace;">{{ invoice.invoice_number }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td align="right" style="padding-bottom: 6px; font-size: 13px; color: #4b5563;"><strong>Date:</strong></td>
+                                                <td style="padding-bottom: 6px; padding-left: 10px; font-size: 13px; color: #1f2937;">{{ invoice.invoice_date|date:"d-m-Y" }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td align="right" style="padding-bottom: 6px; font-size: 13px; color: #4b5563;"><strong>Payment Mode:</strong></td>
+                                                <td style="padding-bottom: 6px; padding-left: 10px; font-size: 13px; color: #4f46e5; font-weight: 700; text-transform: uppercase;">{{ invoice.payment_type }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Items Table -->
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 24px; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                        <th align="left" style="padding: 10px 8px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">Item Name</th>
+                                        <th align="center" style="padding: 10px 8px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">Batch</th>
+                                        <th align="right" style="padding: 10px 8px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">Qty</th>
+                                        <th align="right" style="padding: 10px 8px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">Rate</th>
+                                        <th align="right" style="padding: 10px 8px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">GST %</th>
+                                        <th align="right" style="padding: 10px 8px; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detail in item_details %}
+                                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                                        <td align="left" style="padding: 10px 8px; font-size: 13px; color: #334155;">
+                                            <strong>{{ detail.product_name }}</strong>
+                                            <span style="font-size: 11px; color: #64748b; display: block;">Pack: {{ detail.pack_size|default:"1s" }}</span>
+                                        </td>
+                                        <td align="center" style="padding: 10px 8px; font-size: 12px; color: #475569; font-family: monospace;">{{ detail.batch_number }}</td>
+                                        <td align="right" style="padding: 10px 8px; font-size: 13px; color: #334155;">
+                                            {{ detail.qty }}{% if detail.free_qty %} <span style="font-size: 11px; color: #10b981;">+{{ detail.free_qty }} F</span>{% endif %}
+                                        </td>
+                                        <td align="right" style="padding: 10px 8px; font-size: 13px; color: #334155;">₹{{ detail.rate|floatformat:2 }}</td>
+                                        <td align="right" style="padding: 10px 8px; font-size: 12px; color: #475569;">{{ detail.gst_pct }}%</td>
+                                        <td align="right" style="padding: 10px 8px; font-size: 13px; font-weight: 600; color: #1e293b;">₹{{ detail.amount|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+
+                            <!-- Invoice Totals Breakdown -->
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td width="55%" valign="top" style="padding-right: 20px;">
+                                        <!-- Optional Terms -->
+                                        <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.4;">
+                                            <strong>Terms & Conditions:</strong><br>
+                                            1. Goods once sold will not be taken back.<br>
+                                            2. Subject to local jurisdiction.
+                                        </p>
+                                    </td>
+                                    <td width="45%" valign="top">
+                                        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="font-size: 13px;">
+                                            <tr>
+                                                <td style="padding: 4px 0; color: #64748b;">Gross Amount:</td>
+                                                <td align="right" style="padding: 4px 0; color: #334155;">₹{{ invoice.gross_amount|floatformat:2 }}</td>
+                                            </tr>
+                                            {% if invoice.discount_amount > 0 %}
+                                            <tr>
+                                                <td style="padding: 4px 0; color: #ef4444;">Discount (-):</td>
+                                                <td align="right" style="padding: 4px 0; color: #ef4444;">-₹{{ invoice.discount_amount|floatformat:2 }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            <tr>
+                                                <td style="padding: 4px 0; color: #64748b;">GST Amount (+):</td>
+                                                <td align="right" style="padding: 4px 0; color: #334155;">₹{{ invoice.gst_amount|floatformat:2 }}</td>
+                                            </tr>
+                                            <tr style="border-top: 1px solid #cbd5e1; font-weight: 700; font-size: 15px;">
+                                                <td style="padding: 8px 0; color: #1e293b;">Net Receivable:</td>
+                                                <td align="right" style="padding: 8px 0; color: #4f46e5;">₹{{ invoice.net_amount|floatformat:2 }}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 24px; text-align: center;">
+                            <p style="margin: 0; font-size: 12px; color: #64748b; line-height: 1.4;">
+                                Thank you for your business! If you have any questions regarding this invoice, please contact us at:<br>
+                                {% if tenant.phone %}<strong>Phone:</strong> {{ tenant.phone }}{% endif %}
+                                {% if tenant.email %} | <strong>Email:</strong> {{ tenant.email }}{% endif %}
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+                
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>

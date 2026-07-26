@@ -1,0 +1,237 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}Delivery Management{% endblock %}
+{% block page_title %}Delivery Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Filter Section Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-funnel text-primary me-2"></i>Filter Deliveries</h5>
+            <form method="GET" class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label text-muted small uppercase font-monospace">Filter by Area</label>
+                    <select name="area" class="form-select border-light-subtle rounded-3 py-2">
+                        <option value="">All Areas</option>
+                        {% for area in areas %}
+                        <option value="{{ area.id }}" {% if selected_area == area.id|stringformat:"s" %}selected{% endif %}>
+                            {{ area.city }} {% if area.area_name %}({{ area.area_name }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label text-muted small uppercase font-monospace">Filter by Assigned Staff</label>
+                    <select name="staff" class="form-select border-light-subtle rounded-3 py-2">
+                        <option value="">All Staff</option>
+                        {% for staff in delivery_staff %}
+                        <option value="{{ staff.id }}" {% if selected_staff == staff.id|stringformat:"s" %}selected{% endif %}>
+                            {{ staff.username }} ({{ staff.profile.role }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary rounded-3 py-2 w-100">
+                        <i class="bi bi-search me-1"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content Tabs / Rows -->
+    <div class="row g-4">
+        <!-- 1. Unassigned Invoices Column -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">Unassigned Pending Bills</h5>
+                        <small class="text-muted">{{ unassigned_invoices.count }} bill(s) need dispatch assignment</small>
+                    </div>
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1.5 fw-bold">
+                        Pending Dispatch
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <form method="POST" id="assignForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="assign">
+                        
+                        <!-- Assignment Control Panel -->
+                        <div class="p-3 bg-light border-top border-bottom d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                            <div class="d-flex align-items-center gap-2">
+                                <select name="delivery_staff" class="form-select form-select-sm border-light-subtle rounded-3" style="min-width: 200px;" required>
+                                    <option value="">Select Salesman / Delivery Boy</option>
+                                    {% for staff in delivery_staff %}
+                                    <option value="{{ staff.id }}">{{ staff.username }} ({{ staff.profile.role }})</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn-sm btn-primary rounded-3 px-3" id="assignBtn" disabled>
+                                    Assign Selected
+                                </button>
+                            </div>
+                            <span class="text-muted small" id="selectedCount">0 selected</span>
+                        </div>
+
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light text-muted uppercase font-monospace" style="font-size: 11px; letter-spacing: 0.5px;">
+                                    <tr>
+                                        <th class="ps-4" style="width: 40px;">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="selectAllUnassigned">
+                                            </div>
+                                        </th>
+                                        <th>Bill Details</th>
+                                        <th>Customer & Area</th>
+                                        <th class="pe-4 text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for inv in unassigned_invoices %}
+                                    <tr>
+                                        <td class="ps-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input invoice-checkbox" type="checkbox" name="invoice_ids" value="{{ inv.id }}">
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold text-primary font-monospace">{{ inv.invoice_number }}</span>
+                                            <div class="text-muted small" style="font-size: 11px;">{{ inv.invoice_date|date:"d-m-Y" }}</div>
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold text-dark">{{ inv.customer.name }}</div>
+                                            <span class="badge bg-secondary-subtle text-secondary rounded-pill" style="font-size: 10px;">
+                                                <i class="bi bi-geo-alt"></i> {{ inv.customer.area.city|default:"No Area" }}
+                                            </span>
+                                        </td>
+                                        <td class="pe-4 text-end fw-bold text-dark">₹{{ inv.net_amount|floatformat:2 }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-5 text-muted">
+                                            <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
+                                            <h6 class="fw-semibold text-dark mb-0">No Unassigned Deliveries</h6>
+                                            <p class="small text-muted mb-0">All pending invoices have been assigned.</p>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Assigned Invoices Column -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">Active Assigned Deliveries</h5>
+                        <small class="text-muted">{{ assigned_invoices.count }} order(s) currently out for delivery</small>
+                    </div>
+                    <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-3 py-1.5 fw-bold">
+                        In Transit
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 565px; overflow-y: auto;">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light text-muted uppercase font-monospace" style="font-size: 11px; letter-spacing: 0.5px;">
+                                <tr>
+                                    <th class="ps-4">Bill</th>
+                                    <th>Customer & Area</th>
+                                    <th>Assigned To</th>
+                                    <th class="pe-4 text-center">Status Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for inv in assigned_invoices %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <span class="fw-bold text-primary font-monospace">{{ inv.invoice_number }}</span>
+                                        <div class="fw-bold text-dark small">₹{{ inv.net_amount|floatformat:2 }}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark small">{{ inv.customer.name }}</div>
+                                        <span class="badge bg-secondary-subtle text-secondary rounded-pill" style="font-size: 10px;">
+                                            <i class="bi bi-geo-alt"></i> {{ inv.customer.area.city|default:"No Area" }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ inv.assigned_delivery_boy.username }}</div>
+                                        <span class="text-muted small font-monospace" style="font-size: 10px;">{{ inv.assigned_delivery_boy.profile.role }}</span>
+                                    </td>
+                                    <td class="pe-4 text-center">
+                                        <form method="POST" class="d-inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="update_status">
+                                            <input type="hidden" name="invoice_id" value="{{ inv.id }}">
+                                            <div class="btn-group">
+                                                <button type="submit" name="new_status" value="Delivered" class="btn btn-sm btn-success rounded-start-pill px-2.5" title="Mark as Delivered">
+                                                    <i class="bi bi-check-lg"></i> Deliver
+                                                </button>
+                                                <button type="submit" name="new_status" value="Cancelled" class="btn btn-sm btn-outline-danger rounded-end-pill px-2.5" title="Mark as Cancelled">
+                                                    <i class="bi bi-x-lg"></i> Cancel
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">
+                                        <i class="bi bi-truck fs-1 d-block mb-2 text-secondary"></i>
+                                        <h6 class="fw-semibold text-dark mb-0">No Active Deliveries</h6>
+                                        <p class="small text-muted mb-0">Assign pending bills on the left panel to begin.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAllUnassigned = document.getElementById('selectAllUnassigned');
+    const invoiceCheckboxes = document.querySelectorAll('.invoice-checkbox');
+    const assignBtn = document.getElementById('assignBtn');
+    const selectedCountSpan = document.getElementById('selectedCount');
+
+    function updateControls() {
+        const checkedCount = document.querySelectorAll('.invoice-checkbox:checked').length;
+        selectedCountSpan.textContent = `${checkedCount} selected`;
+        assignBtn.disabled = checkedCount === 0;
+    }
+
+    if (selectAllUnassigned) {
+        selectAllUnassigned.addEventListener('change', function() {
+            invoiceCheckboxes.forEach(cb => {
+                cb.checked = selectAllUnassigned.checked;
+            });
+            updateControls();
+        });
+    }
+
+    invoiceCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            updateControls();
+            
+            // Update select-all checkbox state
+            const allChecked = Array.from(invoiceCheckboxes).every(c => c.checked);
+            selectAllUnassigned.checked = allChecked;
+        });
+    });
+});
+</script>
+{% endblock %}

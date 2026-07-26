@@ -23,6 +23,9 @@ ROLE_DEFAULT_PERMISSIONS = {
     ],
     'Delivery Boy': [
         'sales_reprint', 'payment_collection', 'report_outstanding'
+    ],
+    'MR': [
+        'sales_create', 'sales_reprint', 'customer_ledger', 'payment_collection', 'report_outstanding'
     ]
 }
 
@@ -225,4 +228,32 @@ def tenant_context_processor(request):
     if request.user.is_authenticated and (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.is_super_admin)):
         context['tenants_list'] = Tenant.objects.filter(is_active=True)
     return context
+
+
+import logging
+logger = logging.getLogger('wholesaleApp')
+
+def log_activity(request, action, model_name, object_repr, object_id=None, description=""):
+    """Helper to log user actions both to Python logger and database ActivityLog."""
+    from wholesaleApp.models.logs import ActivityLog
+    
+    user_str = request.user.username if (request and request.user and request.user.is_authenticated) else "System"
+    logger.info(f"User: {user_str} | Action: {action} | Model: {model_name} | Key: {object_repr} | Details: {description}")
+    
+    tenant = getattr(request, 'tenant', None) if request else None
+    user = request.user if (request and request.user and request.user.is_authenticated) else None
+    
+    try:
+        ActivityLog.objects.create(
+            tenant=tenant,
+            user=user,
+            action=action,
+            model_name=model_name,
+            object_id=object_id,
+            object_repr=object_repr[:255] if object_repr else "",
+            description=description
+        )
+    except Exception as e:
+        logger.error(f"Error saving ActivityLog to database: {e}")
+
 

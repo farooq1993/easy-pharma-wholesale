@@ -149,6 +149,10 @@ def invoice_create(request):
             customer.opening_balance += invoice.net_amount
             customer.save()
         
+        # 5. Trigger email notification to the customer (retailer)
+        from wholesaleApp.utils.email_utils import send_invoice_email_async
+        send_invoice_email_async(invoice)
+        
         messages.success(request, f"Sales Invoice {invoice_number} saved. Stock deducted and customer balance updated.")
         request.session['print_invoice_id'] = invoice.id
         return redirect('invoice_list')
@@ -400,6 +404,10 @@ def invoice_edit(request, pk):
             new_customer.opening_balance += invoice.net_amount
             new_customer.save()
         
+        # 8. Trigger email notification to the customer (retailer)
+        from wholesaleApp.utils.email_utils import send_invoice_email_async
+        send_invoice_email_async(invoice)
+        
         messages.success(request, f"Invoice {invoice.invoice_number} updated successfully!")
         request.session['print_invoice_id'] = invoice.id
         return redirect('invoice_list')
@@ -442,3 +450,349 @@ def invoice_delete(request, pk):
     
     messages.success(request, f"Invoice {invoice_number} has been deleted successfully, stock restored and customer balance reverted.")
     return redirect('invoice_list')
+
+
+# ==================== SALES RETURNS ====================
+@transaction.atomic
+def sales_return_list(request):
+    from wholesaleApp.models import SalesReturn
+    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    
+    returns = SalesReturn.objects.all().select_related('customer')
+    context = {
+        'returns': returns,
+        'page_title': 'Sales Returns',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'sale/return_list.html', context)
+
+
+@transaction.atomic
+def sales_return_create(request):
+    from wholesaleApp.models import SalesReturn, SalesReturnItem, CustomerMaster, ProductMaster, ProductBatch
+    from wholesaleApp.views.security_helpers import get_user_permissions_context, log_activity
+    
+    customers = CustomerMaster.objects.filter(status=True, is_deleted=False)
+    products = ProductMaster.objects.filter(status=True, is_deleted=False)
+    
+    if request.method == 'POST':
+        customer_id = request.POST.get('customer')
+        return_number = request.POST.get('return_number')
+        return_date = request.POST.get('return_date')
+        gross_amount = Decimal(request.POST.get('gross_amount', 0))
+        gst_amount = Decimal(request.POST.get('gst_amount', 0))
+        net_amount = Decimal(request.POST.get('net_amount', 0))
+        remarks = request.POST.get('remarks', '')
+        
+        customer = get_object_or_404(CustomerMaster, id=customer_id)
+        
+        # Create return
+        s_return = SalesReturn.objects.create(
+            customer=customer,
+            return_number=return_number,
+            return_date=return_date,
+            gross_amount=gross_amount,
+            gst_amount=gst_amount,
+            net_amount=net_amount,
+            remarks=remarks,
+            created_by=request.user if request.user.is_authenticated else None
+        )
+        
+        # Parse return items
+        product_ids = request.POST.getlist('product[]')
+        batch_ids = request.POST.getlist('batch[]')
+        sale_rates = request.POST.getlist('sale_rate[]')
+        quantities = request.POST.getlist('quantity[]')
+        totals = request.POST.getlist('total_amount[]')
+        
+        for i in range(len(product_ids)):
+            prod_id = product_ids[i]
+            batch_id = batch_ids[i]
+            s_rate = Decimal(sale_rates[i])
+            qty = int(quantities[i])
+            total_val = Decimal(totals[i])
+            
+            batch = get_object_or_404(ProductBatch, id=batch_id)
+            
+            # Create Sales Return Item
+            SalesReturnItem.objects.create(
+                sales_return=s_return,
+                product_id=prod_id,
+                batch=batch,
+                sale_rate=s_rate,
+                quantity=qty,
+                total_amount=total_val
+            )
+            
+            # Restore stock (add back to inventory)
+            batch.quantity += qty
+            batch.save()
+            
+        # Deduct return value from Customer Balance (reduces their outstanding dues)
+        customer.opening_balance -= net_amount
+        customer.save()
+        
+        log_activity(
+            request,
+            action='CREATE',
+            model_name='SalesReturn',
+            object_id=s_return.id,
+            object_repr=s_return.return_number,
+            description=f"Recorded sales return from {customer.name} for ₹{net_amount}"
+        )
+        
+        messages.success(request, f"Sales Return '{return_number}' recorded successfully.")
+        return redirect('sales_return_list')
+        
+    context = {
+        'customers': customers,
+        'products': products,
+        'page_title': 'New Sales Return',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'sale/return_form.html', context)
+
+
+@transaction.atomic
+def sales_return_delete(request, pk):
+    from wholesaleApp.models import SalesReturn, ProductBatch
+    from wholesaleApp.views.security_helpers import log_activity
+    
+    s_return = get_object_or_404(SalesReturn, pk=pk)
+    customer = s_return.customer
+    
+    # Revert inventory stock restoration
+    for item in s_return.items.all().select_related('batch'):
+        batch = item.batch
+        batch.quantity = max(0, batch.quantity - item.quantity)
+        batch.save()
+        
+    # Add amount back to customer balance (outstanding dues increase back)
+    customer.opening_balance += s_return.net_amount
+    customer.save()
+    
+    log_activity(
+        request,
+        action='DELETE',
+        model_name='SalesReturn',
+        object_id=s_return.id,
+        object_repr=s_return.return_number,
+        description=f"Deleted sales return from {customer.name} and adjusted stock"
+    )
+    
+    s_return.delete()
+    messages.success(request, "Sales return deleted, stock reverted and customer balance adjusted.")
+    return redirect('sales_return_list')
+
+
+# @login_required
+def invoice_email_bulk(request):
+    """View to filter sales invoices by date and customer, and manually trigger email notifications."""
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context, log_activity
+    
+    if not has_feature_access(request.user, 'sales_reprint'):
+        messages.error(request, "Access Denied: You do not have permission to email bills.")
+        return redirect('home')
+
+    customers = CustomerMaster.objects.filter(status=True, is_deleted=False)
+    
+    start_date_str = request.GET.get('start_date', '')
+    end_date_str = request.GET.get('end_date', '')
+    customer_id = request.GET.get('customer', '')
+
+    invoices = SalesInvoice.objects.all().select_related('customer')
+
+    # Apply filters
+    if start_date_str:
+        invoices = invoices.filter(invoice_date__gte=start_date_str)
+    if end_date_str:
+        invoices = invoices.filter(invoice_date__lte=end_date_str)
+    if customer_id:
+        invoices = invoices.filter(customer_id=customer_id)
+
+    # Default to last 30 days if no filter applied to prevent loading too much data
+    if not start_date_str and not end_date_str and not customer_id:
+        today = datetime.date.today()
+        thirty_days_ago = today - datetime.timedelta(days=30)
+        invoices = invoices.filter(invoice_date__gte=thirty_days_ago)
+        # Populate defaults for the HTML date inputs
+        start_date_str = thirty_days_ago.strftime('%Y-%m-%d')
+        end_date_str = today.strftime('%Y-%m-%d')
+
+    if request.method == 'POST':
+        invoice_ids = request.POST.getlist('invoice_ids')
+        if not invoice_ids:
+            messages.warning(request, "No invoices were selected.")
+            return redirect(request.get_full_path())
+
+        from wholesaleApp.utils.email_utils import send_invoice_email_async
+        selected_invoices = SalesInvoice.objects.filter(id__in=invoice_ids).select_related('customer')
+        sent_count = 0
+        skipped_count = 0
+
+        for inv in selected_invoices:
+            if inv.customer.email and inv.customer.email.strip():
+                send_invoice_email_async(inv)
+                sent_count += 1
+            else:
+                skipped_count += 1
+
+        # Log the bulk action if log_activity is available
+        try:
+            log_activity(
+                request,
+                action='BULK_EMAIL',
+                model_name='SalesInvoice',
+                description=f"Manually triggered bulk email queue for {sent_count} invoices (skipped {skipped_count} due to missing email address)."
+            )
+        except Exception:
+            pass
+
+        if sent_count > 0:
+            msg = f"Successfully queued {sent_count} invoice email(s) for sending in the background."
+            if skipped_count > 0:
+                msg += f" {skipped_count} invoice(s) were skipped because the customer has no email address."
+            messages.success(request, msg)
+        else:
+            messages.error(request, f"Failed to send: All {skipped_count} selected invoice(s) belong to customers with no email address.")
+
+        return redirect(request.get_full_path())
+
+    import urllib.parse
+    ordered_invoices = invoices.order_by('-invoice_date', '-id').select_related('tenant').prefetch_related('items__product')
+    for inv in ordered_invoices:
+        items_list = []
+        for item in inv.items.all():
+            items_list.append(f"- {item.product.name}: {item.quantity} Qty @ Rs. {item.sale_rate}")
+        items_text = "\n".join(items_list)
+        
+        tenant_name = inv.tenant.company_name if inv.tenant else "easyPharma"
+        text = (
+            f"Dear {inv.customer.name},\n\n"
+            f"Thank you for billing with *{tenant_name}*.\n\n"
+            f"Your Invoice *{inv.invoice_number}* dated *{inv.invoice_date.strftime('%d-%m-%Y')}* is ready.\n\n"
+            f"*Items Billed*:\n{items_text}\n\n"
+            f"*Total Payable*: *Rs. {inv.net_amount}*\n\n"
+            f"We look forward to serving you again."
+        )
+        inv.whatsapp_url = f"https://wa.me/{inv.customer.mobile}?text={urllib.parse.quote(text)}"
+
+    context = {
+        'invoices': ordered_invoices,
+        'customers': customers,
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'selected_customer': customer_id,
+        'page_title': 'Bulk Email Sales Bills',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'sale/invoice_email_bulk.html', context)
+
+
+# @login_required
+def delivery_management(request):
+    """View to track pending bills/orders, assign them to delivery boys/salesmen, and update delivery status."""
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context, log_activity
+    from django.contrib.auth.models import User
+    from wholesaleApp.models import AreaMaster
+    
+    if not has_feature_access(request.user, 'sales_reprint'):
+        messages.error(request, "Access Denied: You do not have permission to access Delivery Management.")
+        return redirect('home')
+
+    tenant = getattr(request, 'tenant', None)
+    if not tenant:
+        messages.error(request, "No active Tenant/Firm detected.")
+        return redirect('home')
+
+    # Fetch active delivery boys, salesmen, and MRs for assignment
+    delivery_staff = User.objects.filter(
+        profile__tenant=tenant,
+        profile__role__in=['Delivery Boy', 'Salesman', 'MR']
+    ).select_related('profile')
+
+    areas = AreaMaster.objects.all()
+
+    # GET filters
+    selected_area = request.GET.get('area', '')
+    selected_staff = request.GET.get('staff', '')
+
+    unassigned_invoices = SalesInvoice.objects.filter(status='Pending', assigned_delivery_boy__isnull=True)
+    assigned_invoices = SalesInvoice.objects.filter(status='Pending', assigned_delivery_boy__isnull=False).select_related('assigned_delivery_boy')
+
+    if selected_area:
+        unassigned_invoices = unassigned_invoices.filter(customer__area_id=selected_area)
+        assigned_invoices = assigned_invoices.filter(customer__area_id=selected_area)
+    if selected_staff:
+        assigned_invoices = assigned_invoices.filter(assigned_delivery_boy_id=selected_staff)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'assign':
+            invoice_ids = request.POST.getlist('invoice_ids')
+            staff_id = request.POST.get('delivery_staff')
+            
+            if invoice_ids and staff_id:
+                try:
+                    staff_user = User.objects.get(id=staff_id, profile__tenant=tenant)
+                    SalesInvoice.objects.filter(id__in=invoice_ids).update(assigned_delivery_boy=staff_user)
+                    messages.success(request, f"Successfully assigned {len(invoice_ids)} order(s) to {staff_user.username}.")
+                    
+                    try:
+                        log_activity(
+                            request,
+                            action='ASSIGN_DELIVERY',
+                            model_name='SalesInvoice',
+                            description=f"Assigned {len(invoice_ids)} invoices to delivery user: {staff_user.username}"
+                        )
+                    except Exception:
+                        pass
+                except User.DoesNotExist:
+                    messages.error(request, "Selected staff user not found or does not belong to this tenant.")
+            else:
+                messages.warning(request, "Please select both invoices and a staff member.")
+                
+        elif action == 'update_status':
+            invoice_id = request.POST.get('invoice_id')
+            new_status = request.POST.get('new_status')
+            
+            if invoice_id and new_status in ['Pending', 'Delivered', 'Cancelled']:
+                try:
+                    invoice = SalesInvoice.objects.get(id=invoice_id)
+                    old_status = invoice.status
+                    invoice.status = new_status
+                    invoice.save()
+                    
+                    messages.success(request, f"Order {invoice.invoice_number} marked as {new_status}.")
+                    
+                    try:
+                        log_activity(
+                            request,
+                            action='UPDATE_STATUS',
+                            model_name='SalesInvoice',
+                            object_id=invoice.id,
+                            object_repr=invoice.invoice_number,
+                            description=f"Updated invoice status from {old_status} to {new_status}."
+                        )
+                    except Exception:
+                        pass
+                except SalesInvoice.DoesNotExist:
+                    messages.error(request, "Order not found.")
+                    
+        return redirect(request.get_full_path())
+
+    context = {
+        'unassigned_invoices': unassigned_invoices.order_by('invoice_date', 'id').select_related('customer__area'),
+        'assigned_invoices': assigned_invoices.order_by('invoice_date', 'id').select_related('customer__area'),
+        'delivery_staff': delivery_staff,
+        'areas': areas,
+        'selected_area': selected_area,
+        'selected_staff': selected_staff,
+        'page_title': 'Delivery Management',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'sale/delivery_management.html', context)
+
+
+

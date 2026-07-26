@@ -114,3 +114,65 @@ class PurchaseEntryItem(TenantModel):
 
     def __str__(self):
         return f"{self.product.name} - Batch: {self.batch_number}"
+
+
+# ==================== SUPPLIER PAYMENT ====================
+class SupplierPayment(TenantModel):
+    supplier = models.ForeignKey(SupplierMaster, on_delete=models.CASCADE, related_name='payments', verbose_name="Supplier")
+    payment_date = models.DateField(verbose_name="Payment Date")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Amount Paid (₹)")
+    payment_mode = models.CharField(
+        max_length=20,
+        choices=(('Cash', 'Cash'), ('Bank', 'Bank Transfer'), ('UPI', 'UPI'), ('Cheque', 'Cheque')),
+        default='Cash',
+        verbose_name="Payment Mode"
+    )
+    reference_no = models.CharField(max_length=50, blank=True, null=True, verbose_name="Ref / Trans No.")
+    remarks = models.TextField(blank=True, null=True, verbose_name="Remarks")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Supplier Payment"
+        verbose_name_plural = "Supplier Payments"
+        ordering = ['-payment_date', '-id']
+
+    def __str__(self):
+        return f"Payment {self.id} - {self.supplier.name} - ₹{self.amount}"
+
+
+# ==================== PURCHASE RETURN ====================
+class PurchaseReturn(TenantModel):
+    return_number = models.CharField(max_length=100, verbose_name="Return Number")
+    supplier = models.ForeignKey(SupplierMaster, on_delete=models.PROTECT, related_name='purchase_returns', verbose_name="Supplier")
+    return_date = models.DateField(verbose_name="Return Date")
+    gross_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Gross Amount (₹)")
+    gst_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="GST Amount (₹)")
+    net_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Net Refund (₹)")
+    remarks = models.TextField(blank=True, null=True, verbose_name="Remarks")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Purchase Return"
+        verbose_name_plural = "Purchase Returns"
+        ordering = ['-return_date', '-id']
+
+    def __str__(self):
+        return f"PR: {self.return_number} - {self.supplier.name}"
+
+
+class PurchaseReturnItem(TenantModel):
+    purchase_return = models.ForeignKey(PurchaseReturn, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(ProductMaster, on_delete=models.PROTECT, verbose_name="Product")
+    batch_number = models.CharField(max_length=100, verbose_name="Batch Number")
+    expiry_date = models.DateField(verbose_name="Expiry Date")
+    purchase_rate = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Purchase Rate (₹)")
+    quantity = models.IntegerField(verbose_name="Returned Qty")
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Total (₹)")
+
+    def __str__(self):
+        return f"{self.product.name} - Qty: {self.quantity}"
+

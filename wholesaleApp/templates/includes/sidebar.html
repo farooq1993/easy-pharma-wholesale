@@ -42,7 +42,7 @@
                         <li class="nav-item"><a href="{% url 'product_list' %}" class="nav-link text-light">Product Master</a></li>
                         {% endif %}
                         <li class="nav-item"><a href="#" class="nav-link text-light">Godown / Rack Master</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Scheme / Discount Master</a></li>
+                        <li class="nav-item"><a href="{% url 'scheme_list' %}" class="nav-link text-light">Scheme / Discount Master</a></li>
                         <li class="nav-item"><a href="#" class="nav-link text-light">Unit / HSN Master</a></li>
                     </ul>
                 </div>
@@ -61,8 +61,8 @@
                         <li class="nav-item"><a href="{% url 'po_list' %}" class="nav-link text-light">Purchase Order</a></li>
                         <li class="nav-item"><a href="{% url 'purchase_entry_list' %}" class="nav-link text-light">Purchase Entry (Bill)</a></li>
                         {% endif %}
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Purchase Return</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Payment to Supplier</a></li>
+                        <li class="nav-item"><a href="{% url 'purchase_return_list' %}" class="nav-link text-light">Purchase Return</a></li>
+                        <li class="nav-item"><a href="{% url 'supplier_payment_list' %}" class="nav-link text-light">Payment to Supplier</a></li>
                     </ul>
                 </div>
             </li>
@@ -79,10 +79,12 @@
                         <li class="nav-item"><a href="#" class="nav-link text-light">Sales Order</a></li>
                         {% if 'sales_reprint' in user_perms %}
                         <li class="nav-item"><a href="{% url 'invoice_list' %}" class="nav-link text-light">Sales Invoice (Bill)</a></li>
+                        <li class="nav-item"><a href="{% url 'invoice_email_bulk' %}" class="nav-link text-light">Email Bills (Bulk)</a></li>
+                        <li class="nav-item"><a href="{% url 'delivery_management' %}" class="nav-link text-light">Delivery Management</a></li>
                         {% endif %}
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Sales Return</a></li>
+                        <li class="nav-item"><a href="{% url 'sales_return_list' %}" class="nav-link text-light">Sales Return</a></li>
                         {% if 'payment_collection' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'customer_ledger' %}" class="nav-link text-light">Payment Collection</a></li>
+                        <li class="nav-item"><a href="{% url 'customer_payment_list' %}" class="nav-link text-light">Payment Collection</a></li>
                         {% endif %}
                     </ul>
                 </div>
@@ -178,7 +180,9 @@
                         {% endif %}
                         {% if user.is_superuser or user_profile.is_tenant_admin %}
                         <li class="nav-item"><a href="{% url 'user_list' %}" class="nav-link text-light">User Management (Roles & Staff)</a></li>
+                        <li class="nav-item"><a href="{% url 'tenant_email_settings' %}" class="nav-link text-light">Email Configuration (SMTP)</a></li>
                         <li class="nav-item"><a href="{% url 'user_permission_matrix' %}" class="nav-link text-light">User Permissions Matrix</a></li>
+                        <li class="nav-item"><a href="{% url 'activity_log_list' %}" class="nav-link text-light">System Activity Logs</a></li>
                         {% endif %}
                         <li class="nav-item"><a href="#" class="nav-link text-light">Company Profile</a></li>
                         <li class="nav-item"><a href="#" class="nav-link text-light">Backup / Restore</a></li>

@@ -32,7 +32,19 @@ def get_product_details(request, pk):
 # ==================== PURCHASE ORDER VIEWS ====================
 # @login_required
 def po_list(request):
-    orders = PurchaseOrder.objects.all().select_related('supplier')
+    import urllib.parse
+    orders = PurchaseOrder.objects.all().select_related('supplier', 'tenant').prefetch_related('items__product')
+    
+    for order in orders:
+        items_list = []
+        for item in order.items.all():
+            items_list.append(f"- {item.product.name}: {item.quantity} packs")
+        items_text = "\n".join(items_list)
+        
+        tenant_name = order.tenant.company_name if order.tenant else "easyPharma"
+        text = f"Hello {order.supplier.name},\n\nPlease find Purchase Order *{order.po_number}* from *{tenant_name}*.\n\n*Items Ordered*:\n{items_text}\n\n*Total Expected Value*: Rs. {order.net_amount}\n\nPlease confirm the order."
+        order.whatsapp_url = f"https://wa.me/{order.supplier.mobile}?text={urllib.parse.quote(text)}"
+        
     context = {
         'orders': orders,
         'page_title': 'Purchase Orders'
@@ -399,3 +411,262 @@ def purchase_entry_delete(request, pk):
     
     messages.success(request, f"Purchase Entry {invoice_number} deleted successfully, stock adjustments reverted.")
     return redirect('purchase_entry_list')
+
+
+# ==================== SUPPLIER PAYMENTS ====================
+@transaction.atomic
+def supplier_payment_list(request):
+    from wholesaleApp.models import SupplierPayment
+    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    
+    payments = SupplierPayment.objects.all().select_related('supplier')
+    context = {
+        'payments': payments,
+        'page_title': 'Supplier Payments',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'purchase/payment_list.html', context)
+
+
+@transaction.atomic
+def supplier_payment_create(request):
+    from wholesaleApp.models import SupplierPayment, SupplierMaster
+    from wholesaleApp.views.security_helpers import get_user_permissions_context, log_activity
+    
+    suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False)
+    
+    if request.method == 'POST':
+        supplier_id = request.POST.get('supplier')
+        payment_date = request.POST.get('payment_date')
+        amount = Decimal(request.POST.get('amount', 0))
+        payment_mode = request.POST.get('payment_mode', 'Cash')
+        reference_no = request.POST.get('reference_no', '')
+        remarks = request.POST.get('remarks', '')
+        
+        supplier = get_object_or_404(SupplierMaster, id=supplier_id)
+        
+        payment = SupplierPayment.objects.create(
+            supplier=supplier,
+            payment_date=payment_date,
+            amount=amount,
+            payment_mode=payment_mode,
+            reference_no=reference_no,
+            remarks=remarks,
+            created_by=request.user if request.user.is_authenticated else None
+        )
+        
+        # Deduct from supplier balance (since we paid them, our liability decreases)
+        supplier.opening_balance -= amount
+        supplier.save()
+        
+        log_activity(
+            request,
+            action='CREATE',
+            model_name='SupplierPayment',
+            object_id=payment.id,
+            object_repr=f"Payment to {supplier.name}",
+            description=f"Paid ₹{amount} via {payment_mode}"
+        )
+        
+        messages.success(request, f"Payment of ₹{amount} to {supplier.name} recorded successfully.")
+        return redirect('supplier_payment_list')
+        
+    context = {
+        'suppliers': suppliers,
+        'page_title': 'Record Supplier Payment',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'purchase/payment_form.html', context)
+
+
+@transaction.atomic
+def supplier_payment_delete(request, pk):
+    from wholesaleApp.models import SupplierPayment
+    from wholesaleApp.views.security_helpers import log_activity
+    
+    payment = get_object_or_404(SupplierPayment, pk=pk)
+    supplier = payment.supplier
+    
+    # Add amount back to supplier balance
+    supplier.opening_balance += payment.amount
+    supplier.save()
+    
+    log_activity(
+        request,
+        action='DELETE',
+        model_name='SupplierPayment',
+        object_id=payment.id,
+        object_repr=f"Payment to {supplier.name}",
+        description=f"Reverted payment of ₹{payment.amount}"
+    )
+    
+    payment.delete()
+    messages.success(request, "Supplier payment deleted and balance adjusted.")
+    return redirect('supplier_payment_list')
+
+
+# ==================== PURCHASE RETURNS ====================
+@transaction.atomic
+def purchase_return_list(request):
+    from wholesaleApp.models import PurchaseReturn
+    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    
+    returns = PurchaseReturn.objects.all().select_related('supplier')
+    context = {
+        'returns': returns,
+        'page_title': 'Purchase Returns',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'purchase/return_list.html', context)
+
+
+@transaction.atomic
+def purchase_return_create(request):
+    from wholesaleApp.models import PurchaseReturn, PurchaseReturnItem, SupplierMaster, ProductMaster, ProductBatch
+    from wholesaleApp.views.security_helpers import get_user_permissions_context, log_activity
+    
+    suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False)
+    products = ProductMaster.objects.filter(status=True, is_deleted=False)
+    
+    if request.method == 'POST':
+        supplier_id = request.POST.get('supplier')
+        return_number = request.POST.get('return_number')
+        return_date = request.POST.get('return_date')
+        gross_amount = Decimal(request.POST.get('gross_amount', 0))
+        gst_amount = Decimal(request.POST.get('gst_amount', 0))
+        net_amount = Decimal(request.POST.get('net_amount', 0))
+        remarks = request.POST.get('remarks', '')
+        
+        supplier = get_object_or_404(SupplierMaster, id=supplier_id)
+        
+        # Create return
+        p_return = PurchaseReturn.objects.create(
+            supplier=supplier,
+            return_number=return_number,
+            return_date=return_date,
+            gross_amount=gross_amount,
+            gst_amount=gst_amount,
+            net_amount=net_amount,
+            remarks=remarks,
+            created_by=request.user if request.user.is_authenticated else None
+        )
+        
+        # Parse return items
+        product_ids = request.POST.getlist('product[]')
+        batches = request.POST.getlist('batch_number[]')
+        expiries = request.POST.getlist('expiry_date[]')
+        p_rates = request.POST.getlist('purchase_rate[]')
+        quantities = request.POST.getlist('quantity[]')
+        totals = request.POST.getlist('total_amount[]')
+        
+        for i in range(len(product_ids)):
+            prod_id = product_ids[i]
+            batch_no = batches[i]
+            exp_date = expiries[i]
+            pr_val = Decimal(p_rates[i])
+            qty = int(quantities[i])
+            total_val = Decimal(totals[i])
+            
+            # Create Return Item
+            PurchaseReturnItem.objects.create(
+                purchase_return=p_return,
+                product_id=prod_id,
+                batch_number=batch_no,
+                expiry_date=exp_date,
+                purchase_rate=pr_val,
+                quantity=qty,
+                total_amount=total_val
+            )
+            
+            # Deduct from Batch Inventory
+            try:
+                batch = ProductBatch.objects.get(
+                    product_id=prod_id,
+                    batch_number=batch_no,
+                    expiry_date=exp_date
+                )
+                batch.quantity = max(0, batch.quantity - qty)
+                batch.save()
+            except ProductBatch.DoesNotExist:
+                pass
+                
+        # Deduct return value from Supplier Balance (reduces our liability)
+        supplier.opening_balance -= net_amount
+        supplier.save()
+        
+        log_activity(
+            request,
+            action='CREATE',
+            model_name='PurchaseReturn',
+            object_id=p_return.id,
+            object_repr=p_return.return_number,
+            description=f"Created purchase return to {supplier.name} for ₹{net_amount}"
+        )
+        
+        messages.success(request, f"Purchase Return '{return_number}' recorded successfully.")
+        return redirect('purchase_return_list')
+        
+    context = {
+        'suppliers': suppliers,
+        'products': products,
+        'page_title': 'New Purchase Return',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'purchase/return_form.html', context)
+
+
+@transaction.atomic
+def purchase_return_delete(request, pk):
+    from wholesaleApp.models import PurchaseReturn, ProductBatch
+    from wholesaleApp.views.security_helpers import log_activity
+    
+    p_return = get_object_or_404(PurchaseReturn, pk=pk)
+    supplier = p_return.supplier
+    
+    # Restore stock for return items
+    for item in p_return.items.all():
+        try:
+            batch = ProductBatch.objects.get(
+                product=item.product,
+                batch_number=item.batch_number,
+                expiry_date=item.expiry_date
+            )
+            batch.quantity += item.quantity
+            batch.save()
+        except ProductBatch.DoesNotExist:
+            pass
+            
+    # Add amount back to supplier balance (our liability increases back)
+    supplier.opening_balance += p_return.net_amount
+    supplier.save()
+    
+    log_activity(
+        request,
+        action='DELETE',
+        model_name='PurchaseReturn',
+        object_id=p_return.id,
+        object_repr=p_return.return_number,
+        description=f"Deleted purchase return to {supplier.name} and restored stock"
+    )
+    
+    p_return.delete()
+    messages.success(request, "Purchase return deleted and stock restored.")
+    return redirect('purchase_return_list')
+
+
+# @login_required
+def po_email_send(request, pk):
+    """View to trigger manual sending of a PO to the supplier via email."""
+    from wholesaleApp.utils.email_utils import send_po_email_async
+    
+    po = get_object_or_404(PurchaseOrder, id=pk)
+    
+    if not po.supplier.email or not po.supplier.email.strip():
+        messages.error(request, f"Supplier '{po.supplier.name}' has no email address configured. Cannot send email.")
+    else:
+        send_po_email_async(po)
+        messages.success(request, f"Purchase Order {po.po_number} email queued successfully in the background.")
+        
+    return redirect('po_list')
+
+

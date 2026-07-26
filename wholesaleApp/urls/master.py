@@ -1,5 +1,5 @@
 from django.urls import path
-from wholesaleApp.views.master import HomeView, user_permission_matrix, switch_tenant
+from wholesaleApp.views.master import HomeView, user_permission_matrix, switch_tenant, activity_log_list
 from wholesaleApp.views.user_views import (
     user_list,
     user_create,
@@ -10,7 +10,8 @@ from wholesaleApp.views.auth_views import user_login, user_logout
 from wholesaleApp.views.tenant_views import (
     tenant_list,
     tenant_create,
-    tenant_edit
+    tenant_edit,
+    tenant_email_settings
 )
 
 
@@ -18,6 +19,7 @@ urlpatterns = [
     path('', HomeView, name='home'),
     path('settings/permissions/', user_permission_matrix, name='user_permission_matrix'),
     path('switch-tenant/', switch_tenant, name='switch_tenant'),
+    path('settings/logs/', activity_log_list, name='activity_log_list'),
     
     # User Authentication
     path('login/', user_login, name='login'),
@@ -33,4 +35,7 @@ urlpatterns = [
     path('settings/tenants/', tenant_list, name='tenant_list'),
     path('settings/tenants/create/', tenant_create, name='tenant_create'),
     path('settings/tenants/<int:pk>/edit/', tenant_edit, name='tenant_edit'),
+    path('settings/tenant/email/', tenant_email_settings, name='tenant_email_settings'),
+
 ]
+

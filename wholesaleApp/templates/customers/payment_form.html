@@ -1,0 +1,219 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-12">
+        <form method="POST">
+            {% csrf_token %}
+            
+            <div class="row g-4">
+                <!-- Payment Entry Section -->
+                <div class="col-md-5 col-12">
+                    <div class="card shadow-sm border-0 rounded-4 h-100">
+                        <div class="card-header bg-white py-3 border-bottom-0">
+                            <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-wallet2 text-primary me-2"></i>Payment Details</h5>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="row g-3">
+                                <!-- Customer -->
+                                <div class="col-12">
+                                    <label class="form-label text-muted small fw-bold">Select Customer <span class="text-danger">*</span></label>
+                                    <select name="customer" id="customerSelect" class="form-select rounded-3" required>
+                                        <option value="">-- Choose Customer --</option>
+                                        {% for cust in customers %}
+                                            <option value="{{ cust.id }}">
+                                                {{ cust.name }} (Dues: ₹{{ cust.opening_balance|floatformat:2 }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <!-- Date -->
+                                <div class="col-12">
+                                    <label class="form-label text-muted small fw-bold">Payment Date <span class="text-danger">*</span></label>
+                                    <input type="date" name="payment_date" class="form-control rounded-3" value="{% now 'Y-m-d' %}" required>
+                                </div>
+
+                                <!-- Amount -->
+                                <div class="col-12">
+                                    <label class="form-label text-muted small fw-bold">Amount Received (₹) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" name="amount" id="amountInput" class="form-control rounded-3 fs-5 fw-bold text-primary" min="0.01" placeholder="0.00" required>
+                                </div>
+
+                                <!-- Payment Mode -->
+                                <div class="col-12">
+                                    <label class="form-label text-muted small fw-bold">Payment Mode <span class="text-danger">*</span></label>
+                                    <select name="payment_mode" class="form-select rounded-3" required>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Bank">Bank Transfer</option>
+                                        <option value="UPI">UPI</option>
+                                        <option value="Cheque">Cheque</option>
+                                    </select>
+                                </div>
+
+                                <!-- Reference No -->
+                                <div class="col-12">
+                                    <label class="form-label text-muted small fw-bold">Reference / Trans No.</label>
+                                    <input type="text" name="reference_no" class="form-control rounded-3" placeholder="e.g. Transaction ID, Cheque No">
+                                </div>
+
+                                <!-- Remarks -->
+                                <div class="col-12">
+                                    <label class="form-label text-muted small fw-bold">Remarks / Notes</label>
+                                    <textarea name="remarks" class="form-control rounded-3" rows="2" placeholder="Add optional details..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Invoice Adjustment Section -->
+                <div class="col-md-7 col-12">
+                    <div class="card shadow-sm border-0 rounded-4 h-100">
+                        <div class="card-header bg-white py-3 border-bottom-0">
+                            <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-file-earmark-ruled text-primary me-2"></i>Invoice Adjustment Window</h5>
+                        </div>
+                        <div class="card-body p-4 d-flex flex-column justify-content-between">
+                            <div>
+                                <p class="text-muted small">Choose which outstanding invoice this payment should be adjusted against. Select **"On Account / General"** if this is an advance or unallocated payment.</p>
+                                
+                                <!-- Outstanding Invoices Table -->
+                                <div class="table-responsive border rounded-3 mb-3" style="max-height: 350px; overflow-y: auto;">
+                                    <table class="table table-hover align-middle mb-0" id="invoicesTable">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 50px;">Select</th>
+                                                <th>Invoice No</th>
+                                                <th>Date</th>
+                                                <th class="text-end">Invoice Amt</th>
+                                                <th class="text-end">Outstanding</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td colspan="5" class="text-center py-5 text-muted" id="placeholderMessage">
+                                                    <i class="bi bi-person-fill-exclamation display-6 d-block mb-2"></i>
+                                                    Select a customer to view outstanding invoices.
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="border-top pt-3 d-flex gap-2">
+                                <button type="submit" class="btn btn-primary rounded-pill py-2.5 px-4 flex-grow-1">
+                                    <i class="bi bi-check-circle me-1"></i> Record Receipt &amp; Adjust
+                                </button>
+                                <a href="{% url 'customer_payment_list' %}" class="btn btn-outline-secondary rounded-pill py-2.5 px-4">
+                                    Cancel
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const customerSelect = document.getElementById("customerSelect");
+        const invoicesTableBody = document.querySelector("#invoicesTable tbody");
+        const amountInput = document.getElementById("amountInput");
+        const placeholderMessage = document.getElementById("placeholderMessage");
+
+        customerSelect.addEventListener("change", function() {
+            const customerId = this.value;
+            if (!customerId) {
+                invoicesTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-person-fill-exclamation display-6 d-block mb-2"></i>
+                            Select a customer to view outstanding invoices.
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            invoicesTableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-5 text-muted">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        Fetching outstanding invoices...
+                    </td>
+                </tr>`;
+
+            // Fetch outstanding invoices via AJAX
+            fetch(`/api/customer/${customerId}/outstanding-invoices/`)
+                .then(response => response.json())
+                .then(invoices => {
+                    if (invoices.length === 0) {
+                        invoicesTableBody.innerHTML = `
+                            <tr>
+                                <td class="text-center" style="width: 50px;">
+                                    <input class="form-check-input" type="radio" name="invoice" value="" id="onAccountRadio" checked>
+                                </td>
+                                <td colspan="4">
+                                    <label class="form-check-label fw-bold text-success" for="onAccountRadio">
+                                        On Account / General Advance (No Outstanding Invoices)
+                                    </label>
+                                </td>
+                            </tr>`;
+                        return;
+                    }
+
+                    // Render table rows
+                    let rowsHtml = `
+                        <tr class="table-success">
+                            <td class="text-center">
+                                <input class="form-check-input invoice-radio" type="radio" name="invoice" value="" id="onAccountRadio" checked data-amount="">
+                            </td>
+                            <td colspan="4">
+                                <label class="form-check-label fw-bold text-dark" for="onAccountRadio">
+                                    On Account / General Adjust (Keep Unallocated)
+                                </label>
+                            </td>
+                        </tr>`;
+
+                    invoices.forEach(inv => {
+                        rowsHtml += `
+                            <tr>
+                                <td class="text-center">
+                                    <input class="form-check-input invoice-radio" type="radio" name="invoice" value="${inv.id}" id="invRadio_${inv.id}" data-amount="${inv.outstanding_amount.toFixed(2)}">
+                                </td>
+                                <td>
+                                    <label class="form-check-label fw-semibold text-dark" for="invRadio_${inv.id}">
+                                        ${inv.invoice_number}
+                                    </label>
+                                </td>
+                                <td class="small text-muted">${inv.invoice_date}</td>
+                                <td class="text-end text-secondary">₹${inv.net_amount.toFixed(2)}</td>
+                                <td class="text-end fw-bold text-primary">₹${inv.outstanding_amount.toFixed(2)}</td>
+                            </tr>`;
+                    });
+
+                    invoicesTableBody.innerHTML = rowsHtml;
+                });
+        });
+
+        // Listen for radio selection changes to auto-fill payment amount
+        invoicesTableBody.addEventListener("change", function(e) {
+            if (e.target.classList.contains("invoice-radio")) {
+                const outstandingAmt = e.target.getAttribute("data-amount");
+                if (outstandingAmt) {
+                    amountInput.value = outstandingAmt;
+                } else {
+                    amountInput.value = '';
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -23,6 +23,7 @@
                     <th>Status</th>
                     <th>Net Amount</th>
                     <th>Created By</th>
+                    <th class="text-center" style="width: 25%;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -44,10 +45,27 @@
                     </td>
                     <td class="fw-bold">₹{{ order.net_amount|floatformat:2 }}</td>
                     <td>{{ order.created_by.username|default:"-" }}</td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-1">
+                            {% if order.supplier.email %}
+                            <a href="{% url 'po_email_send' order.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-2.5" title="Email PO">
+                                <i class="bi bi-envelope-fill"></i> Email
+                            </a>
+                            {% else %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-1" style="font-size: 10px;" title="No Email Address">
+                                <i class="bi bi-envelope"></i> No Email
+                            </span>
+                            {% endif %}
+                            
+                            <a href="{{ order.whatsapp_url }}" target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-2.5" title="Send WhatsApp">
+                                <i class="bi bi-whatsapp"></i> WhatsApp
+                            </a>
+                        </div>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="text-center py-5 text-muted">
+                    <td colspan="7" class="text-center py-5 text-muted">
                         <i class="bi bi-cart fs-2 d-block mb-2"></i>
                         No purchase orders placed yet. Click "Create Purchase Order" to get started.
                     </td>
