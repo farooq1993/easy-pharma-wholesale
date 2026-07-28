@@ -21,9 +21,25 @@ class Tenant(models.Model):
     phone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     gstin = models.CharField(max_length=15, blank=True, null=True, verbose_name="GSTIN")
+    gst_dealer_type = models.CharField(
+        max_length=20,
+        choices=(
+            ('Regular', 'Registered (Regular)'),
+            ('Composition', 'Registered (Composition Scheme)'),
+            ('Unregistered', 'Unregistered'),
+        ),
+        default='Regular',
+        verbose_name="GST Dealer Type"
+    )
     dl_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="Drug License Number")
     
     is_active = models.BooleanField(default=True)
+    business_mode = models.CharField(
+        max_length=20,
+        choices=(('Wholesale', 'Wholesale Only'), ('Dual', 'Retail + Wholesale (Dual Mode)')),
+        default='Wholesale',
+        verbose_name="Business Mode"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

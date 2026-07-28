@@ -10,22 +10,38 @@ ROLE_DEFAULT_PERMISSIONS = {
     'Super Admin': '__ALL__',
     'Owner': '__ALL__',
     'Manager': [
-        'sales_create', 'sales_return', 'sales_reprint', 'sales_credit_debit', 'view_margins',
-        'purchase_create', 'purchase_list',
-        'customer_ledger', 'payment_collection', 'report_outstanding',
-        'product_crud', 'customer_crud', 'supplier_crud', 'area_crud'
+        'sales_view', 'sales_create', 'sales_edit', 'sales_delete', 'sales_reprint',
+        'sales_return_view', 'sales_return_create', 'sales_return_delete',
+        'sales_credit_debit_view', 'sales_credit_debit_create', 'sales_credit_debit_delete',
+        'view_margins',
+        'po_view', 'po_create',
+        'purchase_view', 'purchase_create', 'purchase_edit', 'purchase_delete',
+        'purchase_return_view', 'purchase_return_create', 'purchase_return_delete',
+        'supplier_payment_view', 'supplier_payment_create', 'supplier_payment_delete',
+        'customer_ledger',
+        'payment_collection_view', 'payment_collection_create', 'payment_collection_delete',
+        'report_outstanding',
+        'product_view', 'product_create', 'product_edit', 'product_delete',
+        'customer_view', 'customer_create', 'customer_edit', 'customer_delete',
+        'supplier_view', 'supplier_create', 'supplier_edit', 'supplier_delete',
+        'area_view', 'area_create', 'area_edit', 'area_delete'
     ],
     'Salesman': [
-        'sales_create', 'sales_reprint', 'customer_ledger', 'payment_collection'
+        'sales_view', 'sales_create', 'sales_reprint', 'customer_ledger',
+        'payment_collection_view', 'payment_collection_create'
     ],
     'Inventory': [
-        'purchase_create', 'purchase_list', 'product_crud', 'supplier_crud'
+        'po_view', 'po_create',
+        'purchase_view', 'purchase_create', 'purchase_edit', 'purchase_delete',
+        'product_view', 'product_create', 'product_edit', 'product_delete',
+        'supplier_view', 'supplier_create', 'supplier_edit', 'supplier_delete'
     ],
     'Delivery Boy': [
-        'sales_reprint', 'payment_collection', 'report_outstanding'
+        'sales_view', 'sales_reprint', 'payment_collection_view', 'payment_collection_create', 'report_outstanding'
     ],
     'MR': [
-        'sales_create', 'sales_reprint', 'customer_ledger', 'payment_collection', 'report_outstanding'
+        'sales_view', 'sales_create', 'sales_reprint', 'customer_ledger',
+        'payment_collection_view', 'payment_collection_create', 'report_outstanding'
     ]
 }
 
@@ -148,36 +164,72 @@ def seed_default_permissions():
 
     DEFAULT_PERMISSIONS = {
         'Sales & Billing': [
+            ('sales_view', 'View Sale Bills'),
             ('sales_create', 'New Sale Bill'),
-            ('sales_return', 'Sales Return'),
+            ('sales_edit', 'Edit Sale Bill'),
+            ('sales_delete', 'Delete Sale Bill'),
             ('sales_reprint', 'Re-print Sale Bill'),
-            ('sales_credit_debit', 'Credit / Debit Notes'),
+            ('sales_return_view', 'View Sales Return'),
+            ('sales_return_create', 'New Sales Return'),
+            ('sales_return_delete', 'Delete Sales Return'),
+            ('sales_credit_debit_view', 'View Credit / Debit Notes'),
+            ('sales_credit_debit_create', 'New Credit / Debit Note'),
+            ('sales_credit_debit_delete', 'Delete Credit / Debit Note'),
             ('view_margins', 'View Profit Margins & Cost Rates'),
         ],
         'Purchase & Inventory': [
+            ('po_view', 'View Purchase Orders'),
+            ('po_create', 'New Purchase Order'),
+            ('purchase_view', 'View Purchase History'),
             ('purchase_create', 'New Purchase Entry'),
-            ('purchase_list', 'View Purchase History'),
+            ('purchase_edit', 'Edit Purchase Entry'),
+            ('purchase_delete', 'Delete Purchase Entry'),
+            ('purchase_return_view', 'View Purchase Returns'),
+            ('purchase_return_create', 'New Purchase Return'),
+            ('purchase_return_delete', 'Delete Purchase Return'),
+            ('supplier_payment_view', 'View Supplier Payments'),
+            ('supplier_payment_create', 'New Supplier Payment'),
+            ('supplier_payment_delete', 'Delete Supplier Payment'),
         ],
         'Accounts & Collection': [
             ('customer_ledger', 'View Customer Ledger'),
-            ('payment_collection', 'Record / Collect Payments'),
+            ('payment_collection_view', 'View Payments Collection'),
+            ('payment_collection_create', 'Record / Collect Payments'),
+            ('payment_collection_delete', 'Delete Payments Collection'),
             ('report_outstanding', 'View Outstanding dues report'),
         ],
         'Master Data Settings': [
-            ('product_crud', 'Manage Products (Add/Edit)'),
-            ('customer_crud', 'Manage Customers (Add/Edit)'),
-            ('supplier_crud', 'Manage Suppliers (Add/Edit)'),
-            ('area_crud', 'Manage Areas & Subareas'),
+            ('product_view', 'View Products'),
+            ('product_create', 'Add Product'),
+            ('product_edit', 'Edit Product'),
+            ('product_delete', 'Delete Product'),
+            ('customer_view', 'View Customers'),
+            ('customer_create', 'Add Customer'),
+            ('customer_edit', 'Edit Customer'),
+            ('customer_delete', 'Delete Customer'),
+            ('supplier_view', 'View Suppliers'),
+            ('supplier_create', 'Add Supplier'),
+            ('supplier_edit', 'Edit Supplier'),
+            ('supplier_delete', 'Delete Supplier'),
+            ('area_view', 'View Areas & Subareas'),
+            ('area_create', 'Add Area/Subarea'),
+            ('area_edit', 'Edit Area/Subarea'),
+            ('area_delete', 'Delete Area/Subarea'),
         ]
     }
 
+    new_codenames = set()
     for module_name, features in DEFAULT_PERMISSIONS.items():
         module, created = AppGroupModule.objects.get_or_create(name=module_name)
         for codename, name in features:
+            new_codenames.add(codename)
             AppFeature.objects.get_or_create(
                 codename=codename,
                 defaults={'module': module, 'name': name, 'is_active': True}
             )
+
+    # Deactivate obsolete features
+    AppFeature.objects.exclude(codename__in=new_codenames).update(is_active=False)
 
     # Ensure UserProfile exists for all users and has a tenant
     for user in User.objects.all():

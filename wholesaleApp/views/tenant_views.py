@@ -25,8 +25,10 @@ def tenant_create(request):
         phone = request.POST.get('phone', '').strip()
         email = request.POST.get('email', '').strip()
         gstin = request.POST.get('gstin', '').strip()
+        gst_dealer_type = request.POST.get('gst_dealer_type', 'Regular').strip()
         dl_number = request.POST.get('dl_number', '').strip()
         is_active = request.POST.get('is_active') == 'on'
+        business_mode = request.POST.get('business_mode', 'Wholesale').strip()
         
         if Tenant.objects.filter(name__iexact=name).exists():
             messages.error(request, f"Tenant with name '{name}' already exists.")
@@ -38,8 +40,10 @@ def tenant_create(request):
                 phone=phone,
                 email=email,
                 gstin=gstin,
+                gst_dealer_type=gst_dealer_type,
                 dl_number=dl_number,
-                is_active=is_active
+                is_active=is_active,
+                business_mode=business_mode
             )
             messages.success(request, f"Tenant '{name}' created successfully.")
             return redirect('tenant_list')
@@ -62,8 +66,10 @@ def tenant_edit(request, pk):
         phone = request.POST.get('phone', '').strip()
         email = request.POST.get('email', '').strip()
         gstin = request.POST.get('gstin', '').strip()
+        gst_dealer_type = request.POST.get('gst_dealer_type', 'Regular').strip()
         dl_number = request.POST.get('dl_number', '').strip()
         is_active = request.POST.get('is_active') == 'on'
+        business_mode = request.POST.get('business_mode', 'Wholesale').strip()
         
         if Tenant.objects.filter(name__iexact=name).exclude(id=pk).exists():
             messages.error(request, f"Tenant with name '{name}' already exists.")
@@ -74,8 +80,10 @@ def tenant_edit(request, pk):
             tenant.phone = phone
             tenant.email = email
             tenant.gstin = gstin
+            tenant.gst_dealer_type = gst_dealer_type
             tenant.dl_number = dl_number
             tenant.is_active = is_active
+            tenant.business_mode = business_mode
             tenant.save()
             messages.success(request, f"Tenant '{name}' updated successfully.")
             return redirect('tenant_list')

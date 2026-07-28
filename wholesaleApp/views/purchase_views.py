@@ -32,6 +32,11 @@ def get_product_details(request, pk):
 # ==================== PURCHASE ORDER VIEWS ====================
 # @login_required
 def po_list(request):
+    from wholesaleApp.views.security_helpers import has_feature_access
+    if not has_feature_access(request.user, 'po_view'):
+        from django.contrib import messages
+        messages.error(request, "Access Denied: You do not have permission to view Purchase Orders.")
+        return redirect('home')
     import urllib.parse
     orders = PurchaseOrder.objects.all().select_related('supplier', 'tenant').prefetch_related('items__product')
     
@@ -54,6 +59,10 @@ def po_list(request):
 # @login_required
 @transaction.atomic
 def po_create(request):
+    from wholesaleApp.views.security_helpers import has_feature_access
+    if not has_feature_access(request.user, 'po_create'):
+        messages.error(request, "Access Denied: You do not have permission to create Purchase Orders.")
+        return redirect('po_list')
     suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False)
     products = ProductMaster.objects.filter(status=True, is_deleted=False)
     
@@ -116,7 +125,7 @@ def po_create(request):
 # @login_required
 def purchase_entry_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not (has_feature_access(request.user, 'purchase_list') or has_feature_access(request.user, 'purchase_create')):
+    if not (has_feature_access(request.user, 'purchase_view') or has_feature_access(request.user, 'purchase_create')):
         messages.error(request, "Access Denied: You do not have permission to view Purchase Entries.")
         return redirect('home')
         
@@ -241,7 +250,7 @@ def purchase_entry_create(request):
 @transaction.atomic
 def purchase_entry_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'purchase_create'):
+    if not has_feature_access(request.user, 'purchase_edit'):
         messages.error(request, "Access Denied: You do not have permission to edit Purchase Entries.")
         return redirect('purchase_entry_list')
         
@@ -377,7 +386,7 @@ def purchase_entry_edit(request, pk):
 @transaction.atomic
 def purchase_entry_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
-    if not has_feature_access(request.user, 'purchase_create'):
+    if not has_feature_access(request.user, 'purchase_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete/cancel Purchase Entries.")
         return redirect('purchase_entry_list')
         
@@ -417,7 +426,10 @@ def purchase_entry_delete(request, pk):
 @transaction.atomic
 def supplier_payment_list(request):
     from wholesaleApp.models import SupplierPayment
-    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
+    if not has_feature_access(request.user, 'supplier_payment_view'):
+        messages.error(request, "Access Denied: You do not have permission to view Supplier Payments.")
+        return redirect('home')
     
     payments = SupplierPayment.objects.all().select_related('supplier')
     context = {
@@ -431,7 +443,10 @@ def supplier_payment_list(request):
 @transaction.atomic
 def supplier_payment_create(request):
     from wholesaleApp.models import SupplierPayment, SupplierMaster
-    from wholesaleApp.views.security_helpers import get_user_permissions_context, log_activity
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context, log_activity
+    if not has_feature_access(request.user, 'supplier_payment_create'):
+        messages.error(request, "Access Denied: You do not have permission to record Supplier Payments.")
+        return redirect('supplier_payment_list')
     
     suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False)
     
@@ -482,7 +497,10 @@ def supplier_payment_create(request):
 @transaction.atomic
 def supplier_payment_delete(request, pk):
     from wholesaleApp.models import SupplierPayment
-    from wholesaleApp.views.security_helpers import log_activity
+    from wholesaleApp.views.security_helpers import has_feature_access, log_activity
+    if not has_feature_access(request.user, 'supplier_payment_delete'):
+        messages.error(request, "Access Denied: You do not have permission to delete Supplier Payments.")
+        return redirect('supplier_payment_list')
     
     payment = get_object_or_404(SupplierPayment, pk=pk)
     supplier = payment.supplier
@@ -509,7 +527,10 @@ def supplier_payment_delete(request, pk):
 @transaction.atomic
 def purchase_return_list(request):
     from wholesaleApp.models import PurchaseReturn
-    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
+    if not has_feature_access(request.user, 'purchase_return_view'):
+        messages.error(request, "Access Denied: You do not have permission to view Purchase Returns.")
+        return redirect('home')
     
     returns = PurchaseReturn.objects.all().select_related('supplier')
     context = {
@@ -523,7 +544,10 @@ def purchase_return_list(request):
 @transaction.atomic
 def purchase_return_create(request):
     from wholesaleApp.models import PurchaseReturn, PurchaseReturnItem, SupplierMaster, ProductMaster, ProductBatch
-    from wholesaleApp.views.security_helpers import get_user_permissions_context, log_activity
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context, log_activity
+    if not has_feature_access(request.user, 'purchase_return_create'):
+        messages.error(request, "Access Denied: You do not have permission to create Purchase Returns.")
+        return redirect('purchase_return_list')
     
     suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False)
     products = ProductMaster.objects.filter(status=True, is_deleted=False)
@@ -618,7 +642,10 @@ def purchase_return_create(request):
 @transaction.atomic
 def purchase_return_delete(request, pk):
     from wholesaleApp.models import PurchaseReturn, ProductBatch
-    from wholesaleApp.views.security_helpers import log_activity
+    from wholesaleApp.views.security_helpers import has_feature_access, log_activity
+    if not has_feature_access(request.user, 'purchase_return_delete'):
+        messages.error(request, "Access Denied: You do not have permission to delete Purchase Returns.")
+        return redirect('purchase_return_list')
     
     p_return = get_object_or_404(PurchaseReturn, pk=pk)
     supplier = p_return.supplier
@@ -657,6 +684,10 @@ def purchase_return_delete(request, pk):
 # @login_required
 def po_email_send(request, pk):
     """View to trigger manual sending of a PO to the supplier via email."""
+    from wholesaleApp.views.security_helpers import has_feature_access
+    if not has_feature_access(request.user, 'po_view'):
+        messages.error(request, "Access Denied: You do not have permission to access Purchase Orders.")
+        return redirect('po_list')
     from wholesaleApp.utils.email_utils import send_po_email_async
     
     po = get_object_or_404(PurchaseOrder, id=pk)

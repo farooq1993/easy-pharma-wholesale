@@ -3,9 +3,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from wholesaleApp.models import SupplierMaster
+from wholesaleApp.views.security_helpers import has_feature_access
 
 # @login_required
 def supplier_list(request):
+    if not has_feature_access(request.user, 'supplier_view'):
+        messages.error(request, "Access Denied: You do not have permission to view Supplier Master.")
+        return redirect('home')
     suppliers = SupplierMaster.objects.filter(is_deleted=False)
     context = {
         'suppliers': suppliers,
@@ -15,6 +19,9 @@ def supplier_list(request):
 
 # @login_required
 def supplier_create(request):
+    if not has_feature_access(request.user, 'supplier_create'):
+        messages.error(request, "Access Denied: You do not have permission to add Supplier Master.")
+        return redirect('supplier_list')
     if request.method == 'POST':
         supplier = SupplierMaster(
             name=request.POST['name'],
@@ -46,6 +53,9 @@ def supplier_create(request):
 
 # @login_required
 def supplier_edit(request, pk):
+    if not has_feature_access(request.user, 'supplier_edit'):
+        messages.error(request, "Access Denied: You do not have permission to edit Supplier Master.")
+        return redirect('supplier_list')
     supplier = get_object_or_404(SupplierMaster, pk=pk, is_deleted=False)
     
     if request.method == 'POST':
@@ -67,6 +77,9 @@ def supplier_edit(request, pk):
 
 # @login_required
 def supplier_delete(request, pk):
+    if not has_feature_access(request.user, 'supplier_delete'):
+        messages.error(request, "Access Denied: You do not have permission to delete Supplier Master.")
+        return redirect('supplier_list')
     supplier = get_object_or_404(SupplierMaster, pk=pk)
     supplier.is_deleted = True
     supplier.save()

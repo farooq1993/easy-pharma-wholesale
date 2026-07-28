@@ -286,6 +286,10 @@ class PermissionMatrixTests(TestCase):
         self.sales_create_feature = AppFeature.objects.get(codename="sales_create")
         self.purchase_create_feature = AppFeature.objects.get(codename="purchase_create")
         
+        from wholesaleApp.models import CustomerMaster, AreaMaster
+        self.area = AreaMaster.objects.create(city="Test City", code="TC")
+        self.customer = CustomerMaster.objects.create(name="Test Customer", mobile="1234567890", area=self.area, opening_balance=0)
+        
     def test_unauthorized_user_is_blocked_from_invoicing(self):
         self.client.force_login(self.employee)
         # Explicitly revoke sales_create for unauthorized test
@@ -308,6 +312,50 @@ class PermissionMatrixTests(TestCase):
         
         response = self.client.get(reverse('invoice_create'))
         self.assertEqual(response.status_code, 200) # Access granted!
+
+    def test_unauthorized_user_blocked_from_invoice_edit(self):
+        self.client.force_login(self.employee)
+        response = self.client.get(reverse('invoice_edit', kwargs={'pk': 1}))
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('invoice_list'))
+
+    def test_authorized_user_can_access_invoice_edit(self):
+        self.client.force_login(self.employee)
+        from wholesaleApp.models import SalesInvoice
+        invoice = SalesInvoice.objects.create(invoice_number="INV-TEST-01", invoice_date="2026-07-28", customer=self.customer, gross_amount=0, discount_amount=0, gst_amount=0, net_amount=0)
+        feature_edit = AppFeature.objects.get(codename="sales_edit")
+        UserFeaturePermission.objects.update_or_create(user=self.employee, feature=feature_edit, defaults={'is_granted': True})
+        response = self.client.get(reverse('invoice_edit', kwargs={'pk': invoice.id}))
+        self.assertEqual(response.status_code, 200)
+
+    def test_unauthorized_user_blocked_from_invoice_delete(self):
+        self.client.force_login(self.employee)
+        response = self.client.get(reverse('invoice_delete', kwargs={'pk': 1}))
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('invoice_list'))
+
+    def test_authorized_user_can_access_invoice_delete(self):
+        self.client.force_login(self.employee)
+        from wholesaleApp.models import SalesInvoice
+        invoice = SalesInvoice.objects.create(invoice_number="INV-TEST-02", invoice_date="2026-07-28", customer=self.customer, gross_amount=0, discount_amount=0, gst_amount=0, net_amount=0)
+        feature_delete = AppFeature.objects.get(codename="sales_delete")
+        UserFeaturePermission.objects.update_or_create(user=self.employee, feature=feature_delete, defaults={'is_granted': True})
+        response = self.client.post(reverse('invoice_delete', kwargs={'pk': invoice.id}))
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('invoice_list'))
+
+    def test_unauthorized_user_blocked_from_customer_create(self):
+        self.client.force_login(self.employee)
+        response = self.client.get(reverse('createcustomer'))
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('home'))
+
+    def test_authorized_user_can_access_customer_create(self):
+        self.client.force_login(self.employee)
+        feature_cust_create = AppFeature.objects.get(codename="customer_create")
+        UserFeaturePermission.objects.update_or_create(user=self.employee, feature=feature_cust_create, defaults={'is_granted': True})
+        response = self.client.get(reverse('createcustomer'))
+        self.assertEqual(response.status_code, 200)
         
     def test_owner_permissions_matrix_view_access(self):
         self.client.force_login(self.employee)
@@ -919,15 +967,21 @@ class SalesPaymentAndLedgerTests(TestCase):
         
         from wholesaleApp.models import AppFeature, UserFeaturePermission
         feature_sales = AppFeature.objects.get(codename="sales_create")
-        feature_cust = AppFeature.objects.get(codename="customer_crud")
+        feature_sales_edit = AppFeature.objects.get(codename="sales_edit")
+        feature_sales_delete = AppFeature.objects.get(codename="sales_delete")
+        feature_cust = AppFeature.objects.get(codename="customer_create")
         feature_ledger = AppFeature.objects.get(codename="customer_ledger")
-        feature_payment = AppFeature.objects.get(codename="payment_collection")
+        feature_payment = AppFeature.objects.get(codename="payment_collection_create")
+        feature_payment_delete = AppFeature.objects.get(codename="payment_collection_delete")
         feature_outstanding = AppFeature.objects.get(codename="report_outstanding")
         
         UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_sales, defaults={'is_granted': True})
+        UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_sales_edit, defaults={'is_granted': True})
+        UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_sales_delete, defaults={'is_granted': True})
         UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_cust, defaults={'is_granted': True})
         UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_ledger, defaults={'is_granted': True})
         UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_payment, defaults={'is_granted': True})
+        UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_payment_delete, defaults={'is_granted': True})
         UserFeaturePermission.objects.update_or_create(user=self.user, feature=feature_outstanding, defaults={'is_granted': True})
         
         self.area = AreaMaster.objects.create(city="Test City", code="TC1")
@@ -1351,6 +1405,10 @@ class InvoiceEmailTests(TestCase):
         from django.contrib.auth.models import User
         
         self.user = User.objects.create_user(username="testuser", password="password")
+        from wholesaleApp.views.security_helpers import seed_default_permissions
+        seed_default_permissions()
+        self.user.profile.role = 'Owner'
+        self.user.profile.save()
         self.tenant = Tenant.objects.create(name="test_tenant", company_name="Test Company", is_active=True)
         self.area = AreaMaster.objects.create(tenant=self.tenant, city="Test City", code="TC")
         self.customer = CustomerMaster.objects.create(
@@ -1675,6 +1733,152 @@ class InvoiceEmailTests(TestCase):
             # Verify status updated
             self.invoice.refresh_from_db()
             self.assertEqual(self.invoice.status, 'Delivered')
+
+
+class DualModeRetailWholesaleTests(TestCase):
+    def setUp(self):
+        from wholesaleApp.models.tenant import Tenant
+        from wholesaleApp.models.customers import CustomerMaster, AreaMaster
+        from wholesaleApp.models.products import ProductMaster, ProductTypeMaster, CompanyMaster
+        from wholesaleApp.models.purchase import ProductBatch
+        from wholesaleApp.models.sales import SalesInvoice, SalesInvoiceItem
+        from django.contrib.auth.models import User
+        
+        self.user = User.objects.create_user(username="testuser_dual", password="password")
+        self.user.is_superuser = True
+        self.user.save()
+        self.tenant = Tenant.objects.create(name="dual_tenant", company_name="Dual Mode Firm", business_mode="Dual", is_active=True)
+        self.user.profile.tenant = self.tenant
+        self.user.profile.save()
+        
+        self.area = AreaMaster.objects.create(tenant=self.tenant, city="Dual City", code="DC")
+        self.customer = CustomerMaster.objects.create(
+            tenant=self.tenant,
+            name="Chemist Customer",
+            mobile="9876543210",
+            area=self.area,
+            city="Dual City",
+            state="Dual State"
+        )
+        self.company = CompanyMaster.objects.create(tenant=self.tenant, name="Abbott", code="ABBOTT")
+        self.prod_type = ProductTypeMaster.objects.create(tenant=self.tenant, name="Tablet")
+        
+        # Product with 10 units per strip (e.g. 10 tablets in a strip)
+        self.product = ProductMaster.objects.create(
+            tenant=self.tenant,
+            name="Paracetamol 650",
+            company=self.company,
+            product_type=self.prod_type,
+            hsn_code="3004",
+            gst_rate=12.00,
+            units_per_strip=10
+        )
+        # Stock: 50.0000 strips
+        self.batch = ProductBatch.objects.create(
+            product=self.product,
+            batch_number="PARAB1",
+            expiry_date="2030-01-01",
+            mrp=150.00,
+            purchase_rate=100.00,
+            sale_rate=120.00,
+            quantity=50.0000
+        )
+
+    def test_retail_mode_invoice_create_success(self):
+        from decimal import Decimal
+        from wholesaleApp.models.sales import SalesInvoice, SalesInvoiceItem
+        from wholesaleApp.models.purchase import ProductBatch
+        
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['active_tenant_id'] = self.tenant.id
+        session.save()
+
+        # Let's post a retail invoice.
+        # Retail mode is active, quantity is 35 loose units.
+        # 35 loose units / 10 = 3.5 strips.
+        # Rate is 120 per strip, so rate per unit is 12.00.
+        # Base price = 35 * 12 = 420.00.
+        # GST = 12% of 420 = 50.40.
+        # Net total = 470.40.
+        # Discount is 0.
+        response = self.client.post(reverse('invoice_create'), {
+            'customer': '',
+            'patient_name': 'Rahul Kumar',
+            'patient_mobile': '9988776655',
+            'doctor_name': 'Dr. Mehta',
+            'invoice_date': '2026-07-26',
+            'payment_type': 'Cash',
+            'gross_amount': '420.00',
+            'discount_amount': '0.00',
+            'gst_amount': '50.40',
+            'net_amount': '470.40',
+            'is_retail': 'true',
+            'product[]': [self.product.id],
+            'batch[]': [self.batch.id],
+            'sale_rate[]': ['120.00'],
+            'quantity[]': ['35.0000'],
+            'free_quantity[]': ['0.0000'],
+            'discount_percentage[]': ['0.00'],
+            'total_amount[]': ['470.40']
+        })
+        self.assertEqual(response.status_code, 302)
+        
+        # Verify invoice and item created correctly in DB
+        invoice = SalesInvoice.objects.filter(patient_name='Rahul Kumar').first()
+        self.assertIsNotNone(invoice)
+        self.assertTrue(invoice.is_retail)
+        self.assertEqual(invoice.patient_mobile, '9988776655')
+        self.assertEqual(invoice.doctor_name, 'Dr. Mehta')
+        self.assertIsNone(invoice.customer)
+        self.assertEqual(invoice.net_amount, Decimal('470.40'))
+        
+        item = invoice.items.first()
+        self.assertIsNotNone(item)
+        self.assertTrue(item.is_retail)
+        self.assertEqual(item.quantity, Decimal('35.0000'))
+        
+        # Verify stock batch quantity reduced correctly: 50.0000 - 35.0000 = 15.0000
+        self.batch.refresh_from_db()
+        self.assertEqual(self.batch.quantity, Decimal('15.0000'))
+
+    def test_tenant_crud_business_mode(self):
+        from wholesaleApp.models.tenant import Tenant
+        self.client.force_login(self.user)
+        
+        # Test creation of tenant with Dual mode
+        response = self.client.post(reverse('tenant_create'), {
+            'name': 'new_dual_tenant',
+            'company_name': 'New Dual Shop Ltd',
+            'address': 'Some Address',
+            'phone': '1234567890',
+            'email': 'shop@firm.com',
+            'gstin': '123456789012345',
+            'dl_number': 'DL-12345',
+            'is_active': 'on',
+            'business_mode': 'Dual'
+        })
+        self.assertEqual(response.status_code, 302)
+        tenant = Tenant.objects.filter(name='new_dual_tenant').first()
+        self.assertIsNotNone(tenant)
+        self.assertEqual(tenant.business_mode, 'Dual')
+
+        # Test edit tenant to Wholesale mode
+        response = self.client.post(reverse('tenant_edit', kwargs={'pk': tenant.id}), {
+            'name': 'new_dual_tenant',
+            'company_name': 'New Dual Shop Ltd',
+            'address': 'Some Address',
+            'phone': '1234567890',
+            'email': 'shop@firm.com',
+            'gstin': '123456789012345',
+            'dl_number': 'DL-12345',
+            'is_active': 'on',
+            'business_mode': 'Wholesale'
+        })
+        self.assertEqual(response.status_code, 302)
+        tenant.refresh_from_db()
+        self.assertEqual(tenant.business_mode, 'Wholesale')
+
 
 
 

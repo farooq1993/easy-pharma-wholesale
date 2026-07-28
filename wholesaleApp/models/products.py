@@ -71,6 +71,7 @@ class ProductMaster(TenantModel):
     product_type = models.ForeignKey(ProductTypeMaster, on_delete=models.PROTECT, related_name='products', verbose_name="Product Type")
     
     pack_size = models.CharField(max_length=50, verbose_name="Packaging (e.g., 10 Tab, 100ml)")
+    units_per_strip = models.IntegerField(default=1, verbose_name="Conversion Factor (Units per Strip)")
     hsn_code = models.CharField(max_length=15, blank=True, null=True, verbose_name="HSN Code")
     gst_rate = models.DecimalField(max_digits=5, decimal_places=2, default=12.00, verbose_name="GST Rate (%)")
     min_stock = models.IntegerField(default=10, verbose_name="Minimum Stock Level")

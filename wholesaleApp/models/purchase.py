@@ -13,7 +13,7 @@ class ProductBatch(TenantModel):
     purchase_rate = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Purchase Rate (₹)")
     sale_rate = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Sale Rate (₹)")
     wholesale_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Wholesale Rate (₹)")
-    quantity = models.IntegerField(default=0, verbose_name="Available Stock (Packs)")
+    quantity = models.DecimalField(max_digits=12, decimal_places=4, default=0.0000, verbose_name="Available Stock (Packs)")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

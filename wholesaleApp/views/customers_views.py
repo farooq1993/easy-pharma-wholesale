@@ -8,7 +8,7 @@ from wholesaleApp.models.customers import CustomerMaster, AreaMaster, SubareaMas
 # @login_required
 def customer_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'customer_crud'):
+    if not has_feature_access(request.user, 'customer_view'):
         messages.error(request, "Access Denied: You do not have permission to view Customers.")
         return redirect('home')
         
@@ -23,7 +23,7 @@ def customer_list(request):
 # @login_required
 def customer_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'customer_crud'):
+    if not has_feature_access(request.user, 'customer_create'):
         messages.error(request, "Access Denied: You do not have permission to create Customers.")
         return redirect('home')
         
@@ -74,7 +74,7 @@ def customer_create(request):
 # @login_required
 def customer_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'customer_crud'):
+    if not has_feature_access(request.user, 'customer_edit'):
         messages.error(request, "Access Denied: You do not have permission to edit Customers.")
         return redirect('home')
         
@@ -114,7 +114,7 @@ def customer_edit(request, pk):
 # @login_required
 def customer_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
-    if not has_feature_access(request.user, 'customer_crud'):
+    if not has_feature_access(request.user, 'customer_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete Customers.")
         return redirect('home')
         
@@ -129,7 +129,7 @@ def customer_delete(request, pk):
 # @login_required
 def area_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'area_crud'):
+    if not has_feature_access(request.user, 'area_view'):
         messages.error(request, "Access Denied: You do not have permission to view Areas.")
         return redirect('home')
         
@@ -146,7 +146,7 @@ def area_list(request):
 # @login_required
 def area_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'area_crud'):
+    if not has_feature_access(request.user, 'area_create'):
         messages.error(request, "Access Denied: You do not have permission to create Areas.")
         return redirect('home')
         
@@ -172,7 +172,7 @@ def area_create(request):
 # @login_required
 def area_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'area_crud'):
+    if not has_feature_access(request.user, 'area_edit'):
         messages.error(request, "Access Denied: You do not have permission to edit Areas.")
         return redirect('home')
         
@@ -194,7 +194,7 @@ def area_edit(request, pk):
 # @login_required
 def area_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
-    if not has_feature_access(request.user, 'area_crud'):
+    if not has_feature_access(request.user, 'area_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete Areas.")
         return redirect('home')
         
@@ -209,7 +209,7 @@ def area_delete(request, pk):
 # @login_required
 def subarea_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'area_crud'):
+    if not has_feature_access(request.user, 'area_create'):
         messages.error(request, "Access Denied: You do not have permission to create Subareas.")
         return redirect('home')
         
@@ -236,7 +236,7 @@ def subarea_create(request):
 # @login_required
 def subarea_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'area_crud'):
+    if not has_feature_access(request.user, 'area_edit'):
         messages.error(request, "Access Denied: You do not have permission to edit Subareas.")
         return redirect('home')
         
@@ -260,7 +260,7 @@ def subarea_edit(request, pk):
 # @login_required
 def subarea_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
-    if not has_feature_access(request.user, 'area_crud'):
+    if not has_feature_access(request.user, 'area_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete Subareas.")
         return redirect('home')
         
@@ -400,7 +400,7 @@ from django.db import transaction
 @transaction.atomic
 def customer_payment_add(request):
     from wholesaleApp.views.security_helpers import has_feature_access
-    if not has_feature_access(request.user, 'payment_collection'):
+    if not has_feature_access(request.user, 'payment_collection_create'):
         messages.error(request, "Access Denied: You do not have permission to record payments.")
         return redirect('customer_ledger')
         
@@ -441,12 +441,11 @@ def customer_payment_add(request):
 # @login_required
 @transaction.atomic
 def customer_payment_delete(request, pk):
+    from wholesaleApp.models import CustomerPayment
     from wholesaleApp.views.security_helpers import has_feature_access
-    if not has_feature_access(request.user, 'payment_collection'):
+    if not has_feature_access(request.user, 'payment_collection_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete payments.")
         return redirect(f"/customer/ledger/?customer={get_object_or_404(CustomerPayment, pk=pk).customer.id}")
-        
-    from wholesaleApp.models import CustomerPayment
     
     payment = get_object_or_404(CustomerPayment, pk=pk)
     customer = payment.customer
@@ -464,6 +463,11 @@ def customer_payment_delete(request, pk):
 
 def customer_payment_list(request):
     """View to list all customer payments (collections)."""
+    from wholesaleApp.views.security_helpers import has_feature_access
+    if not has_feature_access(request.user, 'payment_collection_view'):
+        messages.error(request, "Access Denied: You do not have permission to view Payments Collection.")
+        return redirect('home')
+        
     from wholesaleApp.models import CustomerPayment
     from wholesaleApp.views.security_helpers import get_user_permissions_context
     
@@ -510,6 +514,11 @@ def get_customer_outstanding_invoices(request, customer_id):
 @transaction.atomic
 def customer_payment_create(request):
     """View to record customer payment directly and adjust against a specific invoice."""
+    from wholesaleApp.views.security_helpers import has_feature_access
+    if not has_feature_access(request.user, 'payment_collection_create'):
+        messages.error(request, "Access Denied: You do not have permission to record payments.")
+        return redirect('customer_payment_list')
+        
     from wholesaleApp.models import CustomerMaster, CustomerPayment
     from wholesaleApp.views.security_helpers import get_user_permissions_context, log_activity
     from decimal import Decimal

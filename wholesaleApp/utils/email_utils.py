@@ -24,6 +24,10 @@ def send_invoice_email(invoice_id):
         return False
 
     customer = invoice.customer
+    if not customer:
+        logger.info(f"Retail invoice {invoice.invoice_number} has no B2B customer. Skipping email sending.")
+        return False
+
     if not customer.email or not customer.email.strip():
         logger.info(f"Customer '{customer.name}' has no email address. Skipping email for invoice {invoice.invoice_number}.")
         return False

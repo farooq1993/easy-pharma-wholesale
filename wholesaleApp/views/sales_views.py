@@ -17,7 +17,7 @@ from wholesaleApp.models import (
 # @login_required
 def get_product_batches(request, pk):
     """API endpoint to get active batches with stock for a selected product."""
-    batches = ProductBatch.objects.filter(product_id=pk, quantity__gt=0)
+    batches = ProductBatch.objects.filter(product_id=pk, quantity__gt=0).select_related('product')
     data = []
     for b in batches:
         # Format MM/YY for display mask and YYYY-MM-DD for form submit
@@ -32,7 +32,8 @@ def get_product_batches(request, pk):
             'purchase_rate': float(b.purchase_rate),
             'sale_rate': float(b.sale_rate),
             'wholesale_rate': float(b.wholesale_rate),
-            'quantity': b.quantity
+            'quantity': float(b.quantity),
+            'units_per_strip': b.product.units_per_strip
         })
     return JsonResponse(data, safe=False)
 
@@ -41,7 +42,7 @@ def get_product_batches(request, pk):
 # @login_required
 def invoice_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not (has_feature_access(request.user, 'sales_create') or has_feature_access(request.user, 'sales_reprint')):
+    if not (has_feature_access(request.user, 'sales_view') or has_feature_access(request.user, 'sales_reprint')):
         messages.error(request, "Access Denied: You do not have permission to view Sales Invoices.")
         return redirect('home')
         
@@ -68,6 +69,13 @@ def invoice_create(request):
     
     if request.method == 'POST':
         customer_id = request.POST.get('customer')
+        if not customer_id:
+            customer_id = None
+            
+        patient_name = request.POST.get('patient_name', '').strip() or None
+        patient_mobile = request.POST.get('patient_mobile', '').strip() or None
+        doctor_name = request.POST.get('doctor_name', '').strip() or None
+        
         invoice_date = request.POST.get('invoice_date')
         payment_type = request.POST.get('payment_type', 'Credit')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
@@ -84,11 +92,13 @@ def invoice_create(request):
         discounts = request.POST.getlist('discount_percentage[]')
         totals = request.POST.getlist('total_amount[]')
         
+        is_retail = request.POST.get('is_retail') == 'true' or request.POST.get('is_retail') == '1' or request.POST.get('is_retail') == 'on'
+
         # 1. Pre-validate stock availability for all items to avoid rollback errors
         for i in range(len(product_ids)):
             batch_id = batch_ids[i]
-            qty = int(quantities[i])
-            free_qty = int(free_quantities[i]) if free_quantities[i] else 0
+            qty = Decimal(quantities[i])
+            free_qty = Decimal(free_quantities[i]) if free_quantities[i] else Decimal('0.0000')
             total_requested = qty + free_qty
             
             batch = get_object_or_404(ProductBatch, id=batch_id)
@@ -105,12 +115,16 @@ def invoice_create(request):
         invoice = SalesInvoice.objects.create(
             invoice_number=invoice_number,
             customer_id=customer_id,
+            patient_name=patient_name,
+            patient_mobile=patient_mobile,
+            doctor_name=doctor_name,
             invoice_date=invoice_date,
             payment_type=payment_type,
             gross_amount=gross_amount,
             discount_amount=discount_amount,
             gst_amount=gst_amount,
             net_amount=net_amount,
+            is_retail=is_retail,
             created_by=request.user if request.user.is_authenticated else None
         )
         
@@ -119,8 +133,8 @@ def invoice_create(request):
             prod_id = product_ids[i]
             batch_id = batch_ids[i]
             s_rate = Decimal(sale_rates[i])
-            qty = int(quantities[i])
-            free_qty = int(free_quantities[i]) if free_quantities[i] else 0
+            qty = Decimal(quantities[i])
+            free_qty = Decimal(free_quantities[i]) if free_quantities[i] else Decimal('0.0000')
             disc_pct = Decimal(discounts[i]) if discounts[i] else Decimal('0.00')
             total_val = Decimal(totals[i])
             
@@ -136,7 +150,8 @@ def invoice_create(request):
                 free_quantity=free_qty,
                 sale_rate=s_rate,
                 discount_percentage=disc_pct,
-                total_amount=total_val
+                total_amount=total_val,
+                is_retail=is_retail
             )
             
             # Deduct Batch Inventory stock
@@ -144,7 +159,7 @@ def invoice_create(request):
             batch.save()
             
         # 4. Update Customer Outstanding Balance (Accounts Receivable)
-        if payment_type == 'Credit':
+        if payment_type == 'Credit' and customer_id:
             customer = CustomerMaster.objects.get(id=customer_id)
             customer.opening_balance += invoice.net_amount
             customer.save()
@@ -250,7 +265,10 @@ def invoice_print(request, pk):
         disc_pct = item.discount_percentage
         gst_pct = item.product.gst_rate
         
-        base_val = qty * rate
+        if item.is_retail:
+            base_val = qty * (rate / Decimal(item.product.units_per_strip or 1))
+        else:
+            base_val = qty * rate
         disc_val = base_val * (disc_pct / 100)
         taxable_val = base_val - disc_val
         gst_val = taxable_val * (gst_pct / 100)
@@ -305,7 +323,7 @@ def invoice_print(request, pk):
 @transaction.atomic
 def invoice_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
-    if not has_feature_access(request.user, 'sales_create'):
+    if not has_feature_access(request.user, 'sales_edit'):
         messages.error(request, "Access Denied: You do not have permission to edit Sale Bills.")
         return redirect('invoice_list')
         
@@ -315,12 +333,20 @@ def invoice_edit(request, pk):
     
     if request.method == 'POST':
         customer_id = request.POST.get('customer')
+        if not customer_id:
+            customer_id = None
+            
+        patient_name = request.POST.get('patient_name', '').strip() or None
+        patient_mobile = request.POST.get('patient_mobile', '').strip() or None
+        doctor_name = request.POST.get('doctor_name', '').strip() or None
+        
         invoice_date = request.POST.get('invoice_date')
         payment_type = request.POST.get('payment_type', 'Credit')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))
         net_amount = Decimal(request.POST.get('net_amount', 0))
+        is_retail = request.POST.get('is_retail') == 'true' or request.POST.get('is_retail') == '1' or request.POST.get('is_retail') == 'on'
         
         # Extract item arrays from POST
         product_ids = request.POST.getlist('product[]')
@@ -341,8 +367,8 @@ def invoice_edit(request, pk):
         # 2. Check if new items have sufficient stock
         for i in range(len(product_ids)):
             batch_id = batch_ids[i]
-            qty = int(quantities[i])
-            free_qty = int(free_quantities[i]) if free_quantities[i] else 0
+            qty = Decimal(quantities[i])
+            free_qty = Decimal(free_quantities[i]) if free_quantities[i] else Decimal('0.0000')
             
             batch = ProductBatch.objects.get(id=batch_id)
             if batch.quantity < (qty + free_qty):
@@ -355,7 +381,7 @@ def invoice_edit(request, pk):
                 return redirect('invoice_edit', pk=pk)
                 
         # 3. Update customer outstanding balance: revert old net amount
-        if invoice.payment_type == 'Credit':
+        if invoice.payment_type == 'Credit' and invoice.customer:
             old_customer = invoice.customer
             old_customer.opening_balance -= invoice.net_amount
             old_customer.save()
@@ -365,12 +391,16 @@ def invoice_edit(request, pk):
         
         # 5. Save updated invoice headers
         invoice.customer_id = customer_id
+        invoice.patient_name = patient_name
+        invoice.patient_mobile = patient_mobile
+        invoice.doctor_name = doctor_name
         invoice.invoice_date = invoice_date
         invoice.payment_type = payment_type
         invoice.gross_amount = gross_amount
         invoice.discount_amount = discount_amount
         invoice.gst_amount = gst_amount
         invoice.net_amount = net_amount
+        invoice.is_retail = is_retail
         invoice.save()
         
         # 6. Save new items and deduct stock
@@ -378,8 +408,8 @@ def invoice_edit(request, pk):
             prod_id = product_ids[i]
             batch_id = batch_ids[i]
             s_rate = Decimal(sale_rates[i])
-            qty = int(quantities[i])
-            free_qty = int(free_quantities[i]) if free_quantities[i] else 0
+            qty = Decimal(quantities[i])
+            free_qty = Decimal(free_quantities[i]) if free_quantities[i] else Decimal('0.0000')
             disc_pct = Decimal(discounts[i]) if discounts[i] else Decimal('0.00')
             total_val = Decimal(totals[i])
             
@@ -392,14 +422,15 @@ def invoice_edit(request, pk):
                 free_quantity=free_qty,
                 sale_rate=s_rate,
                 discount_percentage=disc_pct,
-                total_amount=total_val
+                total_amount=total_val,
+                is_retail=is_retail
             )
             # Deduct stock
             batch.quantity -= (qty + free_qty)
             batch.save()
             
         # 7. Apply new invoice net amount to customer balance
-        if payment_type == 'Credit':
+        if payment_type == 'Credit' and invoice.customer:
             new_customer = invoice.customer
             new_customer.opening_balance += invoice.net_amount
             new_customer.save()
@@ -426,7 +457,7 @@ def invoice_edit(request, pk):
 @transaction.atomic
 def invoice_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
-    if not has_feature_access(request.user, 'sales_create'):
+    if not has_feature_access(request.user, 'sales_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete/cancel Sale Bills.")
         return redirect('invoice_list')
         
@@ -456,8 +487,11 @@ def invoice_delete(request, pk):
 @transaction.atomic
 def sales_return_list(request):
     from wholesaleApp.models import SalesReturn
-    from wholesaleApp.views.security_helpers import get_user_permissions_context
-    
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
+    if not has_feature_access(request.user, 'sales_return_view'):
+        messages.error(request, "Access Denied: You do not have permission to view Sales Returns.")
+        return redirect('home')
+        
     returns = SalesReturn.objects.all().select_related('customer')
     context = {
         'returns': returns,
@@ -470,7 +504,10 @@ def sales_return_list(request):
 @transaction.atomic
 def sales_return_create(request):
     from wholesaleApp.models import SalesReturn, SalesReturnItem, CustomerMaster, ProductMaster, ProductBatch
-    from wholesaleApp.views.security_helpers import get_user_permissions_context, log_activity
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context, log_activity
+    if not has_feature_access(request.user, 'sales_return_create'):
+        messages.error(request, "Access Denied: You do not have permission to create Sales Returns.")
+        return redirect('sales_return_list')
     
     customers = CustomerMaster.objects.filter(status=True, is_deleted=False)
     products = ProductMaster.objects.filter(status=True, is_deleted=False)
@@ -556,7 +593,10 @@ def sales_return_create(request):
 @transaction.atomic
 def sales_return_delete(request, pk):
     from wholesaleApp.models import SalesReturn, ProductBatch
-    from wholesaleApp.views.security_helpers import log_activity
+    from wholesaleApp.views.security_helpers import has_feature_access, log_activity
+    if not has_feature_access(request.user, 'sales_return_delete'):
+        messages.error(request, "Access Denied: You do not have permission to delete Sales Returns.")
+        return redirect('sales_return_list')
     
     s_return = get_object_or_404(SalesReturn, pk=pk)
     customer = s_return.customer
@@ -585,12 +625,11 @@ def sales_return_delete(request, pk):
     return redirect('sales_return_list')
 
 
-# @login_required
 def invoice_email_bulk(request):
     """View to filter sales invoices by date and customer, and manually trigger email notifications."""
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context, log_activity
     
-    if not has_feature_access(request.user, 'sales_reprint'):
+    if not has_feature_access(request.user, 'sales_view'):
         messages.error(request, "Access Denied: You do not have permission to email bills.")
         return redirect('home')
 
@@ -696,7 +735,7 @@ def delivery_management(request):
     from django.contrib.auth.models import User
     from wholesaleApp.models import AreaMaster
     
-    if not has_feature_access(request.user, 'sales_reprint'):
+    if not has_feature_access(request.user, 'sales_view'):
         messages.error(request, "Access Denied: You do not have permission to access Delivery Management.")
         return redirect('home')
 

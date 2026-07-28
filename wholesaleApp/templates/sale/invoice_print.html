@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TAX INVOICE - {{ invoice.invoice_number }}</title>
+    <title>{% if invoice.is_retail %}RETAIL BILL{% else %}TAX INVOICE{% endif %} - {{ invoice.invoice_number }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     
@@ -135,7 +135,7 @@
             
             <!-- Invoice Meta Info -->
             <div class="col-4 text-end">
-                <span class="badge bg-danger text-uppercase fw-bold px-3 py-1.5 mb-2" style="font-size: 10px; letter-spacing: 0.5px;">Tax Invoice</span>
+                <span class="badge {% if invoice.is_retail %}bg-success{% else %}bg-danger{% endif %} text-uppercase fw-bold px-3 py-1.5 mb-2" style="font-size: 10px; letter-spacing: 0.5px;">{% if invoice.is_retail %}Retail Bill{% else %}Tax Invoice{% endif %}</span>
                 <div class="small">
                     <strong>Invoice No:</strong> <span class="font-monospace fw-bold">{{ invoice.invoice_number }}</span><br>
                     <strong>Date:</strong> {{ invoice.invoice_date|date:"d-m-Y" }}<br>
@@ -147,6 +147,28 @@
 
         <!-- BUYER & BILL DETAILS -->
         <div class="row mb-2 bg-light p-2 rounded mx-0 border" style="font-size: 10px;">
+            {% if invoice.is_retail %}
+            <div class="col-6 border-end">
+                <span class="text-uppercase text-muted fw-bold" style="font-size: 8px; display: block; margin-bottom: 2px;">Patient Details (B2C Cash Memo)</span>
+                <strong class="text-dark" style="font-size: 11px;">{{ invoice.patient_name }}</strong>
+                <div class="text-dark mt-1">
+                    {% if invoice.patient_mobile %}
+                    <strong>Mobile:</strong> {{ invoice.patient_mobile }}
+                    {% else %}
+                    <strong>Mobile:</strong> Not Provided
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-6 ps-3">
+                <span class="text-uppercase text-muted fw-bold" style="font-size: 8px; display: block; margin-bottom: 2px;">Consultant Details</span>
+                <table class="table table-sm table-borderless mb-0 lh-sm" style="font-size: 9.5px;">
+                    <tr>
+                        <td class="p-0 text-muted" style="width: 35%;">Prescribed By:</td>
+                        <td class="p-0 fw-bold text-primary">{{ invoice.doctor_name|default:"Self / OTC" }}</td>
+                    </tr>
+                </table>
+            </div>
+            {% else %}
             <div class="col-6 border-end">
                 <span class="text-uppercase text-muted fw-bold" style="font-size: 8px; display: block; margin-bottom: 2px;">Billed To (Chemist / Hospital)</span>
                 <strong class="text-dark" style="font-size: 11px;">{{ customer.name }}</strong>
@@ -177,6 +199,7 @@
                     {% endif %}
                 </table>
             </div>
+            {% endif %}
         </div>
 
         <!-- ITEMS TABLE -->
@@ -189,8 +212,8 @@
                     <th style="width: 9%;">HSN</th>
                     <th style="width: 10%;">Batch No</th>
                     <th style="width: 8%;">Expiry</th>
-                    <th style="width: 6%;">Qty</th>
-                    <th style="width: 5%;">Free</th>
+                    <th style="width: 6%;">{% if invoice.is_retail %}Qty (Units){% else %}Qty (Strips){% endif %}</th>
+                    <th style="width: 5%;">{% if invoice.is_retail %}Free (Units){% else %}Free (Strips){% endif %}</th>
                     <th style="width: 7%;">MRP (₹)</th>
                     <th style="width: 8%;">Rate (₹)</th>
                     <th style="width: 5%;">Disc %</th>
@@ -207,8 +230,8 @@
                         <td class="font-monospace small">{{ det.hsn_code|default:"—" }}</td>
                         <td class="font-monospace fw-semibold">{{ det.batch_number }}</td>
                         <td class="font-monospace">{{ det.expiry_mask }}</td>
-                        <td>{{ det.qty }}</td>
-                        <td>{{ det.free_qty|default:"—" }}</td>
+                        <td>{{ det.qty|floatformat:"-4" }}</td>
+                        <td>{{ det.free_qty|floatformat:"-4" }}</td>
                         <td class="text-end">₹{{ det.mrp|floatformat:2 }}</td>
                         <td class="text-end">₹{{ det.rate|floatformat:2 }}</td>
                         <td class="text-danger">{{ det.disc_pct|floatformat:1 }}%</td>

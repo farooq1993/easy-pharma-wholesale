@@ -32,8 +32,23 @@
             <tbody>
                 {% for invoice in invoices %}
                 <tr>
-                    <td><strong>{{ invoice.invoice_number }}</strong></td>
-                    <td>{{ invoice.customer.name }}</td>
+                    <td>
+                        <strong>{{ invoice.invoice_number }}</strong>
+                        {% if invoice.is_retail %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 9px; vertical-align: middle;">Retail</span>
+                        {% else %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 9px; vertical-align: middle;">Wholesale</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if invoice.is_retail %}
+                            <div class="fw-bold text-dark">{{ invoice.patient_name }}</div>
+                            <div class="small text-muted"><i class="bi bi-person-workspace text-secondary"></i> Dr. {{ invoice.doctor_name|default:"OTC / Self" }}</div>
+                            {% if invoice.patient_mobile %}<div class="small text-muted"><i class="bi bi-phone"></i> {{ invoice.patient_mobile }}</div>{% endif %}
+                        {% else %}
+                            {{ invoice.customer.name }}
+                        {% endif %}
+                    </td>
                     <td>{{ invoice.invoice_date }}</td>
                     <td>
                         {% if invoice.payment_type == 'Cash' %}

@@ -42,7 +42,10 @@
                                 <div><i class="bi bi-telephone text-muted small"></i> {{ t.phone|default:"—" }}</div>
                                 <div class="text-muted small"><i class="bi bi-envelope text-muted small"></i> {{ t.email|default:"—" }}</div>
                             </td>
-                            <td class="font-monospace fw-semibold text-secondary">{{ t.gstin|default:"—" }}</td>
+                            <td class="font-monospace fw-semibold text-secondary">
+                                <div>{{ t.gstin|default:"—" }}</div>
+                                <div class="text-muted small fw-normal">{{ t.get_gst_dealer_type_display }}</div>
+                            </td>
                             <td class="font-monospace text-secondary">{{ t.dl_number|default:"—" }}</td>
                             <td>
                                 {% if t.is_active %}

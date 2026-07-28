@@ -4,7 +4,7 @@ from decimal import Decimal
 from wholesaleApp.models import ProductMaster, SchemeMaster
 from wholesaleApp.views.security_helpers import permission_required, log_activity, get_user_permissions_context
 
-@permission_required('product_crud')
+@permission_required('product_view')
 def scheme_list(request):
     schemes = SchemeMaster.objects.all().select_related('product')
     context = {
@@ -14,7 +14,7 @@ def scheme_list(request):
     }
     return render(request, 'schemes/scheme_list.html', context)
 
-@permission_required('product_crud')
+@permission_required('product_create')
 def scheme_create(request):
     products = ProductMaster.objects.filter(status=True, is_deleted=False)
     if request.method == 'POST':
@@ -60,7 +60,7 @@ def scheme_create(request):
     }
     return render(request, 'schemes/scheme_form.html', context)
 
-@permission_required('product_crud')
+@permission_required('product_edit')
 def scheme_edit(request, pk):
     scheme = get_object_or_404(SchemeMaster, pk=pk)
     products = ProductMaster.objects.filter(status=True, is_deleted=False)
@@ -102,7 +102,7 @@ def scheme_edit(request, pk):
     }
     return render(request, 'schemes/scheme_form.html', context)
 
-@permission_required('product_crud')
+@permission_required('product_delete')
 def scheme_delete(request, pk):
     scheme = get_object_or_404(SchemeMaster, pk=pk)
     name = scheme.name

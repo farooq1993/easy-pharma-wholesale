@@ -43,14 +43,31 @@
             </div>
 
             <div class="row g-3 mb-4">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label text-muted small fw-bold">GSTIN (Tax Registration)</label>
                     <input type="text" name="gstin" class="form-control font-monospace" value="{{ tenant.gstin|default:'' }}" placeholder="15-digit GSTIN" maxlength="15">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-bold">GST Dealer Type <span class="text-danger">*</span></label>
+                    <select name="gst_dealer_type" class="form-select" required>
+                        <option value="Regular" {% if tenant.gst_dealer_type|default:'Regular' == 'Regular' %}selected{% endif %}>Registered (Regular)</option>
+                        <option value="Composition" {% if tenant.gst_dealer_type == 'Composition' %}selected{% endif %}>Registered (Composition Scheme)</option>
+                        <option value="Unregistered" {% if tenant.gst_dealer_type == 'Unregistered' %}selected{% endif %}>Unregistered</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
                     <label class="form-label text-muted small fw-bold">Drug License Number (DL No)</label>
                     <input type="text" name="dl_number" class="form-control font-monospace" value="{{ tenant.dl_number|default:'' }}" placeholder="e.g. DL-20-4567/DL-21-4568">
                 </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-muted small fw-bold">Business Mode</label>
+                <select name="business_mode" class="form-select" required>
+                    <option value="Wholesale" {% if tenant.business_mode|default:'Wholesale' == 'Wholesale' %}selected{% endif %}>Wholesale Only</option>
+                    <option value="Dual" {% if tenant.business_mode == 'Dual' %}selected{% endif %}>Retail + Wholesale (Dual Mode)</option>
+                </select>
+                <div class="form-text text-muted">Dual mode enables loose-unit retail sales invoicing on the billing desk.</div>
             </div>
 
             <div class="mb-4 form-check form-switch">

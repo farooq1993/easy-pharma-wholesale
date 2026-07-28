@@ -121,9 +121,28 @@
         <form method="POST" id="invoiceForm">
             {% csrf_token %}
             
+            {% if request.tenant.business_mode == 'Dual' %}
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="card bg-light border-0 py-2 px-3 rounded-3 d-flex flex-row align-items-center justify-content-between">
+                        <span class="fw-bold text-dark"><i class="bi bi-gear-fill text-secondary me-2"></i>Billing Mode:</span>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="is_retail" id="modeWholesale" value="0" {% if not invoice.is_retail %}checked{% endif %} autocomplete="off" onchange="toggleBillingMode(false)">
+                            <label class="btn btn-outline-primary px-4 fw-semibold" for="modeWholesale"><i class="bi bi-building"></i> Wholesale Mode (B2B)</label>
+                            
+                            <input type="radio" class="btn-check" name="is_retail" id="modeRetail" value="1" {% if invoice.is_retail %}checked{% endif %} autocomplete="off" onchange="toggleBillingMode(true)">
+                            <label class="btn btn-outline-success px-4 fw-semibold" for="modeRetail"><i class="bi bi-person-fill"></i> Retail Mode (B2C)</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <input type="hidden" name="is_retail" id="modeWholesaleHidden" value="0">
+            {% endif %}
+
             <!-- Invoice Header Info -->
             <div class="row g-3 mb-4">
-                <div class="col-md-3">
+                <div class="col-md-3" id="customerSelectCol">
                     <label class="form-label text-muted small fw-bold">Customer (Chemist / Hospital) <span class="text-danger">*</span></label>
                     <div class="combobox-container">
                         <input type="text" id="customerSearch" class="form-control combobox-input" placeholder="Type Chemist Name..." required autocomplete="off">
@@ -145,6 +164,22 @@
                 <div class="col-md-3">
                     <label class="form-label text-muted small fw-bold">Billing Operator</label>
                     <input type="text" class="form-control bg-light" value="{{ request.user.username }} (Online)" readonly>
+                </div>
+            </div>
+
+            <!-- Patient / Doctor Info (Visible only in Retail Mode) -->
+            <div class="row g-3 mb-4 p-3 bg-light border rounded-3 mx-0 shadow-sm" id="retailDetailsRow" style="display: none;">
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-bold">Patient Name <span class="text-danger">*</span></label>
+                    <input type="text" name="patient_name" id="patientNameInput" class="form-control" placeholder="Enter Patient Name">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-bold">Patient Mobile</label>
+                    <input type="text" name="patient_mobile" id="patientMobileInput" class="form-control" placeholder="Enter 10-digit Mobile">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-muted small fw-bold">Consulting Doctor Name</label>
+                    <input type="text" name="doctor_name" id="doctorNameInput" class="form-control" placeholder="e.g. Dr. A. K. Sharma">
                 </div>
             </div>
 
@@ -568,10 +603,10 @@
                     <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" placeholder="0.00" required oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
-                    <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" min="1" value="1" required oninput="calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="1" required oninput="calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
-                    <input type="number" name="free_quantity[]" class="form-control billing-input text-center free-input" min="0" value="0" oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <input type="number" name="free_quantity[]" class="form-control billing-input text-center free-input" step="any" min="0" value="0" oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
                     <input type="text" class="form-control billing-input text-center bg-light gst-display" value="12%" readonly>
@@ -841,10 +876,14 @@
 
         fetchProductBatches(selectedProdId, (batches) => {
             let options = `<option value="">Select Batch</option>`;
+            let unitsPerStrip = 1;
             batches.forEach(b => {
-                options += `<option value="${b.id}" data-mrp="${b.mrp}" data-srate="${b.sale_rate}" data-wholesalerate="${b.wholesale_rate}" data-exp="${b.expiry_mask}" data-stock="${b.quantity}">${b.batch_number} (Exp: ${b.expiry_mask}) [Stock: ${b.quantity}]</option>`;
+                unitsPerStrip = b.units_per_strip || 1;
+                options += `<option value="${b.id}" data-mrp="${b.mrp}" data-srate="${b.sale_rate}" data-wholesalerate="${b.wholesale_rate}" data-exp="${b.expiry_mask}" data-stock="${b.quantity}" data-unitsperstrip="${b.units_per_strip}">${b.batch_number} (Exp: ${b.expiry_mask}) [Stock: ${b.quantity}]</option>`;
             });
             batchSelect.innerHTML = options;
+            row.dataset.unitsPerStrip = unitsPerStrip;
+            updateRowQuantityPlaceholder(id);
             
             if (batches.length === 0) {
                 showToast("No active stock batches found for this product!", "warning");
@@ -901,14 +940,83 @@
         calculateRowTotals(id);
     }
 
+    function isRetailModeActive() {
+        const modeRetail = document.getElementById("modeRetail");
+        return modeRetail ? modeRetail.checked : false;
+    }
+
+    function toggleBillingMode(isRetail) {
+        const customerSearch = document.getElementById("customerSearch");
+        const customerSelect = document.getElementById("customerSelect");
+        const customerSelectCol = document.getElementById("customerSelectCol");
+        const retailDetailsRow = document.getElementById("retailDetailsRow");
+        const patientNameInput = document.getElementById("patientNameInput");
+        
+        if (isRetail) {
+            // Retail Mode B2C
+            if (customerSelectCol) customerSelectCol.style.display = "none";
+            if (customerSearch) customerSearch.removeAttribute("required");
+            if (customerSelect) {
+                customerSelect.removeAttribute("required");
+                customerSelect.value = "";
+            }
+            if (customerSearch) customerSearch.value = "";
+            
+            if (retailDetailsRow) retailDetailsRow.style.display = "flex";
+            if (patientNameInput) patientNameInput.setAttribute("required", "required");
+        } else {
+            // Wholesale Mode B2B
+            if (customerSelectCol) customerSelectCol.style.display = "block";
+            if (customerSearch) customerSearch.setAttribute("required", "required");
+            if (customerSelect) customerSelect.setAttribute("required", "required");
+            
+            if (retailDetailsRow) retailDetailsRow.style.display = "none";
+            if (patientNameInput) {
+                patientNameInput.removeAttribute("required");
+                patientNameInput.value = "";
+            }
+            const patientMobileInput = document.getElementById("patientMobileInput");
+            const doctorNameInput = document.getElementById("doctorNameInput");
+            if (patientMobileInput) patientMobileInput.value = "";
+            if (doctorNameInput) doctorNameInput.value = "";
+        }
+
+        document.querySelectorAll("#invoiceTable tbody tr").forEach(row => {
+            const rowId = row.id.split("-").pop();
+            updateRowQuantityPlaceholder(rowId);
+            calculateRowTotals(rowId);
+        });
+    }
+
+    function updateRowQuantityPlaceholder(id) {
+        const row = document.getElementById(`item-row-${id}`);
+        if (!row) return;
+        const qtyInput = row.querySelector(".qty-input");
+        const freeInput = row.querySelector(".free-input");
+        
+        if (isRetailModeActive()) {
+            qtyInput.placeholder = "Loose";
+            freeInput.placeholder = "Loose";
+        } else {
+            qtyInput.placeholder = "Strips";
+            freeInput.placeholder = "Strips";
+        }
+    }
+
     function calculateRowTotalsFromPct(id) {
         const row = document.getElementById(`item-row-${id}`);
         if (!row) return;
-        const qty = parseInt(row.querySelector(".qty-input").value) || 0;
+        const qty = parseFloat(row.querySelector(".qty-input").value) || 0;
         const saleRate = parseFloat(row.querySelector(".srate-input").value) || 0;
         const discountPct = parseFloat(row.querySelector(".disc-input").value) || 0;
         
-        const baseTaxable = qty * saleRate;
+        let baseTaxable = 0;
+        if (isRetailModeActive()) {
+            const conversionFactor = parseInt(row.dataset.unitsPerStrip) || 1;
+            baseTaxable = qty * (saleRate / conversionFactor);
+        } else {
+            baseTaxable = qty * saleRate;
+        }
         const discountAmount = baseTaxable * (discountPct / 100);
         
         row.querySelector(".disc-amt-input").value = discountAmount.toFixed(2);
@@ -918,11 +1026,17 @@
     function calculateRowTotalsFromAmt(id) {
         const row = document.getElementById(`item-row-${id}`);
         if (!row) return;
-        const qty = parseInt(row.querySelector(".qty-input").value) || 0;
+        const qty = parseFloat(row.querySelector(".qty-input").value) || 0;
         const saleRate = parseFloat(row.querySelector(".srate-input").value) || 0;
         const discountAmount = parseFloat(row.querySelector(".disc-amt-input").value) || 0;
         
-        const baseTaxable = qty * saleRate;
+        let baseTaxable = 0;
+        if (isRetailModeActive()) {
+            const conversionFactor = parseInt(row.dataset.unitsPerStrip) || 1;
+            baseTaxable = qty * (saleRate / conversionFactor);
+        } else {
+            baseTaxable = qty * saleRate;
+        }
         let discountPct = 0;
         if (baseTaxable > 0) {
             discountPct = (discountAmount / baseTaxable) * 100;
@@ -934,12 +1048,18 @@
 
     function calculateRowTotals(id) {
         const row = document.getElementById(`item-row-${id}`);
-        const qty = parseInt(row.querySelector(".qty-input").value) || 0;
+        const qty = parseFloat(row.querySelector(".qty-input").value) || 0;
         const saleRate = parseFloat(row.querySelector(".srate-input").value) || 0;
         const discountPct = parseFloat(row.querySelector(".disc-input").value) || 0;
         const gstPct = parseFloat(row.querySelector(".gst-input").value) || 0;
         
-        const baseTaxable = qty * saleRate;
+        let baseTaxable = 0;
+        if (isRetailModeActive()) {
+            const conversionFactor = parseInt(row.dataset.unitsPerStrip) || 1;
+            baseTaxable = qty * (saleRate / conversionFactor);
+        } else {
+            baseTaxable = qty * saleRate;
+        }
         const discountAmount = baseTaxable * (discountPct / 100);
         const taxableAfterDiscount = baseTaxable - discountAmount;
         const gstAmount = taxableAfterDiscount * (gstPct / 100);
@@ -1116,8 +1236,13 @@
         );
 
         addNewInvoiceRow();
+        toggleBillingMode(isRetailModeActive());
         setTimeout(() => {
-            document.getElementById("customerSearch").focus();
+            if (isRetailModeActive()) {
+                document.getElementById("patientNameInput").focus();
+            } else {
+                document.getElementById("customerSearch").focus();
+            }
         }, 100);
 
         // Load Areas and options
