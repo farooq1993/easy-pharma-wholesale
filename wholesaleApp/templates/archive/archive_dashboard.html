@@ -1,0 +1,198 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<!-- FY Selector Bar -->
+<div class="card shadow-sm border-0 rounded-4 mb-4 mt-2">
+    <div class="card-body py-3">
+        <form method="GET" class="row align-items-center g-3">
+            <div class="col-auto">
+                <label class="fw-bold text-dark mb-0"><i class="bi bi-archive-fill text-primary me-2"></i>Select Closed Financial Year:</label>
+            </div>
+            <div class="col-md-4">
+                <select name="fy" class="form-select rounded-pill" onchange="this.form.submit()">
+                    {% for y in closed_years %}
+                    <option value="{{ y.id }}" {% if selected_year and selected_year.id == y.id %}selected{% endif %}>{{ y.name }} ({{ y.start_date|date:"M Y" }} - {{ y.end_date|date:"M Y" }})</option>
+                    {% empty %}
+                    <option value="">No Closed Financial Years Found</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if selected_year %}
+<!-- FY Summary Row -->
+<div class="alert alert-info border-0 rounded-4 p-3 mb-4 d-flex align-items-center">
+    <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+    <div>
+        <strong>Archived Read-Only Mode:</strong> Showing transactions between <strong>{{ selected_year.start_date|date:"d M Y" }}</strong> and <strong>{{ selected_year.end_date|date:"d M Y" }}</strong>. Modification of these transactions is locked.
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="card shadow-sm border-0 rounded-4">
+    <div class="card-header bg-white border-bottom-0 pt-3">
+        <ul class="nav nav-pills nav-fill" id="archiveTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active rounded-pill fw-bold" id="sales-tab" data-bs-toggle="tab" data-bs-target="#sales" type="button" role="tab"><i class="bi bi-receipt me-1"></i> Sales Invoices ({{ sales|length }})</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold" id="purchases-tab" data-bs-toggle="tab" data-bs-target="#purchases" type="button" role="tab"><i class="bi bi-cart me-1"></i> Purchase Entries ({{ purchases|length }})</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold" id="cust-payments-tab" data-bs-toggle="tab" data-bs-target="#cust-payments" type="button" role="tab"><i class="bi bi-wallet2 me-1"></i> Customer Receipts ({{ customer_payments|length }})</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold" id="sup-payments-tab" data-bs-toggle="tab" data-bs-target="#sup-payments" type="button" role="tab"><i class="bi bi-cash-stack me-1"></i> Supplier Payments ({{ supplier_payments|length }})</button>
+            </li>
+        </ul>
+    </div>
+    
+    <div class="card-body p-0">
+        <div class="tab-content" id="archiveTabsContent">
+            <!-- Sales Tab -->
+            <div class="tab-pane fade show active" id="sales" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Invoice No</th>
+                                <th>Date</th>
+                                <th>Customer Name</th>
+                                <th>Net Amount</th>
+                                <th>Status</th>
+                                <th class="text-end pe-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for inv in sales %}
+                            <tr>
+                                <td class="ps-4 font-monospace fw-bold text-primary">{{ inv.invoice_number }}</td>
+                                <td>{{ inv.invoice_date|date:"d M Y" }}</td>
+                                <td>{% if inv.is_retail %}{{ inv.patient_name }} (Retail){% else %}{{ inv.customer.name }}{% endif %}</td>
+                                <td class="fw-bold">₹{{ inv.net_amount|floatformat:2 }}</td>
+                                <td><span class="badge bg-secondary rounded-pill px-3 py-1">{{ inv.status }}</span></td>
+                                <td class="text-end pe-4">
+                                    <a href="{% url 'invoice_print' inv.id %}" target="_blank" class="btn btn-sm btn-light rounded-pill px-3"><i class="bi bi-printer"></i> Print</a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No sales invoices recorded in this period.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Purchases Tab -->
+            <div class="tab-pane fade" id="purchases" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Supplier Bill No</th>
+                                <th>Date</th>
+                                <th>Supplier Name</th>
+                                <th>Gross Value</th>
+                                <th>GST Tax</th>
+                                <th>Net Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pe in purchases %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark">{{ pe.invoice_number }}</td>
+                                <td>{{ pe.invoice_date|date:"d M Y" }}</td>
+                                <td>{{ pe.supplier.name }}</td>
+                                <td>₹{{ pe.gross_amount|floatformat:2 }}</td>
+                                <td class="text-success">+₹{{ pe.gst_amount|floatformat:2 }}</td>
+                                <td class="fw-bold">₹{{ pe.net_amount|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No purchase entries recorded in this period.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Customer Receipts Tab -->
+            <div class="tab-pane fade" id="cust-payments" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Receipt Date</th>
+                                <th>Customer Name</th>
+                                <th>Payment Mode</th>
+                                <th>Reference No</th>
+                                <th>Remarks</th>
+                                <th class="pe-4 text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pay in customer_payments %}
+                            <tr>
+                                <td class="ps-4">{{ pay.payment_date|date:"d M Y" }}</td>
+                                <td class="fw-bold text-dark">{{ pay.customer.name }}</td>
+                                <td><span class="badge bg-light text-dark rounded-pill px-3 py-1">{{ pay.payment_mode }}</span></td>
+                                <td><span class="font-monospace text-muted">{{ pay.reference_no|default:"-" }}</span></td>
+                                <td class="text-muted">{{ pay.remarks|default:"-" }}</td>
+                                <td class="fw-bold text-success pe-4 text-end">₹{{ pay.amount|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No customer receipts recorded in this period.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Supplier Payments Tab -->
+            <div class="tab-pane fade" id="sup-payments" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Payment Date</th>
+                                <th>Supplier Name</th>
+                                <th>Payment Mode</th>
+                                <th>Reference No</th>
+                                <th>Remarks</th>
+                                <th class="pe-4 text-end">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pay in supplier_payments %}
+                            <tr>
+                                <td class="ps-4">{{ pay.payment_date|date:"d M Y" }}</td>
+                                <td class="fw-bold text-dark">{{ pay.supplier.name }}</td>
+                                <td><span class="badge bg-light text-dark rounded-pill px-3 py-1">{{ pay.payment_mode }}</span></td>
+                                <td><span class="font-monospace text-muted">{{ pay.reference_no|default:"-" }}</span></td>
+                                <td class="text-muted">{{ pay.remarks|default:"-" }}</td>
+                                <td class="fw-bold text-danger pe-4 text-end">₹{{ pay.amount|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">No supplier payments recorded in this period.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

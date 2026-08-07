@@ -1880,6 +1880,67 @@ class DualModeRetailWholesaleTests(TestCase):
         self.assertEqual(tenant.business_mode, 'Wholesale')
 
 
+class FinancialYearTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from wholesaleApp.models import Tenant, UserProfile, CustomerMaster, AreaMaster
+        self.tenant = Tenant.objects.create(name="test_tenant_fy", company_name="Test Tenant FY")
+        self.user = User.objects.create_user(username="fy_user", password="password123")
+        self.profile = self.user.profile
+        self.profile.tenant = self.tenant
+        self.profile.role = 'Owner'
+        self.profile.save()
+        
+        self.area = AreaMaster.objects.create(tenant=self.tenant, city="Pusad Area", code="PA01")
+        self.customer = CustomerMaster.objects.create(tenant=self.tenant, name="Test Chemist", mobile="12345", area=self.area)
+        
+        # Set thread-local tenant
+        from wholesaleApp.models.tenant import set_current_tenant
+        set_current_tenant(self.tenant)
+
+    def tearDown(self):
+        from wholesaleApp.models.tenant import set_current_tenant
+        set_current_tenant(None)
+
+    def test_financial_year_closure_blocks_invoice_writes(self):
+        from django.urls import reverse
+        from wholesaleApp.models import FinancialYear, SalesInvoice
+        import datetime
+        
+        self.client.force_login(self.user)
+        
+        # Create a closed Financial Year
+        fy = FinancialYear.objects.create(
+            tenant=self.tenant,
+            name="FY 2025-26",
+            start_date="2025-04-01",
+            end_date="2026-03-31",
+            is_closed=True
+        )
+        
+        # Attempt to create an invoice inside this closed financial year date
+        post_data = {
+            'customer': self.customer.id,
+            'invoice_date': '2026-02-15', # falls inside FY
+            'gross_amount': '100.00',
+            'discount_amount': '0.00',
+            'gst_amount': '12.00',
+            'net_amount': '112.00',
+            'product[]': [],
+            'batch[]': [],
+            'sale_rate[]': [],
+            'quantity[]': [],
+            'free_quantity[]': [],
+            'discount_percentage[]': [],
+            'total_amount[]': []
+        }
+        
+        response = self.client.post(reverse('invoice_create'), post_data)
+        # Should block creation
+        self.assertEqual(SalesInvoice.objects.filter(tenant=self.tenant).count(), 0)
+
+
+
 
 
 

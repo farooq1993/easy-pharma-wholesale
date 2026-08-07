@@ -33,95 +33,105 @@
         </form>
     </div>
 </div>
+    <!-- Summaries Row -->
+    <div class="row g-3 mb-4 text-center">
+        <div class="col-6 col-md-2">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
+                <span class="text-muted small">Sold Packs</span>
+                <h5 class="fw-bold text-dark mb-0 mt-1">{{ totals.qty|default:0 }}</h5>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
+                <span class="text-muted small">Free Packs</span>
+                <h5 class="fw-bold text-muted mb-0 mt-1">{{ totals.free_qty|default:0 }}</h5>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
+                <span class="text-muted small">Gross Taxable Value</span>
+                <h5 class="fw-bold text-dark mb-0 mt-1">₹{{ totals.gross|default:"0.00"|floatformat:2 }}</h5>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
+                <span class="text-muted small">GST Tax Collected</span>
+                <h5 class="fw-bold text-success mb-0 mt-1">+₹{{ totals.gst|default:"0.00"|floatformat:2 }}</h5>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 rounded-4 bg-primary text-white p-3">
+                <span class="text-white-50 small">Net Revenue Collected</span>
+                <h5 class="fw-bold mb-0 mt-1">₹{{ totals.net|default:"0.00"|floatformat:2 }}</h5>
+            </div>
+        </div>
+    </div>
 
-<!-- Summaries Row -->
-<div class="row g-3 mb-4 text-center">
-    <div class="col-6 col-md-2">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
-            <span class="text-muted small">Sold Packs</span>
-            <h5 class="fw-bold text-dark mb-0 mt-1">{{ totals.qty|default:0 }}</h5>
+<!-- Export Area Wrapper -->
+<div id="reportContent" class="bg-transparent">
+    <!-- Data Table -->
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-cart-check"></i> Sold Items Breakdown</h5>
+            <div class="d-flex gap-2 d-print-none">
+                <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print Statement
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="exportReportToPDF('reportContent', 'Company_Sales.pdf')">
+                    <i class="bi bi-file-pdf"></i> Export PDF
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="exportTableToCSV('reportContent', 'Company_Sales.csv')">
+                    <i class="bi bi-file-spreadsheet"></i> Export CSV
+                </button>
+            </div>
         </div>
-    </div>
-    <div class="col-6 col-md-2">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
-            <span class="text-muted small">Free Packs</span>
-            <h5 class="fw-bold text-muted mb-0 mt-1">{{ totals.free_qty|default:0 }}</h5>
-        </div>
-    </div>
-    <div class="col-6 col-md-2">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
-            <span class="text-muted small">Gross Taxable Value</span>
-            <h5 class="fw-bold text-dark mb-0 mt-1">₹{{ totals.gross|default:"0.00"|floatformat:2 }}</h5>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
-            <span class="text-muted small">GST Tax Collected</span>
-            <h5 class="fw-bold text-success mb-0 mt-1">+₹{{ totals.gst|default:"0.00"|floatformat:2 }}</h5>
-        </div>
-    </div>
-    <div class="col-12 col-md-3">
-        <div class="card shadow-sm border-0 rounded-4 bg-primary text-white p-3">
-            <span class="text-white-50 small">Net Revenue Collected</span>
-            <h5 class="fw-bold mb-0 mt-1">₹{{ totals.net|default:"0.00"|floatformat:2 }}</h5>
-        </div>
-    </div>
-</div>
-
-<!-- Data Table -->
-<div class="card shadow-sm border-0 rounded-4">
-    <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-cart-check"></i> Sold Items Breakdown</h5>
-        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="window.print()">
-            <i class="bi bi-printer"></i> Print Statement
-        </button>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Product / Medicine Name</th>
-                        <th>Invoice No</th>
-                        <th>Chemist / Customer</th>
-                        <th>Date</th>
-                        <th>Batch</th>
-                        <th class="text-center">Qty+Free</th>
-                        <th class="text-end">Rate (₹)</th>
-                        <th class="text-end">Disc %</th>
-                        <th class="text-end">Taxable Value</th>
-                        <th class="text-end">GST %</th>
-                        <th class="text-end pe-4">Total Amount (₹)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p_item in items %}
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
-                            <td class="ps-4">
-                                <strong>{{ p_item.item.product.name }}</strong>
-                                <div class="text-muted small">{{ p_item.item.product.company.name }} | {{ p_item.item.product.pack_size }}</div>
-                            </td>
-                            <td>{{ p_item.item.sales_invoice.invoice_number }}</td>
-                            <td>{{ p_item.item.sales_invoice.customer.name }}</td>
-                            <td>{{ p_item.item.sales_invoice.invoice_date|date:"Y-m-d" }}</td>
-                            <td><span class="badge bg-light text-dark border">{{ p_item.item.batch.batch_number }}</span></td>
-                            <td class="text-center">{{ p_item.item.quantity }} <span class="text-muted text-xs">+{{ p_item.item.free_quantity }}</span></td>
-                            <td class="text-end">₹{{ p_item.item.sale_rate|floatformat:2 }}</td>
-                            <td class="text-end text-danger">{{ p_item.item.discount_percentage }}%</td>
-                            <td class="text-end">₹{{ p_item.taxable_val|floatformat:2 }}</td>
-                            <td class="text-end text-success">{{ p_item.item.product.gst_rate }}%</td>
-                            <td class="text-end fw-bold pe-4 text-primary">₹{{ p_item.item.total_amount|floatformat:2 }}</td>
+                            <th class="ps-4">Product / Medicine Name</th>
+                            <th>Invoice No</th>
+                            <th>Chemist / Customer</th>
+                            <th>Date</th>
+                            <th>Batch</th>
+                            <th class="text-center">Qty+Free</th>
+                            <th class="text-end">Rate (₹)</th>
+                            <th class="text-end">Disc %</th>
+                            <th class="text-end">Taxable Value</th>
+                            <th class="text-end">GST %</th>
+                            <th class="text-end pe-4">Total Amount (₹)</th>
                         </tr>
-                    {% empty %}
-                        <tr>
-                            <td colspan="11" class="text-center py-5 text-muted">
-                                <i class="bi bi-file-earmark-bar-graph display-4 d-block mb-3"></i>
-                                No items found in this date range.
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for p_item in items %}
+                            <tr>
+                                <td class="ps-4">
+                                    <strong>{{ p_item.item.product.name }}</strong>
+                                    <div class="text-muted small">{{ p_item.item.product.company.name }} | {{ p_item.item.product.pack_size }}</div>
+                                </td>
+                                <td>{{ p_item.item.sales_invoice.invoice_number }}</td>
+                                <td>{{ p_item.item.sales_invoice.customer.name }}</td>
+                                <td>{{ p_item.item.sales_invoice.invoice_date|date:"Y-m-d" }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ p_item.item.batch.batch_number }}</span></td>
+                                <td class="text-center">{{ p_item.item.quantity }} <span class="text-muted text-xs">+{{ p_item.item.free_quantity }}</span></td>
+                                <td class="text-end">₹{{ p_item.item.sale_rate|floatformat:2 }}</td>
+                                <td class="text-end text-danger">{{ p_item.item.discount_percentage }}%</td>
+                                <td class="text-end">₹{{ p_item.taxable_val|floatformat:2 }}</td>
+                                <td class="text-end text-success">{{ p_item.item.product.gst_rate }}%</td>
+                                <td class="text-end fw-bold pe-4 text-primary">₹{{ p_item.item.total_amount|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="11" class="text-center py-5 text-muted">
+                                    <i class="bi bi-file-earmark-bar-graph display-4 d-block mb-3"></i>
+                                    No items found in this date range.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

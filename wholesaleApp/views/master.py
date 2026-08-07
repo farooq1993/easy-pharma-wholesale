@@ -13,7 +13,8 @@ from wholesaleApp.models import (
     ProductBatch,
     AppGroupModule,
     AppFeature,
-    UserFeaturePermission
+    UserFeaturePermission,
+    CustomerPayment
 )
 from wholesaleApp.views.security_helpers import seed_default_permissions, get_user_permissions_context
 
@@ -226,7 +227,75 @@ def HomeView(request):
             'status': inv.status
         })
 
+    # ---------------- SMART PREDICTIVE FORECASTS (LOCAL ENGINE) ----------------
+    monthly_sales = []
+    for m in range(5, -1, -1):
+        first_day_of_m = (today.replace(day=1) - timedelta(days=m*30)).replace(day=1)
+        if m > 0:
+            last_day_of_m = (first_day_of_m + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        else:
+            last_day_of_m = today
+            
+        sales_val = SalesInvoice.objects.filter(
+            invoice_date__range=[first_day_of_m, last_day_of_m]
+        ).aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
+        monthly_sales.append(float(sales_val))
+        
+    n = len(monthly_sales)
+    x = list(range(n))
+    y = monthly_sales
+    sum_x = sum(x)
+    sum_y = sum(y)
+    sum_xx = sum(val**2 for val in x)
+    sum_xy = sum(val_x * val_y for val_x, val_y in zip(x, y))
+    
+    denominator = (n * sum_xx - sum_x**2)
+    if denominator != 0:
+        slope = (n * sum_xy - sum_x * sum_y) / denominator
+        intercept = (sum_y - slope * sum_x) / n
+        sales_forecast = max(0.0, slope * n + intercept)
+    else:
+        sales_forecast = monthly_sales[-1] * 1.05 if monthly_sales[-1] > 0 else 5000.00
+
+    outstanding_dues = total_outstanding
+    last_30_days_start = today - timedelta(days=30)
+    recent_collections_val = CustomerPayment.objects.filter(
+        payment_date__range=[last_30_days_start, today]
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    recent_collections = float(recent_collections_val)
+    
+    total_pool = outstanding_dues + recent_collections
+    collection_rate = (recent_collections / total_pool) if total_pool > 0 else 0.25
+    dues_collection_forecast = outstanding_dues * collection_rate
+    dues_collection_forecast = min(outstanding_dues, max(0.0, dues_collection_forecast))
+    if dues_collection_forecast == 0 and outstanding_dues > 0:
+        dues_collection_forecast = outstanding_dues * 0.15
+
+    from wholesaleApp.models import SalesInvoiceItem
+    recent_sales_items = SalesInvoiceItem.objects.filter(
+        sales_invoice__invoice_date__range=[last_30_days_start, today]
+    ).values('product_id').annotate(qty_sold=Sum('quantity'))
+    
+    purchase_req_forecast = 0.0
+    for item in recent_sales_items:
+        p_id = item['product_id']
+        qty_sold = float(item['qty_sold'])
+        current_stock_val = ProductBatch.objects.filter(product_id=p_id).aggregate(total=Sum('quantity'))['total'] or 0
+        current_stock = float(current_stock_val)
+        
+        deficit = max(0.0, qty_sold - current_stock)
+        if deficit > 0:
+            batch = ProductBatch.objects.filter(product_id=p_id).first()
+            p_rate = float(batch.purchase_rate) if batch else 50.00
+            purchase_req_forecast += (deficit * p_rate)
+            
+    if purchase_req_forecast == 0:
+        purchase_req_forecast = sales_forecast * 0.70
+
     context = {
+        'sales_forecast': sales_forecast,
+        'dues_collection_forecast': dues_collection_forecast,
+        'purchase_req_forecast': purchase_req_forecast,
         'total_products': total_products,
         'total_customers': total_customers,
         'total_orders': total_orders,

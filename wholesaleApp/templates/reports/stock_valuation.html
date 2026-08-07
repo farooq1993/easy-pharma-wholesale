@@ -4,73 +4,84 @@
 {% block page_title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-<!-- Summaries Row -->
-<div class="row g-3 mb-4 text-center mt-2">
-    <div class="col-md-4">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
-            <span class="text-muted small">Total Pack Inventory</span>
-            <h3 class="fw-bold text-primary mb-0 mt-1">{{ total_qty }} packs</h3>
+    <!-- Summaries Row -->
+    <div class="row g-3 mb-4 text-center mt-2">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
+                <span class="text-muted small">Total Pack Inventory</span>
+                <h3 class="fw-bold text-primary mb-0 mt-1">{{ total_qty }} packs</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
+                <span class="text-muted small">Valuation at Cost (P-Rate)</span>
+                <h3 class="fw-bold text-success mb-0 mt-1">₹{{ total_purchase_val|floatformat:2 }}</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 rounded-4 bg-indigo text-white p-3" style="background-color: #6366f1;">
+                <span class="text-white-50 small">Valuation at Market (S-Rate)</span>
+                <h3 class="fw-bold mb-0 mt-1">₹{{ total_sale_val|floatformat:2 }}</h3>
+            </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card shadow-sm border-0 rounded-4 bg-white p-3">
-            <span class="text-muted small">Valuation at Cost (P-Rate)</span>
-            <h3 class="fw-bold text-success mb-0 mt-1">₹{{ total_purchase_val|floatformat:2 }}</h3>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card shadow-sm border-0 rounded-4 bg-indigo text-white p-3" style="background-color: #6366f1;">
-            <span class="text-white-50 small">Valuation at Market (S-Rate)</span>
-            <h3 class="fw-bold mb-0 mt-1">₹{{ total_sale_val|floatformat:2 }}</h3>
-        </div>
-    </div>
-</div>
 
-<!-- Data Table -->
-<div class="card shadow-sm border-0 rounded-4">
-    <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-box-seam"></i> Current Inventory Audit</h5>
-        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="window.print()">
-            <i class="bi bi-printer"></i> Print Valuation Sheet
-        </button>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Product Brand Name</th>
-                        <th>Pack Size</th>
-                        <th>Batch No</th>
-                        <th class="text-center">Stock (Packs)</th>
-                        <th class="text-end">Cost Rate</th>
-                        <th class="text-end">Market S-Rate</th>
-                        <th class="text-end">Valuation (Cost)</th>
-                        <th class="text-end pe-4">Valuation (Market)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for b in batches %}
+<!-- Export Area Wrapper -->
+<div id="reportContent" class="bg-transparent">
+    <!-- Data Table -->
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-box-seam"></i> Current Inventory Audit</h5>
+            <div class="d-flex gap-2 d-print-none">
+                <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print Valuation Sheet
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="exportReportToPDF('reportContent', 'Stock_Valuation.pdf')">
+                    <i class="bi bi-file-pdf"></i> Export PDF
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="exportTableToCSV('reportContent', 'Stock_Valuation.csv')">
+                    <i class="bi bi-file-spreadsheet"></i> Export CSV
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
-                            <td class="ps-4"><strong>{{ b.product }}</strong></td>
-                            <td>{{ b.pack }}</td>
-                            <td><code>{{ b.batch_number }}</code></td>
-                            <td class="text-center fw-bold text-primary">{{ b.stock }}</td>
-                            <td class="text-end">₹{{ b.purchase_rate|floatformat:2 }}</td>
-                            <td class="text-end">₹{{ b.sale_rate|floatformat:2 }}</td>
-                            <td class="text-end text-success fw-semibold">₹{{ b.purchase_val|floatformat:2 }}</td>
-                            <td class="text-end fw-bold pe-4 text-dark">₹{{ b.sale_val|floatformat:2 }}</td>
+                            <th class="ps-4">Product Brand Name</th>
+                            <th>Pack Size</th>
+                            <th>Batch No</th>
+                            <th class="text-center">Stock (Packs)</th>
+                            <th class="text-end">Cost Rate</th>
+                            <th class="text-end">Market S-Rate</th>
+                            <th class="text-end">Valuation (Cost)</th>
+                            <th class="text-end pe-4">Valuation (Market)</th>
                         </tr>
-                    {% empty %}
-                        <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
-                                <i class="bi bi-box display-4 d-block mb-3"></i>
-                                No stock batches currently registered in database inventory.
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for b in batches %}
+                            <tr>
+                                <td class="ps-4"><strong>{{ b.product }}</strong></td>
+                                <td>{{ b.pack }}</td>
+                                <td><code>{{ b.batch_number }}</code></td>
+                                <td class="text-center fw-bold text-primary">{{ b.stock }}</td>
+                                <td class="text-end">₹{{ b.purchase_rate|floatformat:2 }}</td>
+                                <td class="text-end">₹{{ b.sale_rate|floatformat:2 }}</td>
+                                <td class="text-end text-success fw-semibold">₹{{ b.purchase_val|floatformat:2 }}</td>
+                                <td class="text-end fw-bold pe-4 text-dark">₹{{ b.sale_val|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="bi bi-box display-4 d-block mb-3"></i>
+                                    No stock batches currently registered in database inventory.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

@@ -26,7 +26,6 @@
 </div>
 
 <!-- Summaries & Data Table wrapped for PDF Export -->
-<div id="reportContent" class="bg-transparent">
     <!-- Summaries Row -->
     <div class="row g-3 mb-4 text-center">
         <div class="col-6 col-md-3">
@@ -55,16 +54,21 @@
         </div>
     </div>
 
+<!-- Export Area Wrapper -->
+<div id="reportContent" class="bg-transparent">
     <!-- Data Table -->
     <div class="card shadow-sm border-0 rounded-4">
         <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-receipt"></i> Sales Bills List</h5>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 d-print-none">
                 <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="window.print()">
                     <i class="bi bi-printer"></i> Print Statement
                 </button>
                 <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="exportReportToPDF('reportContent', 'GST_Sales_Summary.pdf')">
                     <i class="bi bi-file-pdf"></i> Export PDF
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="exportTableToCSV('reportContent', 'GST_Sales_Summary.csv')">
+                    <i class="bi bi-file-spreadsheet"></i> Export CSV
                 </button>
             </div>
         </div>
@@ -86,7 +90,7 @@
                         {% for inv in invoices %}
                             <tr>
                                 <td class="ps-4"><strong>{{ inv.invoice_number }}</strong></td>
-                                <td>{{ inv.customer.name }}</td>
+                                <td>{% if inv.customer %}{{ inv.customer.name }}{% else %}{{ inv.patient_name }} (Retail){% endif %}</td>
                                 <td>{{ inv.invoice_date|date:"Y-m-d" }}</td>
                                 <td class="text-end">₹{{ inv.gross_amount|floatformat:2 }}</td>
                                 <td class="text-end text-danger">-₹{{ inv.discount_amount|floatformat:2 }}</td>

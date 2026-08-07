@@ -77,6 +77,10 @@ def invoice_create(request):
         doctor_name = request.POST.get('doctor_name', '').strip() or None
         
         invoice_date = request.POST.get('invoice_date')
+        from wholesaleApp.models.financial_year import is_date_in_closed_fy
+        if is_date_in_closed_fy(invoice_date):
+            messages.error(request, "Action Denied: The selected invoice date falls within a closed Financial Year.")
+            return redirect('invoice_create')
         payment_type = request.POST.get('payment_type', 'Credit')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
@@ -106,10 +110,47 @@ def invoice_create(request):
                 messages.error(request, f"Insufficient stock for {batch.product.name} (Batch: {batch.batch_number}). Available: {batch.quantity}, Requested: {total_requested}")
                 return redirect('invoice_create')
         
-        # Generate Invoice Number (INV-YYYYMMDD-ID)
-        today_str = datetime.date.today().strftime('%Y%m%d')
-        next_id = (SalesInvoice.objects.count() + 1)
-        invoice_number = f"INV-{today_str}-{next_id:04d}"
+        # Parse invoice_date to datetime.date object for calculations
+        if isinstance(invoice_date, str):
+            parsed_date = datetime.datetime.strptime(invoice_date, '%Y-%m-%d').date()
+        else:
+            parsed_date = invoice_date
+
+        # Generate Invoice Number (I-[tenant_id][FY]-0001) for GST compliance
+        from wholesaleApp.models.tenant import get_current_tenant, Tenant
+        tenant = get_current_tenant()
+        if not tenant:
+            tenant = Tenant.objects.filter(is_active=True).first()
+        
+        if parsed_date.month < 4:
+            fy_start_year = parsed_date.year - 1
+        else:
+            fy_start_year = parsed_date.year
+        fy_end_year = fy_start_year + 1
+        
+        start_yy = str(fy_start_year)[-2:]
+        end_yy = str(fy_end_year)[-2:]
+        fy_str = f"{start_yy}{end_yy}"
+        
+        tenant_id_val = tenant.id if tenant else 1
+        prefix = f"I-{tenant_id_val}{fy_str}-"
+        
+        fy_start_date = datetime.date(fy_start_year, 4, 1)
+        fy_end_date = datetime.date(fy_end_year, 3, 31)
+        
+        # Count existing invoices for this tenant within the same financial year
+        count = SalesInvoice.objects.filter(
+            tenant=tenant,
+            invoice_date__range=[fy_start_date, fy_end_date]
+        ).count()
+        next_id = count + 1
+        
+        while True:
+            invoice_number = f"{prefix}{next_id:04d}"
+            # Check unique_together collision across this tenant
+            if not SalesInvoice.objects.filter(tenant=tenant, invoice_number=invoice_number).exists():
+                break
+            next_id += 1
         
         # 2. Create Sales Invoice
         invoice = SalesInvoice.objects.create(
@@ -328,6 +369,10 @@ def invoice_edit(request, pk):
         return redirect('invoice_list')
         
     invoice = get_object_or_404(SalesInvoice, pk=pk)
+    from wholesaleApp.models.financial_year import is_date_in_closed_fy
+    if is_date_in_closed_fy(invoice.invoice_date):
+        messages.error(request, "Action Denied: This invoice falls within a closed Financial Year and cannot be modified.")
+        return redirect('invoice_list')
     customers = CustomerMaster.objects.filter(status=True, is_deleted=False)
     products = ProductMaster.objects.filter(status=True, is_deleted=False)
     
@@ -341,6 +386,9 @@ def invoice_edit(request, pk):
         doctor_name = request.POST.get('doctor_name', '').strip() or None
         
         invoice_date = request.POST.get('invoice_date')
+        if is_date_in_closed_fy(invoice_date):
+            messages.error(request, "Action Denied: The selected invoice date falls within a closed Financial Year.")
+            return redirect('invoice_list')
         payment_type = request.POST.get('payment_type', 'Credit')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
@@ -462,6 +510,10 @@ def invoice_delete(request, pk):
         return redirect('invoice_list')
         
     invoice = get_object_or_404(SalesInvoice, pk=pk)
+    from wholesaleApp.models.financial_year import is_date_in_closed_fy
+    if is_date_in_closed_fy(invoice.invoice_date):
+        messages.error(request, "Action Denied: This invoice falls within a closed Financial Year and cannot be deleted.")
+        return redirect('invoice_list')
     
     # 1. Restore inventory stock
     for item in invoice.items.all().select_related('batch'):
@@ -516,6 +568,10 @@ def sales_return_create(request):
         customer_id = request.POST.get('customer')
         return_number = request.POST.get('return_number')
         return_date = request.POST.get('return_date')
+        from wholesaleApp.models.financial_year import is_date_in_closed_fy
+        if is_date_in_closed_fy(return_date):
+            messages.error(request, "Action Denied: The selected return date falls within a closed Financial Year.")
+            return redirect('sales_return_list')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))
         net_amount = Decimal(request.POST.get('net_amount', 0))
@@ -599,6 +655,10 @@ def sales_return_delete(request, pk):
         return redirect('sales_return_list')
     
     s_return = get_object_or_404(SalesReturn, pk=pk)
+    from wholesaleApp.models.financial_year import is_date_in_closed_fy
+    if is_date_in_closed_fy(s_return.return_date):
+        messages.error(request, "Action Denied: This return falls within a closed Financial Year and cannot be deleted.")
+        return redirect('sales_return_list')
     customer = s_return.customer
     
     # Revert inventory stock restoration

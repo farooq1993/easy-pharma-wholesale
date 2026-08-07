@@ -41,9 +41,15 @@
     </div>
 </div>
 
-<div class="d-flex justify-content-end mb-3 mt-2">
+<div class="d-flex justify-content-end mb-3 mt-2 gap-2 d-print-none">
+    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" onclick="window.print()">
+        <i class="bi bi-printer"></i> Print Statement
+    </button>
     <button type="button" class="btn btn-outline-danger rounded-pill px-4" onclick="exportReportToPDF('reportContent', 'Outstanding_Ledger_Report.pdf')">
         <i class="bi bi-file-pdf"></i> Export PDF Statement
+    </button>
+    <button type="button" class="btn btn-outline-success rounded-pill px-4" onclick="exportTableToCSV('reportContent', 'Outstanding_Ledger_Report.csv')">
+        <i class="bi bi-file-spreadsheet"></i> Export CSV Statement
     </button>
 </div>
 

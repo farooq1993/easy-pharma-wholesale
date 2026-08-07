@@ -40,9 +40,9 @@
                         {% endif %}
                         {% if 'product_view' in user_perms %}
                         <li class="nav-item"><a href="{% url 'product_list' %}" class="nav-link text-light">Product Master</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Godown / Rack Master</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Godown / Rack Master</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                         <li class="nav-item"><a href="{% url 'scheme_list' %}" class="nav-link text-light">Scheme / Discount Master</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Unit / HSN Master</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Unit / HSN Master</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                         {% endif %}
                     </ul>
                 </div>
@@ -82,7 +82,7 @@
                 </a>
                 <div class="collapse ms-3" id="salesCollapse">
                     <ul class="nav flex-column">
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Sales Order</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Sales Order</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                         {% if 'sales_view' in user_perms or 'sales_reprint' in user_perms %}
                         <li class="nav-item"><a href="{% url 'invoice_list' %}" class="nav-link text-light">Sales Invoice (Bill)</a></li>
                         {% endif %}
@@ -108,11 +108,11 @@
                 </a>
                 <div class="collapse ms-3" id="stockCollapse">
                     <ul class="nav flex-column">
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Stock Summary</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Batch &amp; Expiry Tracking</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Stock Adjustment</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Godown Transfer</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Damaged / Expired Stock</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Stock Summary</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Batch &amp; Expiry Tracking</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Stock Adjustment</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Godown Transfer</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Damaged / Expired Stock</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                     </ul>
                 </div>
             </li>
@@ -128,11 +128,11 @@
                         {% if 'customer_ledger' in user_perms %}
                         <li class="nav-item"><a href="{% url 'customer_ledger' %}" class="nav-link text-light">Customer Ledger</a></li>
                         {% endif %}
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Supplier Ledger</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Supplier Ledger</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                         {% if 'report_outstanding' in user_perms %}
                         <li class="nav-item"><a href="{% url 'report_outstanding' %}" class="nav-link text-light">Outstanding / Dues</a></li>
                         {% endif %}
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Cash / Bank Book</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Cash / Bank Book</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                     </ul>
                 </div>
             </li>
@@ -145,8 +145,8 @@
                 </a>
                 <div class="collapse ms-3" id="complianceCollapse">
                     <ul class="nav flex-column">
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Drug License Renewal</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">GST Filing Reminders</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Drug License Renewal</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>GST Filing Reminders</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                     </ul>
                 </div>
             </li>
@@ -161,18 +161,19 @@
                     <ul class="nav flex-column">
                         <li class="nav-item"><a href="{% url 'reports_dashboard' %}" class="nav-link text-light">Reports Hub</a></li>
                         {% if 'sales_view' in user_perms or 'sales_reprint' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'report_sales' %}" class="nav-link text-light">GST Sales Summary</a></li>
-                        <li class="nav-item"><a href="{% url 'report_company_sales' %}" class="nav-link text-light">Company-wise Sales</a></li>
-                        <li class="nav-item"><a href="{% url 'report_customer_sales' %}" class="nav-link text-light">Customer-wise Sales</a></li>
-                        <li class="nav-item"><a href="{% url 'report_gst' %}" class="nav-link text-light">Consolidated GST Report</a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=sales" class="nav-link text-light">GST Sales Summary</a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=company" class="nav-link text-light">Company-wise Sales</a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=customer" class="nav-link text-light">Customer-wise Sales</a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=gst" class="nav-link text-light">Consolidated GST Report</a></li>
                         {% endif %}
                         {% if 'view_margins' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'report_stock' %}" class="nav-link text-light">Stock Valuation</a></li>
-                        <li class="nav-item"><a href="{% url 'report_expiry' %}" class="nav-link text-light">Pharma Expiry Alerts</a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=stock" class="nav-link text-light">Stock Valuation</a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=expiry" class="nav-link text-light">Pharma Expiry Alerts</a></li>
                         {% endif %}
                         {% if 'customer_view' in user_perms or 'supplier_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'report_outstanding' %}" class="nav-link text-light">Outstanding Ledger</a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=outstanding" class="nav-link text-light">Outstanding Ledger</a></li>
                         {% endif %}
+                        <li class="nav-item"><a href="{% url 'archive_dashboard' %}" class="nav-link text-light">Yearly Archives</a></li>
                     </ul>
                 </div>
             </li>
@@ -193,9 +194,10 @@
                         <li class="nav-item"><a href="{% url 'tenant_email_settings' %}" class="nav-link text-light">Email Configuration (SMTP)</a></li>
                         <li class="nav-item"><a href="{% url 'user_permission_matrix' %}" class="nav-link text-light">User Permissions Matrix</a></li>
                         <li class="nav-item"><a href="{% url 'activity_log_list' %}" class="nav-link text-light">System Activity Logs</a></li>
+                        <li class="nav-item"><a href="{% url 'financial_year_list' %}" class="nav-link text-light">Financial Years & Closure</a></li>
                         {% endif %}
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Company Profile</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light">Backup / Restore</a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Company Profile</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Backup / Restore</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                     </ul>
                 </div>
             </li>

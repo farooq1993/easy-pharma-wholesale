@@ -25,55 +25,66 @@
     </div>
 </div>
 
-<!-- Data Table -->
-<div class="card shadow-sm border-0 rounded-4">
-    <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-dark fw-bold text-danger"><i class="bi bi-calendar-x"></i> Expiring Stock Details</h5>
-        <button class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="window.print()">
-            <i class="bi bi-printer"></i> Print Expiry Claim Sheet
-        </button>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Product Brand</th>
-                        <th>Pack Size</th>
-                        <th>Batch No</th>
-                        <th>Expiry Date</th>
-                        <th class="text-center">Days Left</th>
-                        <th class="text-center">Available Stock (Packs)</th>
-                        <th class="text-end">MRP</th>
-                        <th class="text-end pe-4">Loss Value (P-Rate)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for b in batches %}
-                        <tr class="{% if b.days_left <= 30 %}table-danger-subtle{% endif %}">
-                            <td class="ps-4"><strong>{{ b.product }}</strong></td>
-                            <td>{{ b.pack }}</td>
-                            <td><code>{{ b.batch_number }}</code></td>
-                            <td>{{ b.expiry_date|date:"Y-m-d" }}</td>
-                            <td class="text-center">
-                                <span class="badge {% if b.days_left <= 30 %}bg-danger{% else %}bg-warning text-dark{% endif %} px-3 py-2 rounded-pill">
-                                    {{ b.days_left }} Days Left
-                                </span>
-                            </td>
-                            <td class="text-center fw-bold">{{ b.stock }}</td>
-                            <td class="text-end">₹{{ b.mrp|floatformat:2 }}</td>
-                            <td class="text-end fw-bold pe-4 text-danger">₹{{ b.loss_value|floatformat:2 }}</td>
-                        </tr>
-                    {% empty %}
+<!-- Export Area Wrapper -->
+<div id="reportContent" class="bg-transparent">
+    <!-- Data Table -->
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-dark fw-bold text-danger"><i class="bi bi-calendar-x"></i> Expiring Stock Details</h5>
+            <div class="d-flex gap-2 d-print-none">
+                <button class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print Expiry Claim Sheet
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="exportReportToPDF('reportContent', 'Pharma_Expiry_Alerts.pdf')">
+                    <i class="bi bi-file-pdf"></i> Export PDF
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="exportTableToCSV('reportContent', 'Pharma_Expiry_Alerts.csv')">
+                    <i class="bi bi-file-spreadsheet"></i> Export CSV
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
-                                <i class="bi bi-shield-check display-4 text-success d-block mb-3"></i>
-                                No stock batches expiring within the selected limit!
-                            </td>
+                            <th class="ps-4">Product Brand</th>
+                            <th>Pack Size</th>
+                            <th>Batch No</th>
+                            <th>Expiry Date</th>
+                            <th class="text-center">Days Left</th>
+                            <th class="text-center">Available Stock (Packs)</th>
+                            <th class="text-end">MRP</th>
+                            <th class="text-end pe-4">Loss Value (P-Rate)</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for b in batches %}
+                            <tr class="{% if b.days_left <= 30 %}table-danger-subtle{% endif %}">
+                                <td class="ps-4"><strong>{{ b.product }}</strong></td>
+                                <td>{{ b.pack }}</td>
+                                <td><code>{{ b.batch_number }}</code></td>
+                                <td>{{ b.expiry_date|date:"Y-m-d" }}</td>
+                                <td class="text-center">
+                                    <span class="badge {% if b.days_left <= 30 %}bg-danger{% else %}bg-warning text-dark{% endif %} px-3 py-2 rounded-pill">
+                                        {{ b.days_left }} Days Left
+                                    </span>
+                                </td>
+                                <td class="text-center fw-bold">{{ b.stock }}</td>
+                                <td class="text-end">₹{{ b.mrp|floatformat:2 }}</td>
+                                <td class="text-end fw-bold pe-4 text-danger">₹{{ b.loss_value|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="bi bi-shield-check display-4 text-success d-block mb-3"></i>
+                                    No stock batches expiring within the selected limit!
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

@@ -413,14 +413,16 @@ def report_gst(request):
         sales_by_rate[gst_pct_str]['gst'] += gst_amt
         sales_by_rate[gst_pct_str]['total'] += row_total
         
-        cust_gst = item.sales_invoice.customer.gstin or ""
+        customer = item.sales_invoice.customer
+        customer_name = customer.name if customer else (item.sales_invoice.patient_name or "Retail Counter")
+        cust_gst = customer.gstin or "" if customer else ""
         if not cust_gst or cust_gst.strip().lower() in ['na', 'n/a', 'none', 'null', '']:
-            cust_gst = 'URD (Unregistered)'
+            cust_gst = 'URD (Retail/Unregistered)' if not customer else 'URD (Unregistered)'
             
         sales_details.append({
             'date': item.sales_invoice.invoice_date,
             'invoice_number': item.sales_invoice.invoice_number,
-            'customer_name': item.sales_invoice.customer.name,
+            'customer_name': customer_name,
             'customer_gstin': cust_gst,
             'product_name': item.product.name,
             'gst_rate': gst_pct,

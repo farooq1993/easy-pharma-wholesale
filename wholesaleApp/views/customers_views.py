@@ -410,6 +410,10 @@ def customer_payment_add(request):
     if request.method == 'POST':
         customer_id = request.POST.get('customer')
         payment_date = request.POST.get('payment_date')
+        from wholesaleApp.models.financial_year import is_date_in_closed_fy
+        if is_date_in_closed_fy(payment_date):
+            messages.error(request, "Action Denied: The selected payment date falls within a closed Financial Year.")
+            return redirect('customer_ledger')
         amount = Decimal(request.POST.get('amount', 0))
         payment_mode = request.POST.get('payment_mode', 'Cash')
         reference_no = request.POST.get('reference_no', '')
@@ -448,6 +452,10 @@ def customer_payment_delete(request, pk):
         return redirect(f"/customer/ledger/?customer={get_object_or_404(CustomerPayment, pk=pk).customer.id}")
     
     payment = get_object_or_404(CustomerPayment, pk=pk)
+    from wholesaleApp.models.financial_year import is_date_in_closed_fy
+    if is_date_in_closed_fy(payment.payment_date):
+        messages.error(request, "Action Denied: This payment falls within a closed Financial Year and cannot be deleted.")
+        return redirect(f"/customer/ledger/?customer={payment.customer.id}")
     customer = payment.customer
     
     # Add amount back to customer balance
@@ -529,6 +537,10 @@ def customer_payment_create(request):
         customer_id = request.POST.get('customer')
         invoice_id = request.POST.get('invoice')
         payment_date = request.POST.get('payment_date')
+        from wholesaleApp.models.financial_year import is_date_in_closed_fy
+        if is_date_in_closed_fy(payment_date):
+            messages.error(request, "Action Denied: The selected payment date falls within a closed Financial Year.")
+            return redirect('customer_payment_list')
         amount = Decimal(request.POST.get('amount', 0))
         payment_mode = request.POST.get('payment_mode', 'Cash')
         reference_no = request.POST.get('reference_no', '')

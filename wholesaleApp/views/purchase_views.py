@@ -152,6 +152,10 @@ def purchase_entry_create(request):
         supplier_id = request.POST.get('supplier')
         invoice_number = request.POST.get('invoice_number')
         invoice_date = request.POST.get('invoice_date')
+        from wholesaleApp.models.financial_year import is_date_in_closed_fy
+        if is_date_in_closed_fy(invoice_date):
+            messages.error(request, "Action Denied: The selected invoice date falls within a closed Financial Year.")
+            return redirect('purchase_entry_list')
         payment_type = request.POST.get('payment_type', 'Credit')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
@@ -255,6 +259,10 @@ def purchase_entry_edit(request, pk):
         return redirect('purchase_entry_list')
         
     entry = get_object_or_404(PurchaseEntry, pk=pk)
+    from wholesaleApp.models.financial_year import is_date_in_closed_fy
+    if is_date_in_closed_fy(entry.invoice_date):
+        messages.error(request, "Action Denied: This purchase entry falls within a closed Financial Year and cannot be modified.")
+        return redirect('purchase_entry_list')
     suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False)
     products = ProductMaster.objects.filter(status=True, is_deleted=False)
     
@@ -262,6 +270,9 @@ def purchase_entry_edit(request, pk):
         supplier_id = request.POST.get('supplier')
         invoice_number = request.POST.get('invoice_number')
         invoice_date = request.POST.get('invoice_date')
+        if is_date_in_closed_fy(invoice_date):
+            messages.error(request, "Action Denied: The selected invoice date falls within a closed Financial Year.")
+            return redirect('purchase_entry_list')
         payment_type = request.POST.get('payment_type', 'Credit')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
@@ -391,6 +402,10 @@ def purchase_entry_delete(request, pk):
         return redirect('purchase_entry_list')
         
     entry = get_object_or_404(PurchaseEntry, pk=pk)
+    from wholesaleApp.models.financial_year import is_date_in_closed_fy
+    if is_date_in_closed_fy(entry.invoice_date):
+        messages.error(request, "Action Denied: This purchase entry falls within a closed Financial Year and cannot be deleted.")
+        return redirect('purchase_entry_list')
     
     # 1. Revert stock additions
     for item in entry.items.all():
@@ -453,6 +468,10 @@ def supplier_payment_create(request):
     if request.method == 'POST':
         supplier_id = request.POST.get('supplier')
         payment_date = request.POST.get('payment_date')
+        from wholesaleApp.models.financial_year import is_date_in_closed_fy
+        if is_date_in_closed_fy(payment_date):
+            messages.error(request, "Action Denied: The selected payment date falls within a closed Financial Year.")
+            return redirect('supplier_payment_list')
         amount = Decimal(request.POST.get('amount', 0))
         payment_mode = request.POST.get('payment_mode', 'Cash')
         reference_no = request.POST.get('reference_no', '')
@@ -503,6 +522,10 @@ def supplier_payment_delete(request, pk):
         return redirect('supplier_payment_list')
     
     payment = get_object_or_404(SupplierPayment, pk=pk)
+    from wholesaleApp.models.financial_year import is_date_in_closed_fy
+    if is_date_in_closed_fy(payment.payment_date):
+        messages.error(request, "Action Denied: This payment falls within a closed Financial Year and cannot be deleted.")
+        return redirect('supplier_payment_list')
     supplier = payment.supplier
     
     # Add amount back to supplier balance
@@ -556,6 +579,10 @@ def purchase_return_create(request):
         supplier_id = request.POST.get('supplier')
         return_number = request.POST.get('return_number')
         return_date = request.POST.get('return_date')
+        from wholesaleApp.models.financial_year import is_date_in_closed_fy
+        if is_date_in_closed_fy(return_date):
+            messages.error(request, "Action Denied: The selected return date falls within a closed Financial Year.")
+            return redirect('purchase_return_list')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))
         net_amount = Decimal(request.POST.get('net_amount', 0))
@@ -648,6 +675,10 @@ def purchase_return_delete(request, pk):
         return redirect('purchase_return_list')
     
     p_return = get_object_or_404(PurchaseReturn, pk=pk)
+    from wholesaleApp.models.financial_year import is_date_in_closed_fy
+    if is_date_in_closed_fy(p_return.return_date):
+        messages.error(request, "Action Denied: This return falls within a closed Financial Year and cannot be deleted.")
+        return redirect('purchase_return_list')
     supplier = p_return.supplier
     
     # Restore stock for return items

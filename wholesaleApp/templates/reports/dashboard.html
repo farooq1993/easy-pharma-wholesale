@@ -25,133 +25,286 @@
         justify-content: center;
         font-size: 1.8rem;
     }
+    .nav-pills .nav-link {
+        color: #4b5563;
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+    }
+    .nav-pills .nav-link:hover {
+        background-color: rgba(111, 66, 193, 0.05);
+        color: #6f42c1;
+    }
+    .nav-pills .nav-link.active {
+        background-color: #6f42c1 !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(111, 66, 193, 0.2);
+    }
 </style>
 
-<div class="row g-4 mt-2">
-    <!-- GST Sales Summary Report Card -->
-    <div class="col-md-6 col-lg-4">
-        <div class="card report-card shadow-sm h-100">
-            <div class="card-body p-4 d-flex flex-column justify-content-between">
-                <div>
-                    <div class="report-icon-box mb-3 text-primary bg-primary-subtle" style="background-color: #e0f2fe; color: #0369a1;">
-                        📊
-                    </div>
-                    <h5 class="fw-bold text-dark mb-2">GST Sales Summary</h5>
-                    <p class="text-muted small">Generate transaction logs grouped by taxable values, discounts, and GST slabs. Essential for GSTR-1 filings.</p>
-                </div>
-                <a href="{% url 'report_sales' %}" class="btn btn-outline-primary rounded-pill w-100 mt-3">
-                    Open Report <i class="bi bi-chevron-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Stock Valuation Report Card -->
-    <div class="col-md-6 col-lg-4">
-        <div class="card report-card shadow-sm h-100">
-            <div class="card-body p-4 d-flex flex-column justify-content-between">
-                <div>
-                    <div class="report-icon-box mb-3 text-success bg-success-subtle" style="background-color: #dcfce7; color: #15803d;">
-                        📦
-                    </div>
-                    <h5 class="fw-bold text-dark mb-2">Stock Valuation</h5>
-                    <p class="text-muted small">Evaluate total inventory worth using Purchase Rate (cost valuation) vs Sale Rate (market valuation) across active batches.</p>
-                </div>
-                <a href="{% url 'report_stock' %}" class="btn btn-outline-success rounded-pill w-100 mt-3">
-                    Open Report <i class="bi bi-chevron-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Batch Expiry Alerts Card -->
-    <div class="col-md-6 col-lg-4">
-        <div class="card report-card shadow-sm h-100">
-            <div class="card-body p-4 d-flex flex-column justify-content-between">
-                <div>
-                    <div class="report-icon-box mb-3 text-danger bg-danger-subtle" style="background-color: #fee2e2; color: #b91c1c;">
-                        ⏳
-                    </div>
-                    <h5 class="fw-bold text-dark mb-2">Pharma Expiry alerts</h5>
-                    <p class="text-muted small">Track batches expiring in 30, 90, or 180 days to claim replacements or execute return-to-vendor procedures.</p>
-                </div>
-                <a href="{% url 'report_expiry' %}" class="btn btn-outline-danger rounded-pill w-100 mt-3">
-                    Open Report <i class="bi bi-chevron-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Outstanding Dues Card -->
-    <div class="col-md-6 col-lg-4">
-        <div class="card report-card shadow-sm h-100">
-            <div class="card-body p-4 d-flex flex-column justify-content-between">
-                <div>
-                    <div class="report-icon-box mb-3 text-warning bg-warning-subtle" style="background-color: #fef9c3; color: #a16207;">
-                        💰
-                    </div>
-                    <h5 class="fw-bold text-dark mb-2">Outstanding Ledger</h5>
-                    <p class="text-muted small">Analyze accounts receivables (customer balances) and payables (supplier dues) to keep track of shop cash-flow.</p>
-                </div>
-                <a href="{% url 'report_outstanding' %}" class="btn btn-outline-warning rounded-pill w-100 mt-3">
-                    Open Report <i class="bi bi-chevron-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Company-wise Sales Card -->
-    <div class="col-md-6 col-lg-4">
-        <div class="card report-card shadow-sm h-100">
-            <div class="card-body p-4 d-flex flex-column justify-content-between">
-                <div>
-                    <div class="report-icon-box mb-3 text-info bg-info-subtle" style="background-color: #ecfeff; color: #0891b2;">
-                        🏢
-                    </div>
-                    <h5 class="fw-bold text-dark mb-2">Company-wise Sales</h5>
-                    <p class="text-muted small">Track sold items grouped by pharmaceutical company / manufacturer. Useful for evaluating brand performance.</p>
-                </div>
-                <a href="{% url 'report_company_sales' %}" class="btn btn-outline-info rounded-pill w-100 mt-3">
-                    Open Report <i class="bi bi-chevron-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Customer-wise Sales Card -->
-    <div class="col-md-6 col-lg-4">
-        <div class="card report-card shadow-sm h-100">
-            <div class="card-body p-4 d-flex flex-column justify-content-between">
-                <div>
-                    <div class="report-icon-box mb-3 text-secondary bg-secondary-subtle" style="background-color: #f1f5f9; color: #475569;">
-                        👥
-                    </div>
-                    <h5 class="fw-bold text-dark mb-2">Customer-wise Sales</h5>
-                    <p class="text-muted small">Analyze total sales and billing history grouped by individual chemist shop or retailer.</p>
-                </div>
-                <a href="{% url 'report_customer_sales' %}" class="btn btn-outline-secondary rounded-pill w-100 mt-3">
-                    Open Report <i class="bi bi-chevron-right"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- GST Tax Return Card -->
-    <div class="col-md-6 col-lg-4">
-        <div class="card report-card shadow-sm h-100" style="border-top: 4px solid #4f46e5;">
-            <div class="card-body p-4 d-flex flex-column justify-content-between">
-                <div>
-                    <div class="report-icon-box mb-3 text-primary bg-primary-subtle">
-                        🏛️
-                    </div>
-                    <h5 class="fw-bold text-dark mb-2">GST Tax Return (GSTR-1 &amp; GSTR-2)</h5>
-                    <p class="text-muted small">Generate consolidated sales tax (Output) and purchase credit tax (Input) logs grouped by tax slabs.</p>
-                </div>
-                <a href="{% url 'report_gst' %}" class="btn btn-primary rounded-pill w-100 mt-3">
-                    Open GST Report <i class="bi bi-chevron-right"></i>
-                </a>
-            </div>
-        </div>
+<!-- Unified Tabs Header -->
+<div class="card shadow-sm border-0 rounded-4 mb-4">
+    <div class="card-body p-2">
+        <ul class="nav nav-pills d-flex flex-wrap gap-1" id="reportTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active rounded-pill fw-bold py-2 px-3" id="overview-tab" data-bs-toggle="pill" data-bs-target="#overview-pane" type="button" role="tab">
+                    <i class="bi bi-grid-fill me-1"></i> Overview Hub
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold py-2 px-3" id="sales-tab" data-tab-name="sales" data-url="{% url 'report_sales' %}" data-bs-toggle="pill" data-bs-target="#report-pane" type="button" role="tab">
+                    📊 GST Sales
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold py-2 px-3" id="stock-tab" data-tab-name="stock" data-url="{% url 'report_stock' %}" data-bs-toggle="pill" data-bs-target="#report-pane" type="button" role="tab">
+                    📦 Stock Value
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold py-2 px-3" id="expiry-tab" data-tab-name="expiry" data-url="{% url 'report_expiry' %}" data-bs-toggle="pill" data-bs-target="#report-pane" type="button" role="tab">
+                    ⏳ Expiry Alerts
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold py-2 px-3" id="outstanding-tab" data-tab-name="outstanding" data-url="{% url 'report_outstanding' %}" data-bs-toggle="pill" data-bs-target="#report-pane" type="button" role="tab">
+                    💰 Outstanding
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold py-2 px-3" id="company-tab" data-tab-name="company" data-url="{% url 'report_company_sales' %}" data-bs-toggle="pill" data-bs-target="#report-pane" type="button" role="tab">
+                    🏢 Company/Product-wise Sales
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold py-2 px-3" id="customer-tab" data-tab-name="customer" data-url="{% url 'report_customer_sales' %}" data-bs-toggle="pill" data-bs-target="#report-pane" type="button" role="tab">
+                    👥 Customer-wise Sales
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-bold py-2 px-3" id="gst-tab" data-tab-name="gst" data-url="{% url 'report_gst' %}" data-bs-toggle="pill" data-bs-target="#report-pane" type="button" role="tab">
+                    🏛️ GST Returns
+                </button>
+            </li>
+        </ul>
     </div>
 </div>
+
+<div class="tab-content" id="reportTabsContent">
+    <!-- Hub Overview Pane -->
+    <div class="tab-pane fade show active" id="overview-pane" role="tabpanel">
+        <div class="row g-4">
+            <!-- GST Sales Summary Report Card -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card report-card shadow-sm h-100">
+                    <div class="card-body p-4 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="report-icon-box mb-3 text-primary bg-primary-subtle" style="background-color: #e0f2fe; color: #0369a1;">
+                                📊
+                            </div>
+                            <h5 class="fw-bold text-dark mb-2">GST Sales Summary</h5>
+                            <p class="text-muted small">Generate transaction logs grouped by taxable values, discounts, and GST slabs. Essential for GSTR-1 filings.</p>
+                        </div>
+                        <button type="button" onclick="switchReportTab('sales-tab')" class="btn btn-outline-primary rounded-pill w-100 mt-3">
+                            Open Report <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock Valuation Report Card -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card report-card shadow-sm h-100">
+                    <div class="card-body p-4 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="report-icon-box mb-3 text-success bg-success-subtle" style="background-color: #dcfce7; color: #15803d;">
+                                📦
+                            </div>
+                            <h5 class="fw-bold text-dark mb-2">Stock Valuation</h5>
+                            <p class="text-muted small">Evaluate total inventory worth using Purchase Rate (cost valuation) vs Sale Rate (market valuation) across active batches.</p>
+                        </div>
+                        <button type="button" onclick="switchReportTab('stock-tab')" class="btn btn-outline-success rounded-pill w-100 mt-3">
+                            Open Report <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Expiry Alerts Card -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card report-card shadow-sm h-100">
+                    <div class="card-body p-4 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="report-icon-box mb-3 text-danger bg-danger-subtle" style="background-color: #fee2e2; color: #b91c1c;">
+                                ⏳
+                            </div>
+                            <h5 class="fw-bold text-dark mb-2">Pharma Expiry alerts</h5>
+                            <p class="text-muted small">Track batches expiring in 30, 90, or 180 days to claim replacements or execute return-to-vendor procedures.</p>
+                        </div>
+                        <button type="button" onclick="switchReportTab('expiry-tab')" class="btn btn-outline-danger rounded-pill w-100 mt-3">
+                            Open Report <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Outstanding Dues Card -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card report-card shadow-sm h-100">
+                    <div class="card-body p-4 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="report-icon-box mb-3 text-warning bg-warning-subtle" style="background-color: #fef9c3; color: #a16207;">
+                                💰
+                            </div>
+                            <h5 class="fw-bold text-dark mb-2">Outstanding Ledger</h5>
+                            <p class="text-muted small">Analyze accounts receivables (customer balances) and payables (supplier dues) to keep track of shop cash-flow.</p>
+                        </div>
+                        <button type="button" onclick="switchReportTab('outstanding-tab')" class="btn btn-outline-warning rounded-pill w-100 mt-3">
+                            Open Report <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Company-wise Sales Card -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card report-card shadow-sm h-100">
+                    <div class="card-body p-4 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="report-icon-box mb-3 text-info bg-info-subtle" style="background-color: #ecfeff; color: #0891b2;">
+                                🏢
+                            </div>
+                            <h5 class="fw-bold text-dark mb-2">Company-wise Sales</h5>
+                            <p class="text-muted small">Track sold items grouped by pharmaceutical company / manufacturer. Useful for evaluating brand performance.</p>
+                        </div>
+                        <button type="button" onclick="switchReportTab('company-tab')" class="btn btn-outline-info rounded-pill w-100 mt-3">
+                            Open Report <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer-wise Sales Card -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card report-card shadow-sm h-100">
+                    <div class="card-body p-4 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="report-icon-box mb-3 text-secondary bg-secondary-subtle" style="background-color: #f1f5f9; color: #475569;">
+                                👥
+                            </div>
+                            <h5 class="fw-bold text-dark mb-2">Customer-wise Sales</h5>
+                            <p class="text-muted small">Analyze total sales and billing history grouped by individual chemist shop or retailer.</p>
+                        </div>
+                        <button type="button" onclick="switchReportTab('customer-tab')" class="btn btn-outline-secondary rounded-pill w-100 mt-3">
+                            Open Report <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GST Tax Return Card -->
+            <div class="col-md-6 col-lg-4">
+                <div class="card report-card shadow-sm h-100" style="border-top: 4px solid #6f42c1;">
+                    <div class="card-body p-4 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="report-icon-box mb-3 text-primary bg-primary-subtle" style="background-color: #f3e8ff; color: #6f42c1;">
+                                🏛️
+                            </div>
+                            <h5 class="fw-bold text-dark mb-2">GST Tax Return (GSTR-1 &amp; GSTR-2)</h5>
+                            <p class="text-muted small">Generate consolidated sales tax (Output) and purchase credit tax (Input) logs grouped by tax slabs.</p>
+                        </div>
+                        <button type="button" onclick="switchReportTab('gst-tab')" class="btn btn-primary rounded-pill w-100 mt-3" style="background-color: #6f42c1; border-color: #6f42c1;">
+                            Open GST Report <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Report Load Pane -->
+    <div class="tab-pane fade" id="report-pane" role="tabpanel">
+        <div class="card shadow-sm border-0 rounded-4 p-5 min-vh-50 d-flex align-items-center justify-content-center" id="reportLoadingArea">
+            <div class="d-flex flex-column align-items-center">
+                <div class="spinner-border text-primary mb-3" role="status" style="color: #6f42c1 !important;"></div>
+                <span class="text-muted fw-bold">Generating report data...</span>
+            </div>
+        </div>
+        <div id="reportContentArea" class="d-none"></div>
+    </div>
+</div>
+
+<script>
+    function switchReportTab(tabId) {
+        const tabEl = document.getElementById(tabId);
+        if (tabEl) {
+            const tab = new bootstrap.Tab(tabEl);
+            tab.show();
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const reportTabs = document.querySelectorAll('#reportTabs button[data-url]');
+        const loadingArea = document.getElementById('reportLoadingArea');
+        const contentArea = document.getElementById('reportContentArea');
+
+        function loadReport(url) {
+            loadingArea.classList.remove('d-none');
+            contentArea.classList.add('d-none');
+            
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const content = doc.querySelector('.main-content > div.p-4') || doc.querySelector('.main-content') || doc.body;
+                    
+                    // Extract HTML content
+                    contentArea.innerHTML = content.innerHTML;
+                    
+                    // Intercept form submits inside the tab content
+                    const forms = contentArea.querySelectorAll('form');
+                    forms.forEach(form => {
+                        form.addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            const formData = new FormData(form);
+                            const params = new URLSearchParams(formData);
+                            const targetUrl = new URL(url, window.location.origin);
+                            for (const [key, value] of params.entries()) {
+                                targetUrl.searchParams.set(key, value);
+                            }
+                            loadReport(targetUrl.toString());
+                        });
+                    });
+                    
+                    loadingArea.classList.add('d-none');
+                    contentArea.classList.remove('d-none');
+                })
+                .catch(error => {
+                    console.error("Error loading report:", error);
+                    contentArea.innerHTML = `<div class="alert alert-danger rounded-4 m-3">Error loading report details. Please try again.</div>`;
+                    loadingArea.classList.add('d-none');
+                    contentArea.classList.remove('d-none');
+                });
+        }
+
+        reportTabs.forEach(tab => {
+            tab.addEventListener('shown.bs.tab', function(event) {
+                const url = event.target.getAttribute('data-url');
+                if (url) {
+                    loadReport(url);
+                }
+            });
+        });
+
+        // Auto-select tab on load if specified in query string
+        const urlParams = new URLSearchParams(window.location.search);
+        const activeTabName = urlParams.get('tab');
+        if (activeTabName) {
+            const activeTabButton = document.querySelector(`#reportTabs button[data-tab-name="${activeTabName}"]`);
+            if (activeTabButton) {
+                switchReportTab(activeTabButton.id);
+            }
+        }
+    });
+</script>
 {% endblock %}
