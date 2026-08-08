@@ -143,7 +143,10 @@
             <!-- Invoice Header Info -->
             <div class="row g-3 mb-4">
                 <div class="col-md-3" id="customerSelectCol" {% if invoice.is_retail %}style="display: none;"{% endif %}>
-                    <label class="form-label text-muted small fw-bold">Customer (Chemist / Hospital) <span class="text-danger">*</span></label>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label text-muted small fw-bold mb-0">Customer (Chemist / Hospital) <span class="text-danger">*</span></label>
+                        <span id="customerOutstandingBadge" class="badge bg-danger-subtle text-danger rounded-pill px-2 py-0.5" style="font-size: 0.65rem; display: none;">Outstanding: ₹0.00</span>
+                    </div>
                     <div class="combobox-container">
                         <input type="text" id="customerSearch" class="form-control combobox-input" placeholder="Type Chemist Name..." {% if not invoice.is_retail %}required{% endif %} value="{{ invoice.customer.name|default:'' }}{% if invoice.customer %} ({{ invoice.customer.city }}){% endif %}">
                         <input type="hidden" name="customer" id="customerSelect" class="combobox-hidden-value" {% if not invoice.is_retail %}required{% endif %} value="{{ invoice.customer.id|default:'' }}" data-type="{{ invoice.customer.customer_type|default:'Retailer' }}">
@@ -416,7 +419,7 @@
     // Global datasets
     const customerList = [
         {% for customer in customers %}
-        { id: "{{ customer.id }}", name: "{{ customer.name }} ({{ customer.city }})", type: "{{ customer.customer_type }}" },
+        { id: "{{ customer.id }}", name: "{{ customer.name }} ({{ customer.city }})", type: "{{ customer.customer_type }}", outstanding: parseFloat("{{ customer.opening_balance|default:0 }}") },
         {% endfor %}
     ];
 
@@ -492,6 +495,13 @@
 
         inputEl.addEventListener("input", () => {
             renderSuggestions(inputEl.value);
+            if (inputEl.value.trim() === "") {
+                hiddenInput.value = "";
+                const outBadge = document.getElementById("customerOutstandingBadge");
+                if (outBadge) {
+                    outBadge.style.display = "none";
+                }
+            }
         });
 
         inputEl.addEventListener("keydown", (e) => {
@@ -1316,6 +1326,28 @@
         modal.show();
     }
 
+    function updateCustomerOutstandingDisplay(id) {
+        const outBadge = document.getElementById("customerOutstandingBadge");
+        if (!outBadge) return;
+        if (!id) {
+            outBadge.style.display = "none";
+            return;
+        }
+        const selectedCust = customerList.find(c => c.id == id);
+        if (selectedCust) {
+            const balance = selectedCust.outstanding || 0;
+            outBadge.textContent = `Outstanding: ₹${balance.toFixed(2)}`;
+            if (balance > 0) {
+                outBadge.className = "badge bg-danger-subtle text-danger rounded-pill px-2 py-1";
+            } else {
+                outBadge.className = "badge bg-success-subtle text-success rounded-pill px-2 py-1";
+            }
+            outBadge.style.display = "inline-block";
+        } else {
+            outBadge.style.display = "none";
+        }
+    }
+
     window.onload = function() {
         setupCombobox(
             document.getElementById("customerSearch"),
@@ -1326,10 +1358,16 @@
                 if (selectedCust) {
                     document.getElementById("customerSelect").dataset.type = selectedCust.type;
                     updateAllRowPrices();
+                    updateCustomerOutstandingDisplay(id);
                 }
             },
             () => openCustomerModal()
         );
+
+        const initialCustId = document.getElementById("customerSelect").value;
+        if (initialCustId) {
+            updateCustomerOutstandingDisplay(initialCustId);
+        }
 
         // Prepopulate existing items
         if (existingItems.length > 0) {

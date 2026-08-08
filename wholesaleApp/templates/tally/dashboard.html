@@ -1,0 +1,192 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row g-4 mt-2">
+    {% if not is_enabled %}
+    <!-- ============================================= -->
+    <!-- PAYWALL / PREMIUM UPGRADE PITCH PAGE -->
+    <!-- ============================================= -->
+    <div class="col-12">
+        <div class="card border-0 shadow-lg rounded-4 p-5 text-center overflow-hidden position-relative bg-white">
+            <!-- Decorative gradient backgrounds -->
+            <div class="position-absolute top-0 start-50 translate-middle-x w-100" style="height: 6px; background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);"></div>
+            
+            <div class="py-4">
+                <div class="d-inline-flex align-items-center justify-content-center bg-indigo-subtle text-indigo rounded-circle mb-4 p-4" style="background-color: #e0e7ff; color: #4f46e5; width: 90px; height: 90px;">
+                    <i class="bi bi-box-arrow-up-right fs-1"></i>
+                </div>
+                
+                <h2 class="fw-bold text-dark mb-2">Tally Accounting Integration</h2>
+                <p class="text-muted col-md-8 mx-auto fs-5 mb-4">
+                    Bridge the gap between your pharmacy distribution billing and Tally. Export all sales, purchases, and receipts into standard, CA-compatible import formats with a single click.
+                </p>
+                
+                <!-- Premium Features Grid -->
+                <div class="row g-4 justify-content-center text-start my-4 max-width-700 col-md-10 mx-auto">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-patch-check-fill text-success fs-4 me-3"></i>
+                            <div>
+                                <h6 class="fw-bold text-dark mb-1">One-Click CA Auditing</h6>
+                                <p class="text-muted small mb-0">Generate standard Tally-importable files directly for your Chartered Accountant (CA).</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-patch-check-fill text-success fs-4 me-3"></i>
+                            <div>
+                                <h6 class="fw-bold text-dark mb-1">Exact GST Matching Ledger</h6>
+                                <p class="text-muted small mb-0">Separate rows for taxable values, CGST, SGST, and IGST for error-free GSTR filing.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mt-4">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-patch-check-fill text-success fs-4 me-3"></i>
+                            <div>
+                                <h6 class="fw-bold text-dark mb-1">Receipts & Contra Ledgers</h6>
+                                <p class="text-muted small mb-0">Export daily collections, cash registers, and bank receipts directly into journal vouchers.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mt-4">
+                        <div class="d-flex align-items-start">
+                            <i class="bi bi-patch-check-fill text-success fs-4 me-3"></i>
+                            <div>
+                                <h6 class="fw-bold text-dark mb-1">Auto Ledger Mapping</h6>
+                                <p class="text-muted small mb-0">Maps customer names and retail accounts to correct Tally ledger profiles automatically.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4 col-md-8 mx-auto">
+
+                <!-- Licensing Plan Offers -->
+                <div class="row g-3 justify-content-center align-items-stretch col-md-9 mx-auto mb-4">
+                    <div class="col-md-6">
+                        <div class="card border rounded-4 h-100 p-3 bg-light">
+                            <span class="text-uppercase text-muted small fw-bold">Add-on Module Only</span>
+                            <h4 class="fw-bold text-dark mt-2">₹3,000 <span class="fs-6 text-muted font-normal">one-time</span></h4>
+                            <p class="text-muted small mt-2">Activate Tally exports on top of your existing billing software subscription.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border rounded-4 h-100 p-3" style="border-color: #6366f1 !important; background-color: #f8fafc;">
+                            <span class="badge bg-primary rounded-pill mb-1 d-inline-block align-self-center px-3 py-1 text-uppercase fw-bold" style="font-size: 0.65rem;">Recommended Plan</span>
+                            <span class="text-uppercase text-primary small fw-bold mt-1">Premium Software Bundle</span>
+                            <h4 class="fw-bold text-dark mt-2">₹14,000 - ₹15,000 <span class="fs-6 text-muted font-normal">one-time</span></h4>
+                            <p class="text-muted small mt-2">Get the entire Pharma ERP suite with Tally Export and multi-user configurations pre-installed.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button Group -->
+                <div class="d-flex flex-column flex-sm-row justify-content-center gap-3 mt-4">
+                    <a href="tel:+919999999999" class="btn btn-primary rounded-pill px-5 py-2 fw-bold">
+                        <i class="bi bi-telephone-outbound me-2"></i> Contact Sales to Purchase
+                    </a>
+                    
+                    <!-- Developers Trial Trigger -->
+                    <form method="POST" class="d-inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="activate_demo" value="1">
+                        <button type="submit" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-bold">
+                            <i class="bi bi-play-circle me-1"></i> Activate Developer Trial (Demo)
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% else %}
+    <!-- ============================================= -->
+    <!-- ACTIVE EXPORT DASHBOARD INTERFACE -->
+    <!-- ============================================= -->
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-header bg-white py-3 border-bottom-0">
+                <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-file-earmark-spreadsheet text-primary me-2"></i>Compile Tally Vouchers</h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{% url 'tally_export_csv' %}">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold">Export Type</label>
+                        <select name="export_type" class="form-select rounded-3" required>
+                            <option value="sales">Sales Register (Sales Vouchers)</option>
+                            <option value="purchases">Purchase Register (Purchase Vouchers)</option>
+                            <option value="receipts">Receipts Register (Customer Payments)</option>
+                        </select>
+                        <span class="form-text text-muted small">Select the transaction ledger category to export.</span>
+                    </div>
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">From Date</label>
+                            <input type="date" name="start_date" class="form-control rounded-3" value="{{ first_day|date:'Y-m-d' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">To Date</label>
+                            <input type="date" name="end_date" class="form-control rounded-3" value="{{ today|date:'Y-m-d' }}" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-2.5 fw-bold mt-2">
+                        <i class="bi bi-download me-2"></i> Generate & Download Tally CSV
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions / Ledger mapping Card -->
+    <div class="col-md-7">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-header bg-white py-3 border-bottom-0">
+                <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-journal-check text-success me-2"></i>Tally Ledger Mapping Guide</h5>
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold text-dark">Suggested Ledger Account Configurations in Tally:</h6>
+                <p class="text-muted small">To ensure flawless direct import, instruct your Chartered Accountant to create the following ledger profiles in Tally:</p>
+                
+                <ul class="list-group list-group-flush small">
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <strong>Sales Ledger - B2B Local</strong>
+                            <div class="text-muted small">Used for B2B wholesale invoice credit sales.</div>
+                        </div>
+                        <span class="badge bg-light text-dark font-monospace rounded-pill border px-3">Sales Account</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <strong>Sales Ledger - Cash Sales</strong>
+                            <div class="text-muted small">Used for counter cash/B2C retail bill sales.</div>
+                        </div>
+                        <span class="badge bg-light text-dark font-monospace rounded-pill border px-3">Sales Account</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <strong>CGST Output Account (9%) / SGST Output Account (9%)</strong>
+                            <div class="text-muted small">Sales output tax profiles for tax calculations.</div>
+                        </div>
+                        <span class="badge bg-light text-dark font-monospace rounded-pill border px-3">Duties & Taxes</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <strong>Purchase Ledger - Local Inputs</strong>
+                            <div class="text-muted small">Used for inward inventory supply entry vouchers.</div>
+                        </div>
+                        <span class="badge bg-light text-dark font-monospace rounded-pill border px-3">Purchase Account</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

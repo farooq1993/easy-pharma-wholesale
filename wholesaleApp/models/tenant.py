@@ -34,6 +34,7 @@ class Tenant(models.Model):
     dl_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="Drug License Number")
     
     is_active = models.BooleanField(default=True)
+    tally_export_enabled = models.BooleanField(default=False, verbose_name="Tally Export Integration Enabled")
     business_mode = models.CharField(
         max_length=20,
         choices=(('Wholesale', 'Wholesale Only'), ('Dual', 'Retail + Wholesale (Dual Mode)')),

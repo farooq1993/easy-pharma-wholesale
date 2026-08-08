@@ -93,9 +93,6 @@
                         {% if 'sales_return_view' in user_perms %}
                         <li class="nav-item"><a href="{% url 'sales_return_list' %}" class="nav-link text-light">Sales Return</a></li>
                         {% endif %}
-                        {% if 'payment_collection_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'customer_payment_list' %}" class="nav-link text-light">Payment Collection</a></li>
-                        {% endif %}
                     </ul>
                 </div>
             </li>
@@ -117,7 +114,7 @@
                 </div>
             </li>
 
-            {% if 'customer_ledger' in user_perms or 'report_outstanding' in user_perms %}
+            {% if 'customer_ledger' in user_perms or 'report_outstanding' in user_perms or 'payment_collection_view' in user_perms %}
             <!-- Accounts / Ledger -->
             <li class="nav-item mt-3">
                 <a class="nav-link text-white" data-bs-toggle="collapse" href="#accountsCollapse" role="button">
@@ -125,6 +122,9 @@
                 </a>
                 <div class="collapse ms-3" id="accountsCollapse">
                     <ul class="nav flex-column">
+                        {% if 'payment_collection_view' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'customer_payment_list' %}" class="nav-link text-light">Payment Collection</a></li>
+                        {% endif %}
                         {% if 'customer_ledger' in user_perms %}
                         <li class="nav-item"><a href="{% url 'customer_ledger' %}" class="nav-link text-light">Customer Ledger</a></li>
                         {% endif %}
@@ -145,6 +145,7 @@
                 </a>
                 <div class="collapse ms-3" id="complianceCollapse">
                     <ul class="nav flex-column">
+                        <li class="nav-item"><a href="{% url 'tally_dashboard' %}" class="nav-link text-light">Tally Integration</a></li>
                         <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Drug License Renewal</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                         <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>GST Filing Reminders</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                     </ul>

@@ -4,7 +4,8 @@ from wholesaleApp.views.user_views import (
     user_list,
     user_create,
     user_edit,
-    user_delete
+    user_delete,
+    create_user_public
 )
 from wholesaleApp.views.auth_views import user_login, user_logout
 from wholesaleApp.views.tenant_views import (
@@ -24,6 +25,7 @@ urlpatterns = [
     # User Authentication
     path('login/', user_login, name='login'),
     path('logout/', user_logout, name='logout'),
+    path('createuser/', create_user_public, name='create_user_public'),
     
     # User Management CRUD
     path('settings/users/', user_list, name='user_list'),

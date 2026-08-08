@@ -1940,6 +1940,142 @@ class FinancialYearTests(TestCase):
         self.assertEqual(SalesInvoice.objects.filter(tenant=self.tenant).count(), 0)
 
 
+class TallyIntegrationTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from wholesaleApp.models import Tenant, UserProfile
+        self.tenant = Tenant.objects.create(name="test_tenant_tally", company_name="Test Tenant Tally", tally_export_enabled=False)
+        self.user = User.objects.create_user(username="tally_user", password="password123")
+        self.profile = self.user.profile
+        self.profile.tenant = self.tenant
+        self.profile.role = 'Owner'
+        self.profile.save()
+        
+        # Set thread-local tenant
+        from wholesaleApp.models.tenant import set_current_tenant
+        set_current_tenant(self.tenant)
+
+    def tearDown(self):
+        from wholesaleApp.models.tenant import set_current_tenant
+        set_current_tenant(None)
+
+    def test_tally_dashboard_disabled_pitch_screen(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        
+        response = self.client.get(reverse('tally_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        # Should display pricing/upgrade content
+        self.assertContains(response, "Contact Sales to Purchase")
+        self.assertContains(response, "₹3,000")
+
+    def test_tally_dashboard_enabled_interface(self):
+        from django.urls import reverse
+        self.client.force_login(self.user)
+        
+        # Enable tally export
+        self.tenant.tally_export_enabled = True
+        self.tenant.save()
+        
+        response = self.client.get(reverse('tally_dashboard'))
+        self.assertEqual(response.status_code, 200)
+        # Should display download forms
+        self.assertContains(response, "Compile Tally Vouchers")
+        self.assertContains(response, "Generate & Download Tally CSV")
+
+
+class PublicUserCreationTests(TestCase):
+    def test_create_user_public_get(self):
+        from django.urls import reverse
+        response = self.client.get(reverse('create_user_public'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'registration/create_user.html')
+
+    def test_create_user_public_post_success(self):
+        from django.urls import reverse
+        from django.contrib.auth.models import User
+        
+        response = self.client.post(reverse('create_user_public'), {
+            'username': 'newsignup',
+            'email': 'newsignup@example.com',
+            'password': 'password123',
+            'mobile': '9876543210'
+        })
+        # Should redirect to login page upon success
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('login'))
+        
+        # Verify user creation
+        user = User.objects.filter(username='newsignup').first()
+        self.assertIsNotNone(user)
+        self.assertEqual(user.email, 'newsignup@example.com')
+        self.assertTrue(user.is_superuser)
+        self.assertTrue(user.is_staff)
+        
+        # Verify profile and linking
+        profile = user.profile
+        self.assertEqual(profile.role, 'Super Admin')
+        self.assertEqual(profile.mobile, '9876543210')
+        self.assertIsNone(profile.tenant)
+
+    def test_create_user_public_post_existing_username(self):
+        from django.urls import reverse
+        from django.contrib.auth.models import User
+        
+        # Pre-create user with same username
+        User.objects.create_user(username='newsignup', password='somepassword')
+        
+        response = self.client.post(reverse('create_user_public'), {
+            'username': 'newsignup',
+            'email': 'newsignup@example.com',
+            'password': 'password123',
+            'mobile': '9876543210'
+        })
+        self.assertEqual(response.status_code, 200)
+        # Should show error message and not create a duplicate
+        self.assertContains(response, "User with username &#x27;newsignup&#x27; already exists.")
+
+    def test_tenant_creation_links_creator(self):
+        from django.urls import reverse
+        from django.contrib.auth.models import User
+        from wholesaleApp.models.tenant import Tenant
+        
+        # Create a user with no tenant
+        creator = User.objects.create_superuser(username='creatoradmin', password='password123')
+        self.assertIsNone(creator.profile.tenant)
+        
+        self.client.force_login(creator)
+        
+        # Post tenant creation form
+        response = self.client.post(reverse('tenant_create'), {
+            'name': 'creator_shop',
+            'company_name': 'Creator Shop Ltd',
+            'address': 'Creator Road',
+            'phone': '1122334455',
+            'email': 'creator@shop.com',
+            'gstin': '123456789012345',
+            'dl_number': 'DL-99999',
+            'is_active': 'on',
+            'business_mode': 'Wholesale'
+        })
+        self.assertEqual(response.status_code, 302)
+        
+        # Verify tenant is created
+        tenant = Tenant.objects.get(name='creator_shop')
+        self.assertIsNotNone(tenant)
+        
+        # Verify the creator user profile is now linked to this tenant
+        creator.profile.refresh_from_db()
+        self.assertEqual(creator.profile.tenant, tenant)
+        
+        # Verify session active tenant ID is set
+        self.assertEqual(self.client.session.get('active_tenant_id'), tenant.id)
+
+
+
+
+
+
 
 
 

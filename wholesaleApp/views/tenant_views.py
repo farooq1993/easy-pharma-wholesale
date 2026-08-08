@@ -33,7 +33,7 @@ def tenant_create(request):
         if Tenant.objects.filter(name__iexact=name).exists():
             messages.error(request, f"Tenant with name '{name}' already exists.")
         else:
-            Tenant.objects.create(
+            tenant = Tenant.objects.create(
                 name=name,
                 company_name=company_name,
                 address=address,
@@ -45,6 +45,15 @@ def tenant_create(request):
                 is_active=is_active,
                 business_mode=business_mode
             )
+            
+            # Link current user's profile to the new tenant if not already linked
+            if hasattr(request.user, 'profile'):
+                profile = request.user.profile
+                if not profile.tenant:
+                    profile.tenant = tenant
+                    profile.save()
+                    request.session['active_tenant_id'] = tenant.id
+
             messages.success(request, f"Tenant '{name}' created successfully.")
             return redirect('tenant_list')
             

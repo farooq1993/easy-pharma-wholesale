@@ -6,7 +6,8 @@ from wholesaleApp.models.tenant import Tenant
 from wholesaleApp.views.security_helpers import (
     get_user_permissions_context,
     apply_role_default_permissions,
-    tenant_owner_required
+    tenant_owner_required,
+    log_activity
 )
 
 # ==================== USER MANAGEMENT CRUD ====================
@@ -184,4 +185,51 @@ def user_delete(request, pk):
 
     messages.success(request, f"Staff user '{username}' deleted successfully!")
     return redirect('user_list')
+
+
+def create_user_public(request):
+    """Create a new Super Admin user publicly."""
+    if request.user.is_authenticated:
+        return redirect('home')
+
+    if request.method == 'POST':
+        username = request.POST['username'].strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST['password']
+        mobile = request.POST.get('mobile', '').strip()
+
+        if User.objects.filter(username__iexact=username).exists():
+            messages.error(request, f"User with username '{username}' already exists.")
+        else:
+            # Create Django Superuser
+            user = User.objects.create_superuser(username=username, email=email, password=password)
+            
+            # Setup User Profile
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            profile.role = 'Super Admin'
+            profile.mobile = mobile
+            profile.tenant = None
+            profile.save()
+
+            # Apply Role Preset Default Permissions
+            apply_role_default_permissions(user)
+
+            # Log Activity
+            log_activity(
+                request, 
+                action='CREATE', 
+                model_name='User', 
+                object_repr=username, 
+                object_id=user.id, 
+                description="Publicly registered Super Admin user"
+            )
+
+            messages.success(request, f"Super Admin user '{username}' successfully created! Please login to configure your firm.")
+            return redirect('login')
+
+    context = {
+        'page_title': 'Create Admin Account'
+    }
+    return render(request, 'registration/create_user.html', context)
+
 
