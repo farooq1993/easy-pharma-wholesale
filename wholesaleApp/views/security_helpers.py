@@ -135,7 +135,7 @@ def superadmin_required(view_func):
         if not request.user.is_authenticated:
             messages.error(request, "Please login to access this section.")
             return redirect('login')
-        if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.is_super_admin)):
+        if not request.user.is_superuser:
             messages.error(request, "Access Denied: Restricted to SaaS Platform Administrators.")
             return redirect('home')
         return view_func(request, *args, **kwargs)
@@ -278,7 +278,8 @@ def tenant_context_processor(request):
         'tenants_list': [],
     }
     if request.user.is_authenticated and (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.is_super_admin)):
-        context['tenants_list'] = Tenant.objects.filter(is_active=True)
+        from django.db.models import Q
+        context['tenants_list'] = Tenant.objects.filter(Q(user=request.user) | Q(user__isnull=True), is_active=True)
     return context
 
 

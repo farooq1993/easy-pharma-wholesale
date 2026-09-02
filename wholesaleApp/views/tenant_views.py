@@ -1,12 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.db.models import Q
 from wholesaleApp.models.tenant import Tenant
 from wholesaleApp.views.security_helpers import get_user_permissions_context, superadmin_required
 
 @superadmin_required
 def tenant_list(request):
     """List all tenants/firms in the system."""
-    tenants = Tenant.objects.all()
+    tenants = Tenant.objects.filter(Q(user=request.user) | Q(user__isnull=True))
     context = {
         'tenants': tenants,
         'page_title': 'Tenant / Firm Management',
@@ -34,6 +35,7 @@ def tenant_create(request):
             messages.error(request, f"Tenant with name '{name}' already exists.")
         else:
             tenant = Tenant.objects.create(
+                user=request.user,
                 name=name,
                 company_name=company_name,
                 address=address,

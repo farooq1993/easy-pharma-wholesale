@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
 import threading
 
 # Thread-local storage for current tenant
@@ -15,6 +16,7 @@ def set_current_tenant(tenant):
 
 
 class Tenant(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tenants', verbose_name="Owner / Creator User")
     name = models.CharField(max_length=100, unique=True, verbose_name="Tenant Name")
     company_name = models.CharField(max_length=200, verbose_name="Company Name")
     address = models.TextField(blank=True, null=True)

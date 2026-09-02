@@ -49,24 +49,11 @@
                 </div>
             </div>
 
-            {% if is_super_admin %}
+            {% if current_tenant %}
             <div class="mb-4">
-                <label class="form-label text-muted small fw-bold">Associated Tenant Firm <span class="text-danger">*</span></label>
-                <select name="tenant" class="form-select" required>
-                    <option value="">-- Select Tenant Firm --</option>
-                    {% for t in tenants %}
-                        <option value="{{ t.id }}" {% if profile.tenant.id == t.id %}selected{% endif %}>{{ t.company_name }} ({{ t.name }})</option>
-                    {% endfor %}
-                </select>
-                <div class="form-text text-muted">Super Admin option: Assign target tenant firm.</div>
+                <label class="form-label text-muted small fw-bold">Associated Tenant Firm</label>
+                <input type="text" class="form-control bg-light" value="{{ current_tenant.company_name }} ({{ current_tenant.name }})" readonly disabled>
             </div>
-            {% else %}
-                {% if current_tenant %}
-                <div class="mb-4">
-                    <label class="form-label text-muted small fw-bold">Associated Firm</label>
-                    <input type="text" class="form-control bg-light" value="{{ current_tenant.company_name }}" disabled>
-                </div>
-                {% endif %}
             {% endif %}
 
             {% if target_user %}

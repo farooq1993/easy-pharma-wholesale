@@ -1,8 +1,8 @@
 <!-- Sidebar -->
 <div class="sidebar text-white" style="width: 260px; height: 100vh; position: fixed; overflow-y: auto; z-index: 1000; background-color: #6f42c1;">
     <div class="p-3 border-bottom border-light border-opacity-20">
-        <h4 class="text-white mb-0">
-            <i class="bi bi-building-fill"></i> Easy Pharma
+        <h4 class="text-white mb-0 text-truncate" title="{{ current_tenant.company_name|default:'Easy Pharma' }}">
+            <i class="bi bi-building-fill"></i> {{ current_tenant.company_name|default:"Easy Pharma" }}
         </h4>
         <small class="text-light opacity-75">Wholesale Management</small>
     </div>
@@ -187,7 +187,7 @@
                 </a>
                 <div class="collapse ms-3" id="settingsCollapse">
                     <ul class="nav flex-column">
-                        {% if user.is_superuser or user_profile.is_super_admin %}
+                        {% if user.is_superuser %}
                         <li class="nav-item"><a href="{% url 'tenant_list' %}" class="nav-link text-light">Tenant Management (Firms)</a></li>
                         {% endif %}
                         {% if user.is_superuser or user_profile.is_tenant_admin %}

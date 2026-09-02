@@ -61,11 +61,7 @@ def user_create(request):
         role = request.POST.get('role', 'Salesman')
         mobile = request.POST.get('mobile', '').strip()
         
-        if is_sa:
-            tenant_id = request.POST.get('tenant')
-            tenant_obj = Tenant.objects.filter(id=tenant_id).first() if tenant_id else None
-        else:
-            tenant_obj = request.tenant or (current_profile.tenant if current_profile else None)
+        tenant_obj = request.tenant or (current_profile.tenant if current_profile else None)
 
         if User.objects.filter(username__iexact=username).exists():
             messages.error(request, f"User with username '{username}' already exists.")
@@ -86,10 +82,8 @@ def user_create(request):
             messages.success(request, f"Staff user '{username}' successfully created with '{role}' role defaults!")
             return redirect('user_list')
 
-    tenants = Tenant.objects.filter(is_active=True)
     context = {
         'role_choices': role_choices,
-        'tenants': tenants,
         'is_super_admin': is_sa,
         'page_title': 'Add New Staff / Field Operator',
         'user_perms': get_user_permissions_context(request.user)
@@ -138,12 +132,7 @@ def user_edit(request, pk):
             profile.role = role
             profile.mobile = mobile
             
-            if is_sa:
-                tenant_id = request.POST.get('tenant')
-                if tenant_id:
-                    profile.tenant_id = tenant_id
-                else:
-                    profile.tenant = None
+            profile.tenant = request.tenant or profile.tenant
             profile.save()
 
             # Auto sync permissions if role changed or explicitly requested
@@ -155,12 +144,10 @@ def user_edit(request, pk):
 
             return redirect('user_list')
 
-    tenants = Tenant.objects.filter(is_active=True)
     context = {
         'target_user': target_user,
         'profile': profile,
         'role_choices': role_choices,
-        'tenants': tenants,
         'is_super_admin': is_sa,
         'page_title': f"Edit Staff: {target_user.username}",
         'user_perms': get_user_permissions_context(request.user)

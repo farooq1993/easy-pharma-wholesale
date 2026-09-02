@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
+from django.contrib.auth.models import User
 from django.contrib import messages
 
 def user_login(request):
@@ -10,6 +11,13 @@ def user_login(request):
     if request.method == 'POST':
         username = request.POST['username'].strip()
         password = request.POST['password']
+
+        # Support case-insensitive username lookup
+        try:
+            user_obj = User.objects.get(username__iexact=username)
+            username = user_obj.username
+        except User.DoesNotExist:
+            pass
 
         user = authenticate(request, username=username, password=password)
         if user is not None:

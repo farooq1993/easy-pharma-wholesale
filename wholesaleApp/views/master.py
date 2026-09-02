@@ -221,7 +221,7 @@ def HomeView(request):
     for inv in latest_invoices:
         recent_orders.append({
             'id': inv.id,
-            'customer': {'pharmacy_name': inv.customer.name},
+            'customer': {'pharmacy_name': inv.customer.name if inv.customer else (inv.patient_name or 'Walk-in Customer')},
             'order_date': inv.created_at,
             'total_amount': float(inv.net_amount),
             'status': inv.status
@@ -422,7 +422,8 @@ def switch_tenant(request):
         tenant_id = request.POST.get('tenant_id')
         if tenant_id:
             try:
-                tenant = Tenant.objects.get(id=tenant_id, is_active=True)
+                from django.db.models import Q
+                tenant = Tenant.objects.get(Q(user=request.user) | Q(user__isnull=True), id=tenant_id, is_active=True)
                 request.session['active_tenant_id'] = tenant.id
                 messages.success(request, f"Switched active firm to: {tenant.company_name}")
             except Tenant.DoesNotExist:

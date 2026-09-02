@@ -2063,6 +2063,7 @@ class PublicUserCreationTests(TestCase):
         # Verify tenant is created
         tenant = Tenant.objects.get(name='creator_shop')
         self.assertIsNotNone(tenant)
+        self.assertEqual(tenant.user, creator)
         
         # Verify the creator user profile is now linked to this tenant
         creator.profile.refresh_from_db()
