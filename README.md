@@ -95,6 +95,43 @@ python3 manage.py runserver
 - Main app: http://localhost:8000/
 - Admin panel: http://localhost:8000/admin/
 
+## Deploy on Vercel
+
+This project is configured as a Vercel Python function. Vercel's filesystem is
+temporary, so production must use a hosted PostgreSQL database such as Neon;
+do not rely on `db.sqlite3` for deployed data.
+
+1. Create a PostgreSQL database on Neon (or another hosted PostgreSQL provider)
+	and copy its connection string.
+2. Push this repository to GitHub and import it into Vercel. Keep the project
+	root at the folder containing `manage.py` and `vercel.json`.
+3. In Vercel Project Settings -> Environment Variables, add these variables for
+	Production (and Preview if needed):
+
+	- `DJANGO_SECRET_KEY`: a long random secret
+	- `DJANGO_DEBUG`: `False`
+	- `DATABASE_URL`: the PostgreSQL connection string, including SSL if your
+	  provider requires it
+	- `ALLOWED_HOSTS`: `.vercel.app` plus your custom domain, comma-separated
+	- `CSRF_TRUSTED_ORIGINS`: `https://your-project.vercel.app` plus your custom
+	  HTTPS domain, comma-separated
+
+4. Deploy. Vercel runs `python manage.py collectstatic --noinput` from
+	`vercel.json`, and WhiteNoise serves the collected assets.
+5. Run migrations against the hosted database from the repository root:
+
+	```bash
+	python manage.py migrate
+	python manage.py createsuperuser
+	```
+
+	Set `DATABASE_URL` in the shell before running these commands. Alternatively,
+	run the same commands from a one-off deployment environment with the Vercel
+	production variables loaded.
+
+The local `.env` file is ignored by Git. Use `.env.example` as the variable
+template and never commit database credentials or secret keys.
+
 ## Project Structure
 
 ```

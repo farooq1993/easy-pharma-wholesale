@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "buildCommand": "sh build.sh",
+  "builds": [
+    {
+      "src": "easyPharma_wholesale/wsgi.py",
+      "use": "@vercel/python",
+      "config": { "runtime": "python3.12" }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "easyPharma_wholesale/wsgi.py"
+    }
+  ]
+}
