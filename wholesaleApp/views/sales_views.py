@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
+from django.db.models import Sum
 from django.http import JsonResponse
 from decimal import Decimal
 import datetime
@@ -346,16 +347,98 @@ def invoice_print(request, pk):
         
     net_amount_words = number_to_words(invoice.net_amount)
     
+    # ===== OUTSTANDING BALANCE WITH AGING =====
+    outstanding_balance = Decimal('0.00')
+    aging_0_30 = Decimal('0.00')
+    aging_31_60 = Decimal('0.00')
+    aging_61_90 = Decimal('0.00')
+    aging_90_plus = Decimal('0.00')
+    pending_bills = []
+    
+    customer = invoice.customer
+    if customer and not invoice.is_retail:
+        outstanding_balance = customer.opening_balance or Decimal('0.00')
+        
+        # Fetch all unpaid Credit invoices for this customer to calculate aging
+        today = datetime.date.today()
+        credit_invoices = SalesInvoice.objects.filter(
+            customer=customer,
+            payment_type='Credit'
+        ).order_by('invoice_date')
+        
+        # Calculate payments received for this customer
+        from wholesaleApp.models.customers import CustomerPayment
+        total_payments = CustomerPayment.objects.filter(
+            customer=customer
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        # Build aging from invoices — distribute payments FIFO (oldest first)
+        remaining_payment = total_payments
+        for inv in credit_invoices:
+            inv_amount = inv.net_amount
+            if remaining_payment >= inv_amount:
+                remaining_payment -= inv_amount
+                continue  # Fully paid, skip
+            
+            pending_amount = inv_amount - remaining_payment
+            remaining_payment = Decimal('0.00')
+            
+            days_old = (today - inv.invoice_date).days
+            if days_old < 0:
+                days_old = 0
+            
+            if days_old <= 30:
+                aging_0_30 += pending_amount
+            elif days_old <= 60:
+                aging_31_60 += pending_amount
+            elif days_old <= 90:
+                aging_61_90 += pending_amount
+            else:
+                aging_90_plus += pending_amount
+            
+            pending_bills.append({
+                'invoice_number': inv.invoice_number,
+                'invoice_date': inv.invoice_date,
+                'amount': pending_amount,
+                'days_old': days_old
+            })
+    
+    # ===== QR CODE DATA =====
+    qr_items_list = []
+    for det in item_details:
+        qr_items_list.append(f"{det['product_name']} x {det['qty']}")
+    qr_items_str = ', '.join(qr_items_list)
+    
+    qr_data = (
+        f"Invoice: {invoice.invoice_number}\n"
+        f"Date: {invoice.invoice_date.strftime('%d-%m-%Y')}\n"
+    )
+    if customer:
+        qr_data += f"Customer: {customer.name}\n"
+    qr_data += (
+        f"Items: {qr_items_str}\n"
+        f"Total: Rs.{invoice.net_amount}"
+    )
+    
     context = {
         'invoice': invoice,
-        'customer': invoice.customer,
+        'customer': customer,
         'tenant': print_tenant,
         'item_details': item_details,
         'total_taxable_value': total_taxable_value,
         'total_gst_calculated': total_gst_calculated,
         'cgst_total': total_gst_calculated / 2,
         'sgst_total': total_gst_calculated / 2,
-        'net_amount_words': net_amount_words
+        'net_amount_words': net_amount_words,
+        # Outstanding balance & aging
+        'outstanding_balance': outstanding_balance,
+        'aging_0_30': aging_0_30,
+        'aging_31_60': aging_31_60,
+        'aging_61_90': aging_61_90,
+        'aging_90_plus': aging_90_plus,
+        'pending_bills': pending_bills,
+        # QR Code
+        'qr_data': qr_data,
     }
     return render(request, 'sale/invoice_print.html', context)
 

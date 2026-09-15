@@ -100,13 +100,54 @@
     }
     
     .billing-input {
-        border-radius: 6px;
+        border-radius: 5px;
         border: 1px solid #cbd5e1;
+        padding: 5px 8px;
+        font-size: 0.92rem;
+        height: auto;
+        min-height: 36px;
     }
     .billing-input:focus {
         border-color: #6366f1 !important;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
         outline: none;
+    }
+    /* Compact numeric inputs inside billing table with enhanced readability */
+    #invoiceTable td {
+        padding: 5px 4px !important;
+        vertical-align: middle;
+    }
+    #invoiceTable .form-control,
+    #invoiceTable .form-select {
+        font-size: 0.92rem;
+        font-weight: 500;
+        padding: 5px 8px;
+        min-width: 0;
+    }
+    #invoiceTable .qty-input,
+    #invoiceTable .free-input {
+        font-size: 0.95rem;
+        font-weight: 600;
+        min-width: 65px;
+    }
+    #invoiceTable .form-select {
+        padding-right: 24px;
+        background-size: 12px;
+    }
+    #invoiceTable thead th {
+        font-size: 0.85rem;
+        font-weight: 700;
+        padding: 8px 5px !important;
+        white-space: nowrap;
+        text-align: center;
+        vertical-align: middle;
+        letter-spacing: -0.1px;
+    }
+    /* Keyboard navigation focus for FEFO batch modal */
+    #fefoBatchTableBody tr:focus {
+        outline: 2px solid #0d6efd !important;
+        background-color: rgba(13, 110, 253, 0.12) !important;
+        box-shadow: inset 0 0 0 1px #0d6efd;
     }
 </style>
 
@@ -145,7 +186,7 @@
                 <div class="col-md-3" id="customerSelectCol" {% if invoice.is_retail %}style="display: none;"{% endif %}>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <label class="form-label text-muted small fw-bold mb-0">Customer (Chemist / Hospital) <span class="text-danger">*</span></label>
-                        <span id="customerOutstandingBadge" class="badge bg-danger-subtle text-danger rounded-pill px-2 py-0.5" style="font-size: 0.65rem; display: none;">Outstanding: ₹0.00</span>
+                        <span id="customerOutstandingBadge" class="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-1 border border-danger-subtle fw-bold" style="font-size: 0.85rem; display: none;">Outstanding: ₹0.00</span>
                     </div>
                     <div class="combobox-container">
                         <input type="text" id="customerSearch" class="form-control combobox-input" placeholder="Type Chemist Name..." {% if not invoice.is_retail %}required{% endif %} value="{{ invoice.customer.name|default:'' }}{% if invoice.customer %} ({{ invoice.customer.city }}){% endif %}">
@@ -191,21 +232,21 @@
                 <div class="col-lg-9 col-md-12">
                     <h5 class="mb-3 fw-bold text-dark">Invoice Items</h5>
                     <div class="table-responsive">
-                        <table class="table table-bordered align-middle" id="invoiceTable" style="min-width: 1000px;">
+                        <table class="table table-bordered align-middle" id="invoiceTable" style="min-width: 1100px;">
                             <thead class="table-light text-center">
                                 <tr>
-                                    <th style="width: 23%;">Product Name <span class="text-danger">*</span></th>
-                                    <th style="width: 17%;">Batch No <span class="text-danger">*</span></th>
-                                    <th style="width: 8%;">Expiry</th>
-                                    <th style="width: 8%;">MRP (₹)</th>
-                                    <th style="width: 10%;">Sale Rate (₹) <span class="text-danger">*</span></th>
-                                    <th style="width: 6%;">Qty <span class="text-danger">*</span></th>
+                                    <th style="width: 20%;">Product Name <span class="text-danger">*</span></th>
+                                    <th style="width: 13%;">Batch No <span class="text-danger">*</span></th>
+                                    <th style="width: 6%;">Expiry</th>
+                                    <th style="width: 7%;">MRP (₹)</th>
+                                    <th style="width: 9%;">Rate (₹) <span class="text-danger">*</span></th>
+                                    <th style="width: 7%;">Qty <span class="text-danger">*</span></th>
                                     <th style="width: 6%;">Free</th>
-                                    <th style="width: 6%;">GST %</th>
-                                    <th style="width: 6%;">Disc %</th>
+                                    <th style="width: 5%;">GST%</th>
+                                    <th style="width: 7%;">Disc%</th>
                                     <th style="width: 7%;">Disc (₹)</th>
-                                    <th style="width: 10%;">Total Amount</th>
-                                    <th style="width: 4%;"></th>
+                                    <th style="width: 10%;">Total Amt</th>
+                                    <th style="width: 3%;"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -278,21 +319,6 @@
                                     </div>
                                 </div>
 
-                                {% if user.is_superuser or 'view_margins' in user_perms %}
-                                <div class="border-top pt-3">
-                                    <label class="small text-muted fw-bold mb-2 d-block">Live Row Margin Dues</label>
-                                    <div class="row g-2 text-center">
-                                        <div class="col-6 bg-light p-2 rounded-3 border-end">
-                                            <div class="text-muted small" style="font-size: 0.75rem;">Wholesaler Margin</div>
-                                            <div class="fw-bold text-success" id="inspectStockistMargin">₹0.00 (0%)</div>
-                                        </div>
-                                        <div class="col-6 bg-light p-2 rounded-3">
-                                            <div class="text-muted small" style="font-size: 0.75rem;">Chemist Margin</div>
-                                            <div class="fw-bold text-indigo" id="inspectRetailerMargin">₹0.00 (0%)</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -411,6 +437,53 @@
                     <button type="submit" class="btn btn-primary px-4">Save Product</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- FEFO Batch Selection Modal -->
+<div class="modal fade" id="fefoBatchModal" tabindex="-1" aria-labelledby="fefoBatchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg border-0 rounded-4">
+            <div class="modal-header bg-primary text-white py-3 rounded-top-4">
+                <h5 class="modal-title fw-bold" id="fefoBatchModalLabel">
+                    <i class="bi bi-box-seam me-2"></i>Select Stock Batch (FEFO - First Expiry First Out)
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3 bg-light p-3 rounded-3 border">
+                    <div>
+                        <h6 class="mb-0 fw-bold text-primary" id="fefoProductName">Product Name</h6>
+                        <span class="text-muted small" id="fefoProductDetails">Pack: - | GST: -%</span>
+                    </div>
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill fw-bold">
+                        <i class="bi bi-clock-history me-1"></i> FEFO Priority Order (Earliest Expiry First)
+                    </span>
+                </div>
+                
+                <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                    <table class="table table-hover align-middle border mb-0" id="fefoBatchTable">
+                        <thead class="table-light text-center sticky-top">
+                            <tr>
+                                <th style="width: 26%;">Batch No</th>
+                                <th style="width: 18%;">Expiry</th>
+                                <th style="width: 15%;">MRP (₹)</th>
+                                <th style="width: 17%;">Sale Rate (₹)</th>
+                                <th style="width: 14%;">Stock</th>
+                                <th style="width: 10%;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fefoBatchTableBody" class="text-center">
+                            <!-- Dynamic FEFO batches rendered here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-3 justify-content-between">
+                <span class="text-muted small"><i class="bi bi-info-circle me-1"></i> Press <strong>Enter</strong> or click any row to select batch and move to Qty.</span>
+                <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal">Cancel</button>
+            </div>
         </div>
     </div>
 </div>
@@ -633,10 +706,10 @@
                     <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" placeholder="0.00" required oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
-                    <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="1" required oninput="calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="1" required oninput="validateQuantityStock(${rowId}); calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
-                    <input type="number" name="free_quantity[]" class="form-control billing-input text-center free-input" step="any" min="0" value="0" oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <input type="number" name="free_quantity[]" class="form-control billing-input text-center free-input" step="any" min="0" value="0" oninput="validateQuantityStock(${rowId}); calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
                     <input type="text" class="form-control billing-input text-center bg-light gst-display" value="12%" readonly>
@@ -957,6 +1030,102 @@
         updateProductInspector(id);
     }
 
+    function showFefoBatchModal(rowId, productId, batches) {
+        const product = productCatalog[productId];
+        document.getElementById("fefoProductName").textContent = product ? product.name : "Product Batches";
+        document.getElementById("fefoProductDetails").textContent = product ? `Pack: ${product.pack} | GST: ${product.gst}%` : "";
+        
+        const tbody = document.getElementById("fefoBatchTableBody");
+        tbody.innerHTML = "";
+        
+        if (!batches || batches.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-muted py-4"><i class="bi bi-exclamation-circle text-warning me-2 fs-5"></i>No active stock batches found for this product.</td></tr>`;
+        } else {
+            batches.forEach((b, index) => {
+                const isRecommended = (index === 0);
+                const tr = document.createElement("tr");
+                tr.className = isRecommended ? "table-success fw-semibold cursor-pointer" : "cursor-pointer";
+                tr.setAttribute("tabindex", "0");
+                tr.style.cursor = "pointer";
+                
+                const customerType = document.getElementById("customerSelect").dataset.type || 'Retailer';
+                const rate = customerType === 'Wholesaler' ? (parseFloat(b.wholesale_rate) || 0) : (parseFloat(b.sale_rate) || 0);
+                
+                tr.innerHTML = `
+                    <td>
+                        <span class="fw-bold text-dark">${b.batch_number}</span>
+                        ${isRecommended ? '<span class="badge bg-success ms-2" style="font-size: 0.7rem;"><i class="bi bi-star-fill me-1"></i>FEFO Pick</span>' : ''}
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border font-monospace px-2 py-1 fs-6">${b.expiry_mask}</span>
+                    </td>
+                    <td>₹${parseFloat(b.mrp).toFixed(2)}</td>
+                    <td class="fw-bold text-primary">₹${rate.toFixed(2)}</td>
+                    <td>
+                        <span class="badge ${b.quantity > 5 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning border border-warning-subtle'} rounded-pill px-3 py-1 font-monospace fs-6">
+                            ${b.quantity}
+                        </span>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1">
+                            Select <i class="bi bi-arrow-right-short"></i>
+                        </button>
+                    </td>
+                `;
+                
+                const selectBatchAction = () => {
+                    const row = document.getElementById(`item-row-${rowId}`);
+                    if (row) {
+                        const batchSelect = row.querySelector(".select-batch");
+                        batchSelect.value = b.id;
+                        onBatchSelect(rowId);
+                        
+                        const fefoModalEl = document.getElementById('fefoBatchModal');
+                        const modalInstance = bootstrap.Modal.getInstance(fefoModalEl);
+                        if (modalInstance) modalInstance.hide();
+                        
+                        setTimeout(() => {
+                            const qtyInput = row.querySelector(".qty-input");
+                            if (qtyInput) {
+                                qtyInput.focus();
+                                qtyInput.select();
+                            }
+                        }, 200);
+                    }
+                };
+                
+                tr.addEventListener("click", selectBatchAction);
+                tr.addEventListener("keydown", (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        selectBatchAction();
+                    } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        const nextTr = tr.nextElementSibling;
+                        if (nextTr && nextTr.tagName === "TR") {
+                            nextTr.focus();
+                        }
+                    } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        const prevTr = tr.previousElementSibling;
+                        if (prevTr && prevTr.tagName === "TR") {
+                            prevTr.focus();
+                        }
+                    }
+                });
+                tbody.appendChild(tr);
+            });
+        }
+        
+        const fefoModal = new bootstrap.Modal(document.getElementById('fefoBatchModal'));
+        fefoModal.show();
+        
+        document.getElementById('fefoBatchModal').addEventListener('shown.bs.modal', function () {
+            const firstTr = tbody.querySelector("tr");
+            if (firstTr) firstTr.focus();
+        }, { once: true });
+    }
+
     function onProductSelect(id, selectedProdId) {
         const row = document.getElementById(`item-row-${id}`);
         const batchSelect = row.querySelector(".select-batch");
@@ -993,9 +1162,40 @@
             
             if (batches.length === 0) {
                 showToast("No active stock batches found for this product!", "warning");
+            } else {
+                showFefoBatchModal(id, selectedProdId, batches);
             }
             updateProductInspector(id);
         });
+    }
+
+    function validateQuantityStock(id) {
+        const row = document.getElementById(`item-row-${id}`);
+        if (!row) return true;
+        const batchSelect = row.querySelector(".select-batch");
+        const qtyInput = row.querySelector(".qty-input");
+        const freeInput = row.querySelector(".free-input");
+        
+        if (!batchSelect || !batchSelect.value) return true;
+        
+        const selectedOption = batchSelect.options[batchSelect.selectedIndex];
+        if (!selectedOption || selectedOption.dataset.stock === undefined) return true;
+        
+        const stockAvailable = parseFloat(selectedOption.dataset.stock) || 0;
+        let qty = parseFloat(qtyInput.value) || 0;
+        let free = parseFloat(freeInput.value) || 0;
+        let totalRequested = qty + free;
+        
+        if (totalRequested > stockAvailable) {
+            const batchNo = selectedOption.text.split(' ')[0] || 'Selected';
+            showToast(`⚠️ Stock Limit Exceeded! Available Stock: ${stockAvailable} for batch ${batchNo}`, "danger");
+            let maxQty = Math.max(0, stockAvailable - free);
+            qtyInput.value = maxQty;
+            qtyInput.classList.add("is-invalid");
+            setTimeout(() => qtyInput.classList.remove("is-invalid"), 2500);
+            return false;
+        }
+        return true;
     }
 
     function onBatchSelect(id) {
@@ -1016,6 +1216,7 @@
             }
             row.querySelector(".srate-input").value = rate.toFixed(2);
         }
+        validateQuantityStock(id);
         calculateRowTotals(id);
         applyProductScheme(id);
         updateLiveMarginInspect(id);
@@ -1337,10 +1538,12 @@
         if (selectedCust) {
             const balance = selectedCust.outstanding || 0;
             outBadge.textContent = `Outstanding: ₹${balance.toFixed(2)}`;
+            outBadge.style.fontSize = "0.85rem";
+            outBadge.style.fontWeight = "700";
             if (balance > 0) {
-                outBadge.className = "badge bg-danger-subtle text-danger rounded-pill px-2 py-1";
+                outBadge.className = "badge bg-danger text-white rounded-pill px-2.5 py-1 shadow-sm";
             } else {
-                outBadge.className = "badge bg-success-subtle text-success rounded-pill px-2 py-1";
+                outBadge.className = "badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1";
             }
             outBadge.style.display = "inline-block";
         } else {
