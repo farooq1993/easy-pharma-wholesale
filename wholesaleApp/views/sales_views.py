@@ -15,27 +15,33 @@ from wholesaleApp.models import (
 )
 
 # ==================== AJAX API ENDPOINTS ====================
-# @login_required
+# @login_required@require_GET
 def get_product_batches(request, pk):
-    """API endpoint to get active batches with stock for a selected product."""
-    batches = ProductBatch.objects.filter(product_id=pk, quantity__gt=0).select_related('product')
-    data = []
-    for b in batches:
-        # Format MM/YY for display mask and YYYY-MM-DD for form submit
-        exp_mask = b.expiry_date.strftime('%m/%y') if b.expiry_date else ''
-        exp_real = b.expiry_date.strftime('%Y-%m-%d') if b.expiry_date else ''
-        data.append({
-            'id': b.id,
-            'batch_number': b.batch_number,
-            'expiry_mask': exp_mask,
-            'expiry_real': exp_real,
-            'mrp': float(b.mrp),
-            'purchase_rate': float(b.purchase_rate),
-            'sale_rate': float(b.sale_rate),
-            'wholesale_rate': float(b.wholesale_rate),
-            'quantity': float(b.quantity),
-            'units_per_strip': b.product.units_per_strip
-        })
+    """API endpoint to get active batches with stock for a selected product in FEFO order."""
+    from django.core.cache import cache
+    cache_key = f"product_batches_{pk}"
+    data = cache.get(cache_key)
+    
+    if data is None:
+        batches = ProductBatch.objects.filter(product_id=pk, quantity__gt=0).select_related('product').order_by('expiry_date')
+        data = []
+        for b in batches:
+            # Format MM/YY for display mask and YYYY-MM-DD for form submit
+            exp_mask = b.expiry_date.strftime('%m/%y') if b.expiry_date else ''
+            exp_real = b.expiry_date.strftime('%Y-%m-%d') if b.expiry_date else ''
+            data.append({
+                'id': b.id,
+                'batch_number': b.batch_number,
+                'expiry_mask': exp_mask,
+                'expiry_real': exp_real,
+                'mrp': float(b.mrp),
+                'purchase_rate': float(b.purchase_rate),
+                'sale_rate': float(b.sale_rate),
+                'wholesale_rate': float(b.wholesale_rate),
+                'quantity': float(b.quantity),
+                'units_per_strip': b.product.units_per_strip
+            })
+        cache.set(cache_key, data, timeout=60)
     return JsonResponse(data, safe=False)
 
 
@@ -47,7 +53,7 @@ def invoice_list(request):
         messages.error(request, "Access Denied: You do not have permission to view Sales Invoices.")
         return redirect('home')
         
-    invoices = SalesInvoice.objects.all().select_related('customer')
+    invoices = SalesInvoice.objects.all().select_related('customer').order_by('-invoice_date', '-id')
     print_invoice_id = request.session.pop('print_invoice_id', None)
     context = {
         'invoices': invoices,
@@ -200,6 +206,11 @@ def invoice_create(request):
             batch.quantity -= total_requested
             batch.save()
             
+        # Invalidate Redis/LocMem batch cache for affected products
+        from django.core.cache import cache
+        for pid in product_ids:
+            cache.delete(f"product_batches_{pid}")
+            
         # 4. Update Customer Outstanding Balance (Accounts Receivable)
         if payment_type == 'Credit' and customer_id:
             customer = CustomerMaster.objects.get(id=customer_id)
@@ -210,37 +221,82 @@ def invoice_create(request):
         from wholesaleApp.utils.email_utils import send_invoice_email_async
         send_invoice_email_async(invoice)
         
-        messages.success(request, f"Sales Invoice {invoice_number} saved. Stock deducted and customer balance updated.")
+        messages.success(request, f"Sales Invoice {invoice_number} saved successfully.")
         request.session['print_invoice_id'] = invoice.id
-        return redirect('invoice_list')
+        return redirect(f"/sales/invoice/create/?saved_id={invoice.id}")
         
+    saved_invoice = None
+    saved_id = request.GET.get('saved_id')
+    if saved_id:
+        saved_invoice = SalesInvoice.objects.filter(id=saved_id).select_related('customer').first()
+
     context = {
         'customers': customers,
         'products': products,
         'page_title': 'Create Sales Invoice (Bill)',
+        'saved_invoice': saved_invoice,
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'sale/invoice_form.html', context)
 
 
 def get_product_last_purchase_rate(request, pk):
-    """API endpoint to get the actual last purchase rate for a selected product from history."""
+    """API endpoint to get the actual last purchase rate and detailed past purchase history for a selected product."""
     from wholesaleApp.views.security_helpers import has_feature_access
-    if not (has_feature_access(request.user, 'view_margins') or has_feature_access(request.user, 'purchase_list')):
+    if not (has_feature_access(request.user, 'view_margins') or has_feature_access(request.user, 'purchase_list') or has_feature_access(request.user, 'purchase_create')):
         return JsonResponse({'error': 'Permission Denied'}, status=403)
 
     from wholesaleApp.models.purchase import PurchaseEntryItem, ProductBatch
     
-    last_item = PurchaseEntryItem.objects.filter(product_id=pk).select_related('purchase_entry').order_by('-purchase_entry__invoice_date', '-id').first()
-    rate = 0.00
-    if last_item:
-        rate = float(last_item.purchase_rate)
+    items = PurchaseEntryItem.objects.filter(product_id=pk).select_related('purchase_entry__supplier').order_by('-purchase_entry__invoice_date', '-id')[:10]
+    
+    history = []
+    last_rate = 0.00
+
+    if items.exists():
+        last_rate = float(items[0].purchase_rate)
+        for item in items:
+            exp_str = item.expiry_date.strftime('%m/%y') if item.expiry_date else '-'
+            date_str = item.purchase_entry.invoice_date.strftime('%d-%m-%Y') if (item.purchase_entry and item.purchase_entry.invoice_date) else '-'
+            supp_name = item.purchase_entry.supplier.name if (item.purchase_entry and item.purchase_entry.supplier) else '-'
+            inv_no = item.purchase_entry.invoice_number if item.purchase_entry else '-'
+
+            history.append({
+                'date': date_str,
+                'invoice_number': inv_no,
+                'supplier_name': supp_name,
+                'batch': item.batch_number or '-',
+                'expiry': exp_str,
+                'quantity': item.quantity,
+                'free_quantity': item.free_quantity,
+                'purchase_rate': float(item.purchase_rate),
+                'mrp': float(item.mrp),
+                'total_amount': float(item.total_amount)
+            })
     else:
-        last_batch = ProductBatch.objects.filter(product_id=pk).order_by('-id').first()
-        if last_batch:
-            rate = float(last_batch.purchase_rate)
-            
-    return JsonResponse({'product_id': pk, 'last_purchase_rate': rate})
+        batches = ProductBatch.objects.filter(product_id=pk).order_by('-id')[:5]
+        if batches.exists():
+            last_rate = float(batches[0].purchase_rate)
+            for batch in batches:
+                exp_str = batch.expiry_date.strftime('%m/%y') if batch.expiry_date else '-'
+                history.append({
+                    'date': 'Stock Batch',
+                    'invoice_number': '-',
+                    'supplier_name': '-',
+                    'batch': batch.batch_number or '-',
+                    'expiry': exp_str,
+                    'quantity': batch.quantity,
+                    'free_quantity': 0,
+                    'purchase_rate': float(batch.purchase_rate),
+                    'mrp': float(batch.mrp) if batch.mrp else 0.00,
+                    'total_amount': float(batch.purchase_rate * batch.quantity)
+                })
+
+    return JsonResponse({
+        'product_id': pk,
+        'last_purchase_rate': last_rate,
+        'history': history
+    })
 
 
 def number_to_words(number):

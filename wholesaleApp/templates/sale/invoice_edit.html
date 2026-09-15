@@ -706,10 +706,10 @@
                     <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" placeholder="0.00" required oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
-                    <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="1" required oninput="validateQuantityStock(${rowId}); calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="1" required oninput="autoSplitMultiBatchFefo(${rowId}); calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
-                    <input type="number" name="free_quantity[]" class="form-control billing-input text-center free-input" step="any" min="0" value="0" oninput="validateQuantityStock(${rowId}); calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <input type="number" name="free_quantity[]" class="form-control billing-input text-center free-input" step="any" min="0" value="0" oninput="autoSplitMultiBatchFefo(${rowId}); calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
                     <input type="text" class="form-control billing-input text-center bg-light gst-display" value="12%" readonly>
@@ -1169,14 +1169,15 @@
         });
     }
 
-    function validateQuantityStock(id) {
+    function autoSplitMultiBatchFefo(id) {
         const row = document.getElementById(`item-row-${id}`);
         if (!row) return true;
+        const productId = row.querySelector(".select-product").value;
         const batchSelect = row.querySelector(".select-batch");
         const qtyInput = row.querySelector(".qty-input");
         const freeInput = row.querySelector(".free-input");
         
-        if (!batchSelect || !batchSelect.value) return true;
+        if (!productId || !batchSelect || !batchSelect.value) return true;
         
         const selectedOption = batchSelect.options[batchSelect.selectedIndex];
         if (!selectedOption || selectedOption.dataset.stock === undefined) return true;
@@ -1187,15 +1188,54 @@
         let totalRequested = qty + free;
         
         if (totalRequested > stockAvailable) {
-            const batchNo = selectedOption.text.split(' ')[0] || 'Selected';
-            showToast(`⚠️ Stock Limit Exceeded! Available Stock: ${stockAvailable} for batch ${batchNo}`, "danger");
-            let maxQty = Math.max(0, stockAvailable - free);
-            qtyInput.value = maxQty;
-            qtyInput.classList.add("is-invalid");
-            setTimeout(() => qtyInput.classList.remove("is-invalid"), 2500);
-            return false;
+            const availableBatches = batchCache[productId] || [];
+            const currentBatchId = selectedOption.value;
+            const unusedBatches = availableBatches.filter(b => b.id != currentBatchId && b.quantity > 0);
+            
+            if (unusedBatches.length > 0) {
+                const currentBatchNo = selectedOption.text.split(' ')[0] || 'Batch 1';
+                let remainingToAllocate = totalRequested - stockAvailable;
+                
+                let maxCurrentQty = Math.max(0, stockAvailable - free);
+                qtyInput.value = maxCurrentQty;
+                calculateRowTotals(id);
+                
+                const nextBatch = unusedBatches[0];
+                const allocateNext = Math.min(remainingToAllocate, nextBatch.quantity);
+                
+                addNewInvoiceRow();
+                const trs = document.querySelectorAll("#invoiceTable tbody tr");
+                const newRow = trs[trs.length - 1];
+                const newRowId = newRow.id.replace("item-row-", "");
+                
+                const productObj = productCatalog[productId];
+                newRow.querySelector(".select-product").value = productId;
+                newRow.querySelector(".product-search-input").value = productObj.name + ` (${productObj.pack})`;
+                
+                fetchProductBatches(productId, (batches) => {
+                    const newBatchSelect = newRow.querySelector(".select-batch");
+                    newBatchSelect.value = nextBatch.id;
+                    newRow.querySelector(".qty-input").value = allocateNext;
+                    onBatchSelect(newRowId);
+                    
+                    showToast(`✨ Auto FEFO Split: ${maxCurrentQty} strips in ${currentBatchNo}, ${allocateNext} strips in Batch ${nextBatch.batch_number}`, "info");
+                });
+                return true;
+            } else {
+                showToast(`⚠️ Stock Limit Exceeded! Maximum available stock across all batches is ${stockAvailable}`, "danger");
+                let maxQty = Math.max(0, stockAvailable - free);
+                qtyInput.value = maxQty;
+                qtyInput.classList.add("is-invalid");
+                setTimeout(() => qtyInput.classList.remove("is-invalid"), 2500);
+                calculateRowTotals(id);
+                return false;
+            }
         }
         return true;
+    }
+
+    function validateQuantityStock(id) {
+        return autoSplitMultiBatchFefo(id);
     }
 
     function onBatchSelect(id) {
@@ -1552,6 +1592,7 @@
     }
 
     window.onload = function() {
+        if (typeof collapseSidebar === "function") collapseSidebar();
         setupCombobox(
             document.getElementById("customerSearch"),
             customerList,

@@ -127,8 +127,9 @@ class PurchaseModuleTests(TestCase):
             'total_amount[]': [1008.00]
         })
         
-        # Verify redirect to entry list
-        self.assertRedirects(response, reverse('purchase_entry_list'))
+        # Verify redirect to entry create with saved_id
+        entry = PurchaseEntry.objects.first()
+        self.assertRedirects(response, f"{reverse('purchase_entry_create')}?saved_id={entry.id}")
 
         # Verify entry created
         self.assertEqual(PurchaseEntry.objects.count(), 1)
@@ -226,8 +227,8 @@ class SalesModuleTests(TestCase):
             'total_amount[]': [2688.00]
         })
 
-        # Verify redirect
-        self.assertRedirects(response, reverse('invoice_list'))
+        # Verify redirect to invoice_create with saved_id parameter for 3-option modal
+        self.assertTrue(response.url.startswith(reverse('invoice_create')))
 
         # Verify database invoice record
         self.assertEqual(SalesInvoice.objects.count(), 1)

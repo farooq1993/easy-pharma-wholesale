@@ -488,6 +488,52 @@
     </div>
 </div>
 
+{% if saved_invoice %}
+<!-- Post-Save 3-Option Action Modal -->
+<div class="modal fade" id="postSaveActionModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="postSaveActionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0 rounded-4 text-center">
+            <div class="modal-header bg-success text-white py-3 rounded-top-4 justify-content-center position-relative">
+                <h5 class="modal-title fw-bold" id="postSaveActionModalLabel">
+                    <i class="bi bi-check-circle-fill me-2"></i>Invoice Saved Successfully!
+                </h5>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill fs-6 fw-bold">
+                        Bill No: {{ saved_invoice.invoice_number }} | Total: ₹{{ saved_invoice.net_amount }}
+                    </span>
+                </div>
+                <p class="text-muted mb-4">Choose an option below to proceed:</p>
+
+                <div class="d-grid gap-3">
+                    <!-- Option 1: Print Invoice -->
+                    <a href="{% url 'invoice_print' saved_invoice.id %}" target="_blank" class="btn btn-primary btn-lg rounded-3 py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2">
+                        <i class="bi bi-printer-fill fs-5"></i> Print Invoice
+                    </a>
+
+                    <!-- Option 2: WhatsApp Bill -->
+                    {% if saved_invoice.customer and saved_invoice.customer.phone %}
+                    <a href="https://api.whatsapp.com/send?phone=91{{ saved_invoice.customer.phone }}&text=Dear%20{{ saved_invoice.customer.name|urlencode }}%2C%20your%20Sales%20Invoice%20{{ saved_invoice.invoice_number|urlencode }}%20dated%20{{ saved_invoice.invoice_date|date:'d-m-Y' }}%20for%20Rs.{{ saved_invoice.net_amount }}%20is%20generated.%20Thank%20you!" target="_blank" class="btn btn-success btn-lg rounded-3 py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2">
+                        <i class="bi bi-whatsapp fs-5"></i> WhatsApp Bill
+                    </a>
+                    {% else %}
+                    <button type="button" onclick="promptWhatsAppNumber('{{ saved_invoice.invoice_number }}', '{{ saved_invoice.net_amount }}', '{{ saved_invoice.invoice_date|date:"d-m-Y" }}')" class="btn btn-success btn-lg rounded-3 py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2">
+                        <i class="bi bi-whatsapp fs-5"></i> WhatsApp Bill
+                    </button>
+                    {% endif %}
+
+                    <!-- Option 3: New Sales -->
+                    <a href="{% url 'invoice_create' %}" class="btn btn-outline-secondary btn-lg rounded-3 py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2">
+                        <i class="bi bi-plus-circle-fill fs-5"></i> New Sales
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <script>
     // Global datasets
     const customerList = [
@@ -686,10 +732,10 @@
                     <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" placeholder="0.00" required oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
-                    <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="1" required oninput="validateQuantityStock(${rowId}); calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="1" required oninput="autoSplitMultiBatchFefo(${rowId}); calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
-                    <input type="number" name="free_quantity[]" class="form-control billing-input text-center free-input" step="any" min="0" value="0" oninput="validateQuantityStock(${rowId}); calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <input type="number" name="free_quantity[]" class="form-control billing-input text-center free-input" step="any" min="0" value="0" oninput="autoSplitMultiBatchFefo(${rowId}); calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
                 </td>
                 <td>
                     <input type="text" class="form-control billing-input text-center bg-light gst-display" value="12%" readonly>
@@ -1073,14 +1119,15 @@
         });
     }
 
-    function validateQuantityStock(id) {
+    function autoSplitMultiBatchFefo(id) {
         const row = document.getElementById(`item-row-${id}`);
         if (!row) return true;
+        const productId = row.querySelector(".select-product").value;
         const batchSelect = row.querySelector(".select-batch");
         const qtyInput = row.querySelector(".qty-input");
         const freeInput = row.querySelector(".free-input");
         
-        if (!batchSelect || !batchSelect.value) return true;
+        if (!productId || !batchSelect || !batchSelect.value) return true;
         
         const selectedOption = batchSelect.options[batchSelect.selectedIndex];
         if (!selectedOption || selectedOption.dataset.stock === undefined) return true;
@@ -1091,15 +1138,54 @@
         let totalRequested = qty + free;
         
         if (totalRequested > stockAvailable) {
-            const batchNo = selectedOption.text.split(' ')[0] || 'Selected';
-            showToast(`⚠️ Stock Limit Exceeded! Available Stock: ${stockAvailable} for batch ${batchNo}`, "danger");
-            let maxQty = Math.max(0, stockAvailable - free);
-            qtyInput.value = maxQty;
-            qtyInput.classList.add("is-invalid");
-            setTimeout(() => qtyInput.classList.remove("is-invalid"), 2500);
-            return false;
+            const availableBatches = batchCache[productId] || [];
+            const currentBatchId = selectedOption.value;
+            const unusedBatches = availableBatches.filter(b => b.id != currentBatchId && b.quantity > 0);
+            
+            if (unusedBatches.length > 0) {
+                const currentBatchNo = selectedOption.text.split(' ')[0] || 'Batch 1';
+                let remainingToAllocate = totalRequested - stockAvailable;
+                
+                let maxCurrentQty = Math.max(0, stockAvailable - free);
+                qtyInput.value = maxCurrentQty;
+                calculateRowTotals(id);
+                
+                const nextBatch = unusedBatches[0];
+                const allocateNext = Math.min(remainingToAllocate, nextBatch.quantity);
+                
+                addNewInvoiceRow();
+                const trs = document.querySelectorAll("#invoiceTable tbody tr");
+                const newRow = trs[trs.length - 1];
+                const newRowId = newRow.id.replace("item-row-", "");
+                
+                const productObj = productCatalog[productId];
+                newRow.querySelector(".select-product").value = productId;
+                newRow.querySelector(".product-search-input").value = productObj.name + ` (${productObj.pack})`;
+                
+                fetchProductBatches(productId, (batches) => {
+                    const newBatchSelect = newRow.querySelector(".select-batch");
+                    newBatchSelect.value = nextBatch.id;
+                    newRow.querySelector(".qty-input").value = allocateNext;
+                    onBatchSelect(newRowId);
+                    
+                    showToast(`✨ Auto FEFO Split: ${maxCurrentQty} strips in ${currentBatchNo}, ${allocateNext} strips in Batch ${nextBatch.batch_number}`, "info");
+                });
+                return true;
+            } else {
+                showToast(`⚠️ Stock Limit Exceeded! Maximum available stock across all batches is ${stockAvailable}`, "danger");
+                let maxQty = Math.max(0, stockAvailable - free);
+                qtyInput.value = maxQty;
+                qtyInput.classList.add("is-invalid");
+                setTimeout(() => qtyInput.classList.remove("is-invalid"), 2500);
+                calculateRowTotals(id);
+                return false;
+            }
         }
         return true;
+    }
+
+    function validateQuantityStock(id) {
+        return autoSplitMultiBatchFefo(id);
     }
 
     function onBatchSelect(id) {
@@ -1456,6 +1542,7 @@
     }
 
     window.onload = function() {
+        if (typeof collapseSidebar === "function") collapseSidebar();
         setupCombobox(
             document.getElementById("customerSearch"),
             customerList,
@@ -1478,6 +1565,15 @@
 
         addNewInvoiceRow();
         toggleBillingMode(isRetailModeActive());
+
+        {% if saved_invoice %}
+        const postSaveModalEl = document.getElementById('postSaveActionModal');
+        if (postSaveModalEl) {
+            const postSaveModal = new bootstrap.Modal(postSaveModalEl);
+            postSaveModal.show();
+        }
+        {% endif %}
+
         setTimeout(() => {
             if (isRetailModeActive()) {
                 document.getElementById("patientNameInput").focus();

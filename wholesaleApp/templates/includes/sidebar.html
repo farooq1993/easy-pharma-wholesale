@@ -1,48 +1,54 @@
 <!-- Sidebar -->
-<div class="sidebar text-white" style="width: 260px; height: 100vh; position: fixed; overflow-y: auto; z-index: 1000; background-color: #6f42c1;">
-    <div class="p-3 border-bottom border-light border-opacity-20">
-        <h4 class="text-white mb-0 text-truncate" title="{{ current_tenant.company_name|default:'Easy Pharma' }}">
-            <i class="bi bi-building-fill"></i> {{ current_tenant.company_name|default:"Easy Pharma" }}
-        </h4>
-        <small class="text-light opacity-75">Wholesale Management</small>
+<div class="sidebar text-white">
+    <div class="p-3 border-bottom border-white border-opacity-10 sidebar-header d-flex align-items-center gap-2">
+        <i class="bi bi-building-fill sidebar-brand-icon text-white fs-4"></i>
+        <div class="header-text overflow-hidden">
+            <h5 class="text-white mb-0 text-truncate fw-bold" title="{{ current_tenant.company_name|default:'Easy Pharma' }}">
+                {{ current_tenant.company_name|default:"Easy Pharma" }}
+            </h5>
+            <small class="text-white opacity-75 small" style="font-size: 0.72rem;">Wholesale Management</small>
+        </div>
     </div>
     
-    <div class="p-3">
-        <ul class="nav flex-column">
+    <div class="p-2 py-3">
+        <ul class="nav flex-column gap-1">
             
-            <li class="nav-item mb-1">
-                <a href="{% url 'home' %}" class="nav-link text-white">
-                    <i class="bi bi-speedometer2 me-2"></i> Dashboard
+            <li class="nav-item">
+                <a href="{% url 'home' %}" class="nav-link text-white d-flex align-items-center" title="Dashboard">
+                    <i class="bi bi-speedometer2 me-2 fs-5"></i>
+                    <span class="menu-text">Dashboard</span>
                 </a>
             </li>
 
             <!-- Masters -->
             {% if 'area_view' in user_perms or 'product_view' in user_perms or 'supplier_view' in user_perms or 'customer_view' in user_perms %}
-            <li class="nav-item mt-3">
-                <a class="nav-link text-white" data-bs-toggle="collapse" href="#mastersCollapse" role="button">
-                    <i class="bi bi-folder-fill me-2"></i> Masters
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#mastersCollapse" role="button" title="Masters">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-folder-fill me-2 fs-5"></i>
+                        <span class="menu-text">Masters</span>
+                    </div>
+                    <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
                 <div class="collapse ms-3" id="mastersCollapse">
                     <ul class="nav flex-column">
                         {% if 'area_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'area_list' %}" class="nav-link text-light">Area Master</a></li>
+                        <li class="nav-item"><a href="{% url 'area_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Area Master</span></a></li>
                         {% endif %}
                         {% if 'product_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'company_list' %}" class="nav-link text-light">Company Master</a></li>
-                        <li class="nav-item"><a href="{% url 'drug_list' %}" class="nav-link text-light">Drug Composition</a></li>
-                        <li class="nav-item"><a href="{% url 'type_list' %}" class="nav-link text-light">Product Type / Form</a></li>
+                        <li class="nav-item"><a href="{% url 'company_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Company Master</span></a></li>
+                        <li class="nav-item"><a href="{% url 'drug_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Drug Composition</span></a></li>
+                        <li class="nav-item"><a href="{% url 'type_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Product Type / Form</span></a></li>
                         {% endif %}
                         {% if 'supplier_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'supplier_list' %}" class="nav-link text-light">Supplier Master</a></li>
+                        <li class="nav-item"><a href="{% url 'supplier_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Supplier Master</span></a></li>
                         {% endif %}
                         {% if 'customer_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'customer_list' %}" class="nav-link text-light">Customer Master</a></li>
+                        <li class="nav-item"><a href="{% url 'customer_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Customer Master</span></a></li>
                         {% endif %}
                         {% if 'product_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'product_list' %}" class="nav-link text-light">Product Master</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Godown / Rack Master</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
-                        <li class="nav-item"><a href="{% url 'scheme_list' %}" class="nav-link text-light">Scheme / Discount Master</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Unit / HSN Master</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        <li class="nav-item"><a href="{% url 'product_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Product Master</span></a></li>
+                        <li class="nav-item"><a href="{% url 'scheme_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Scheme / Discount</span></a></li>
                         {% endif %}
                     </ul>
                 </div>
@@ -51,23 +57,27 @@
 
             <!-- Purchase Transactions -->
             {% if 'po_view' in user_perms or 'purchase_view' in user_perms or 'purchase_return_view' in user_perms or 'supplier_payment_view' in user_perms %}
-            <li class="nav-item mt-3">
-                <a class="nav-link text-white" data-bs-toggle="collapse" href="#purchaseCollapse" role="button">
-                    <i class="bi bi-bag-fill me-2"></i> Purchase
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#purchaseCollapse" role="button" title="Purchase">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-bag-fill me-2 fs-5"></i>
+                        <span class="menu-text">Purchase</span>
+                    </div>
+                    <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
                 <div class="collapse ms-3" id="purchaseCollapse">
                     <ul class="nav flex-column">
                         {% if 'po_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'po_list' %}" class="nav-link text-light">Purchase Order</a></li>
+                        <li class="nav-item"><a href="{% url 'po_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Purchase Order</span></a></li>
                         {% endif %}
                         {% if 'purchase_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'purchase_entry_list' %}" class="nav-link text-light">Purchase Entry (Bill)</a></li>
+                        <li class="nav-item"><a href="{% url 'purchase_entry_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Purchase Entry (Bill)</span></a></li>
                         {% endif %}
                         {% if 'purchase_return_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'purchase_return_list' %}" class="nav-link text-light">Purchase Return</a></li>
+                        <li class="nav-item"><a href="{% url 'purchase_return_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Purchase Return</span></a></li>
                         {% endif %}
                         {% if 'supplier_payment_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'supplier_payment_list' %}" class="nav-link text-light">Payment to Supplier</a></li>
+                        <li class="nav-item"><a href="{% url 'supplier_payment_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Payment to Supplier</span></a></li>
                         {% endif %}
                     </ul>
                 </div>
@@ -76,22 +86,28 @@
 
             <!-- Sales Transactions -->
             {% if 'sales_view' in user_perms or 'sales_create' in user_perms or 'sales_reprint' in user_perms or 'sales_return_view' in user_perms or 'payment_collection_view' in user_perms %}
-            <li class="nav-item mt-3">
-                <a class="nav-link text-white" data-bs-toggle="collapse" href="#salesCollapse" role="button">
-                    <i class="bi bi-cart-fill me-2"></i> Sales / Billing
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#salesCollapse" role="button" title="Sales / Billing">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-cart-fill me-2 fs-5"></i>
+                        <span class="menu-text">Sales / Billing</span>
+                    </div>
+                    <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
                 <div class="collapse ms-3" id="salesCollapse">
                     <ul class="nav flex-column">
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Sales Order</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        {% if 'sales_create' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'invoice_create' %}" class="nav-link text-light py-1.5"><span class="menu-text">Create Sales Bill</span></a></li>
+                        {% endif %}
                         {% if 'sales_view' in user_perms or 'sales_reprint' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'invoice_list' %}" class="nav-link text-light">Sales Invoice (Bill)</a></li>
+                        <li class="nav-item"><a href="{% url 'invoice_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Sales Invoices List</span></a></li>
                         {% endif %}
                         {% if 'sales_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'invoice_email_bulk' %}" class="nav-link text-light">Email Bills (Bulk)</a></li>
-                        <li class="nav-item"><a href="{% url 'delivery_management' %}" class="nav-link text-light">Delivery Management</a></li>
+                        <li class="nav-item"><a href="{% url 'invoice_email_bulk' %}" class="nav-link text-light py-1.5"><span class="menu-text">Email Bills (Bulk)</span></a></li>
+                        <li class="nav-item"><a href="{% url 'delivery_management' %}" class="nav-link text-light py-1.5"><span class="menu-text">Delivery Management</span></a></li>
                         {% endif %}
                         {% if 'sales_return_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'sales_return_list' %}" class="nav-link text-light">Sales Return</a></li>
+                        <li class="nav-item"><a href="{% url 'sales_return_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Sales Return</span></a></li>
                         {% endif %}
                     </ul>
                 </div>
@@ -99,114 +115,113 @@
             {% endif %}
 
             <!-- Inventory / Stock -->
-            <li class="nav-item mt-3">
-                <a class="nav-link text-white" data-bs-toggle="collapse" href="#stockCollapse" role="button">
-                    <i class="bi bi-box-seam-fill me-2"></i> Inventory
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#stockCollapse" role="button" title="Inventory">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-box-seam-fill me-2 fs-5"></i>
+                        <span class="menu-text">Inventory</span>
+                    </div>
+                    <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
                 <div class="collapse ms-3" id="stockCollapse">
                     <ul class="nav flex-column">
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Stock Summary</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Batch &amp; Expiry Tracking</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Stock Adjustment</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Godown Transfer</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Damaged / Expired Stock</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=stock" class="nav-link text-light py-1.5"><span class="menu-text">Stock Valuation</span></a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=expiry" class="nav-link text-light py-1.5"><span class="menu-text">Expiry Alerts</span></a></li>
                     </ul>
                 </div>
             </li>
 
             {% if 'customer_ledger' in user_perms or 'report_outstanding' in user_perms or 'payment_collection_view' in user_perms %}
             <!-- Accounts / Ledger -->
-            <li class="nav-item mt-3">
-                <a class="nav-link text-white" data-bs-toggle="collapse" href="#accountsCollapse" role="button">
-                    <i class="bi bi-wallet2 me-2"></i> Accounts
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#accountsCollapse" role="button" title="Accounts">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-wallet2 me-2 fs-5"></i>
+                        <span class="menu-text">Accounts</span>
+                    </div>
+                    <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
                 <div class="collapse ms-3" id="accountsCollapse">
                     <ul class="nav flex-column">
                         {% if 'payment_collection_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'customer_payment_list' %}" class="nav-link text-light">Payment Collection</a></li>
+                        <li class="nav-item"><a href="{% url 'customer_payment_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Payment Collection</span></a></li>
                         {% endif %}
                         {% if 'customer_ledger' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'customer_ledger' %}" class="nav-link text-light">Customer Ledger</a></li>
+                        <li class="nav-item"><a href="{% url 'customer_ledger' %}" class="nav-link text-light py-1.5"><span class="menu-text">Customer Ledger</span></a></li>
                         {% endif %}
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Supplier Ledger</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                         {% if 'report_outstanding' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'report_outstanding' %}" class="nav-link text-light">Outstanding / Dues</a></li>
+                        <li class="nav-item"><a href="{% url 'report_outstanding' %}" class="nav-link text-light py-1.5"><span class="menu-text">Outstanding Ledger</span></a></li>
                         {% endif %}
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Cash / Bank Book</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                     </ul>
                 </div>
             </li>
             {% endif %}
 
             <!-- Compliance -->
-            <li class="nav-item mt-3">
-                <a class="nav-link text-white" data-bs-toggle="collapse" href="#complianceCollapse" role="button">
-                    <i class="bi bi-shield-check me-2"></i> Compliance
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#complianceCollapse" role="button" title="Compliance">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-shield-check me-2 fs-5"></i>
+                        <span class="menu-text">Compliance</span>
+                    </div>
+                    <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
                 <div class="collapse ms-3" id="complianceCollapse">
                     <ul class="nav flex-column">
-                        <li class="nav-item"><a href="{% url 'tally_dashboard' %}" class="nav-link text-light">Tally Integration</a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Drug License Renewal</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>GST Filing Reminders</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
+                        <li class="nav-item"><a href="{% url 'tally_dashboard' %}" class="nav-link text-light py-1.5"><span class="menu-text">Tally Integration</span></a></li>
                     </ul>
                 </div>
             </li>
 
             <!-- Reports -->
             {% if 'sales_view' in user_perms or 'sales_reprint' in user_perms or 'view_margins' in user_perms or 'customer_view' in user_perms or 'supplier_view' in user_perms %}
-            <li class="nav-item mt-3">
-                <a class="nav-link text-white" data-bs-toggle="collapse" href="#reportsCollapse" role="button">
-                    <i class="bi bi-bar-chart-fill me-2"></i> Reports
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#reportsCollapse" role="button" title="Reports">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-bar-chart-fill me-2 fs-5"></i>
+                        <span class="menu-text">Reports</span>
+                    </div>
+                    <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
                 <div class="collapse ms-3" id="reportsCollapse">
                     <ul class="nav flex-column">
-                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}" class="nav-link text-light">Reports Hub</a></li>
-                        {% if 'sales_view' in user_perms or 'sales_reprint' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=sales" class="nav-link text-light">GST Sales Summary</a></li>
-                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=company" class="nav-link text-light">Company-wise Sales</a></li>
-                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=customer" class="nav-link text-light">Customer-wise Sales</a></li>
-                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=gst" class="nav-link text-light">Consolidated GST Report</a></li>
-                        {% endif %}
-                        {% if 'view_margins' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=stock" class="nav-link text-light">Stock Valuation</a></li>
-                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=expiry" class="nav-link text-light">Pharma Expiry Alerts</a></li>
-                        {% endif %}
-                        {% if 'customer_view' in user_perms or 'supplier_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=outstanding" class="nav-link text-light">Outstanding Ledger</a></li>
-                        {% endif %}
-                        <li class="nav-item"><a href="{% url 'archive_dashboard' %}" class="nav-link text-light">Yearly Archives</a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}" class="nav-link text-light py-1.5"><span class="menu-text">Reports Hub</span></a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=sales" class="nav-link text-light py-1.5"><span class="menu-text">GST Sales Summary</span></a></li>
+                        <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=customer" class="nav-link text-light py-1.5"><span class="menu-text">Customer-wise Sales</span></a></li>
+                        <li class="nav-item"><a href="{% url 'archive_dashboard' %}" class="nav-link text-light py-1.5"><span class="menu-text">Yearly Archives</span></a></li>
                     </ul>
                 </div>
             </li>
             {% endif %}
 
             <!-- Settings -->
-            <li class="nav-item mt-3">
-                <a class="nav-link text-white" data-bs-toggle="collapse" href="#settingsCollapse" role="button">
-                    <i class="bi bi-gear-fill me-2"></i> Settings
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#settingsCollapse" role="button" title="Settings">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-gear-fill me-2 fs-5"></i>
+                        <span class="menu-text">Settings</span>
+                    </div>
+                    <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
                 <div class="collapse ms-3" id="settingsCollapse">
                     <ul class="nav flex-column">
                         {% if user.is_superuser %}
-                        <li class="nav-item"><a href="{% url 'tenant_list' %}" class="nav-link text-light">Tenant Management (Firms)</a></li>
+                        <li class="nav-item"><a href="{% url 'tenant_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Tenant Management</span></a></li>
                         {% endif %}
                         {% if user.is_superuser or user_profile.is_tenant_admin %}
-                        <li class="nav-item"><a href="{% url 'user_list' %}" class="nav-link text-light">User Management (Roles & Staff)</a></li>
-                        <li class="nav-item"><a href="{% url 'tenant_email_settings' %}" class="nav-link text-light">Email Configuration (SMTP)</a></li>
-                        <li class="nav-item"><a href="{% url 'user_permission_matrix' %}" class="nav-link text-light">User Permissions Matrix</a></li>
-                        <li class="nav-item"><a href="{% url 'activity_log_list' %}" class="nav-link text-light">System Activity Logs</a></li>
-                        <li class="nav-item"><a href="{% url 'financial_year_list' %}" class="nav-link text-light">Financial Years & Closure</a></li>
+                        <li class="nav-item"><a href="{% url 'user_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">User Management</span></a></li>
+                        <li class="nav-item"><a href="{% url 'user_permission_matrix' %}" class="nav-link text-light py-1.5"><span class="menu-text">Permissions Matrix</span></a></li>
+                        <li class="nav-item"><a href="{% url 'financial_year_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Financial Years</span></a></li>
                         {% endif %}
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Company Profile</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
-                        <li class="nav-item"><a href="#" class="nav-link text-light opacity-50 d-flex justify-content-between align-items-center" style="cursor: not-allowed; pointer-events: none;"><span>Backup / Restore</span> <span class="badge bg-secondary" style="font-size: 0.65rem; padding: 2px 5px; opacity: 0.75;">Soon</span></a></li>
                     </ul>
                 </div>
             </li>
 
             <!-- Logout Option -->
-            <li class="nav-item mt-4 border-top pt-3 border-secondary-subtle">
-                <a href="{% url 'logout' %}" class="nav-link text-danger fw-bold" style="color: #fca5a5 !important;">
-                    <i class="bi bi-box-arrow-right me-2 text-danger" style="color: #fca5a5 !important;"></i> Logout
+            <li class="nav-item mt-3 border-top border-white border-opacity-10 pt-2">
+                <a href="{% url 'logout' %}" class="nav-link text-danger fw-bold d-flex align-items-center" title="Logout" style="color: #fca5a5 !important;">
+                    <i class="bi bi-box-arrow-right me-2 fs-5" style="color: #fca5a5 !important;"></i>
+                    <span class="menu-text">Logout</span>
                 </a>
             </li>
         </ul>
@@ -219,25 +234,12 @@
         const currentPath = window.location.pathname;
         let matched = false;
 
-        // Reset all active classes first
-        navLinks.forEach(link => {
-            link.classList.remove("active");
-            link.classList.remove("text-white");
-            if (!link.classList.contains("text-danger")) {
-                link.classList.add("text-light");
-            }
-        });
-
-        // Match current path
         navLinks.forEach(link => {
             const href = link.getAttribute("href");
-            if (href && href !== "#" && (currentPath === href || currentPath.startsWith(href))) {
+            if (href && href !== "#" && (currentPath === href || (href.length > 1 && currentPath.startsWith(href)))) {
                 link.classList.add("active");
-                link.classList.remove("text-light");
-                link.classList.add("text-white");
                 matched = true;
 
-                // Auto-expand parent collapse menus
                 const parentCollapse = link.closest(".collapse");
                 if (parentCollapse) {
                     parentCollapse.classList.add("show");
@@ -249,39 +251,38 @@
             }
         });
 
-        // Default fallback to Dashboard
         if (!matched && (currentPath === "/" || currentPath === "/home/")) {
             const dashLink = document.querySelector(".sidebar a[href='{% url 'home' %}']");
             if (dashLink) {
                 dashLink.classList.add("active");
-                dashLink.classList.remove("text-light");
-                dashLink.classList.add("text-white");
             }
         }
     });
 </script>
 
 <style>
-    .sidebar {
-        transition: all 0.3s ease;
-    }
     .sidebar .nav-link {
-        color: #f0e6ff !important;
-        padding: 12px 16px;
-        border-radius: 8px;
-        margin: 3px 0;
+        color: rgba(255, 255, 255, 0.85) !important;
+        padding: 10px 14px;
+        border-radius: 10px;
+        transition: all 0.2s ease;
+        font-weight: 500;
+        font-size: 0.92rem;
     }
     .sidebar .nav-link:hover {
-        background-color: rgba(255,255,255,0.15);
-        color: white !important;
+        background-color: rgba(255, 255, 255, 0.15);
+        color: #ffffff !important;
+        transform: translateX(3px);
     }
     .sidebar .nav-link.active {
-        background-color: #5a32a3;
-        color: white !important;
-        font-weight: 500;
+        background-color: rgba(255, 255, 255, 0.22);
+        color: #ffffff !important;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #ffffff;
     }
     .sidebar .collapse .nav-link {
-        padding-left: 40px;
-        font-size: 0.95rem;
+        padding-left: 16px;
+        font-size: 0.88rem;
     }
 </style>

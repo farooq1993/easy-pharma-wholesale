@@ -1,0 +1,139 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #printableVoucher, #printableVoucher * {
+            visibility: visible;
+        }
+        #printableVoucher {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        .no-print {
+            display: none !important;
+        }
+    }
+</style>
+
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+        <a href="{% url 'purchase_entry_list' %}" class="btn btn-outline-secondary rounded-pill px-4">
+            <i class="bi bi-arrow-left"></i> Back to Purchase List
+        </a>
+        <div class="d-flex gap-2">
+            <button onclick="window.print()" class="btn btn-primary rounded-pill px-4">
+                <i class="bi bi-printer"></i> Print Purchase Voucher
+            </button>
+            <a href="{% url 'purchase_entry_create' %}" class="btn btn-success rounded-pill px-4">
+                <i class="bi bi-plus-circle"></i> New Purchase Entry
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-4 p-4" id="printableVoucher">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+            <div>
+                <h3 class="fw-bold text-primary mb-1">{{ current_tenant.company_name|default:"EasyPharma Wholesale" }}</h3>
+                <div class="text-muted small">Purchase Stock Receipt / Supplier Voucher</div>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-primary fs-6 px-3 py-2 rounded-pill">VOUCHER # {{ entry.invoice_number }}</span>
+                <div class="text-muted small mt-1">Date: {{ entry.invoice_date|date:"d-m-Y" }}</div>
+            </div>
+        </div>
+
+        <!-- Supplier & Entry Details -->
+        <div class="row g-3 mb-4 p-3 bg-light rounded-3">
+            <div class="col-md-6 border-end">
+                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-truck"></i> Supplier Details</h6>
+                <div class="fw-bold fs-6 text-primary">{{ entry.supplier.name }}</div>
+                {% if entry.supplier.mobile %}<div class="text-muted small">Mobile: {{ entry.supplier.mobile }}</div>{% endif %}
+                {% if entry.supplier.city %}<div class="text-muted small">Location: {{ entry.supplier.city }}, {{ entry.supplier.state }}</div>{% endif %}
+            </div>
+            <div class="col-md-6 ps-md-4">
+                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-receipt"></i> Voucher Details</h6>
+                <div class="small"><strong>Supplier Bill No:</strong> {{ entry.invoice_number }}</div>
+                <div class="small"><strong>Payment Type:</strong> <span class="badge {% if entry.payment_type == 'Credit' %}bg-warning-subtle text-warning-emphasis{% else %}bg-success-subtle text-success-emphasis{% endif %}">{{ entry.payment_type }}</span></div>
+                <div class="small"><strong>Recorded Date:</strong> {{ entry.created_at|date:"d-m-Y H:i" }}</div>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <h6 class="fw-bold text-dark mb-2">Received Inventory Items</h6>
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered align-middle text-center small">
+                <thead class="table-light fw-bold">
+                    <tr>
+                        <th style="width: 5%;">#</th>
+                        <th style="width: 25%;" class="text-start">Product Name</th>
+                        <th style="width: 10%;">Batch</th>
+                        <th style="width: 10%;">Expiry</th>
+                        <th style="width: 8%;">MRP (₹)</th>
+                        <th style="width: 8%;">P-Rate (₹)</th>
+                        <th style="width: 8%;">S-Rate (₹)</th>
+                        <th style="width: 6%;">Qty</th>
+                        <th style="width: 6%;">Free</th>
+                        <th style="width: 6%;">Disc %</th>
+                        <th style="width: 8%;" class="text-end">Total Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in entry.items.all %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td class="text-start fw-bold">{{ item.product.name }} <span class="text-muted font-normal">({{ item.product.pack_size }})</span></td>
+                        <td><code>{{ item.batch_number }}</code></td>
+                        <td>{{ item.expiry_date|date:"m/Y" }}</td>
+                        <td>{{ item.mrp }}</td>
+                        <td class="fw-semibold">₹{{ item.purchase_rate }}</td>
+                        <td>₹{{ item.sale_rate }}</td>
+                        <td class="fw-bold">{{ item.quantity }}</td>
+                        <td>{{ item.free_quantity }}</td>
+                        <td>{{ item.discount_percentage }}%</td>
+                        <td class="text-end fw-bold">₹{{ item.total_amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" class="text-muted">No items recorded in this voucher.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Financial Summary -->
+        <div class="row justify-content-end">
+            <div class="col-md-5">
+                <div class="p-3 bg-light rounded-3 border">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Gross Taxable Value:</span>
+                        <span class="fw-semibold">₹{{ entry.gross_amount }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Total Discounts:</span>
+                        <span class="text-danger fw-semibold">-₹{{ entry.discount_amount }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Total GST Tax:</span>
+                        <span class="text-success fw-semibold">+₹{{ entry.gst_amount }}</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between fs-5 fw-bold text-primary">
+                        <span>Net Amount Payable:</span>
+                        <span>₹{{ entry.net_amount }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

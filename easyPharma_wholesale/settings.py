@@ -133,11 +133,32 @@ if IS_PRODUCTION:
             'DATABASE_URL must be set in production; Vercel SQLite is not persistent.'
         )
 else:
-    # Use SQLite for local development
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+# Caching Configuration (Redis with LocMemCache Fallback)
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1')
+
+try:
+    import redis
+    r = redis.Redis.from_url(REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
+    r.ping()
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+            'TIMEOUT': 300,
+        }
+    }
+except Exception:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'easypharma-local-cache',
+            'TIMEOUT': 300,
         }
     }
 

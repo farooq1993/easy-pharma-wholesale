@@ -238,8 +238,15 @@ def purchase_entry_create(request):
             supplier.opening_balance += entry.net_amount
             supplier.save()
             
+        from wholesaleApp.views.security_helpers import log_activity
+        log_activity(
+            request, 'CREATE', 'PurchaseEntry', entry.invoice_number,
+            object_id=entry.id,
+            description=f"Created Purchase Entry #{entry.invoice_number} from supplier {entry.supplier.name} for Net Amount ₹{entry.net_amount}"
+        )
+            
         messages.success(request, f"Purchase Entry recorded successfully! Stock added for {len(product_ids)} items.")
-        return redirect('purchase_entry_list')
+        return redirect(f'/purchase/entry/create/?saved_id={entry.id}')
         
     context = {
         'suppliers': suppliers,
@@ -248,6 +255,22 @@ def purchase_entry_create(request):
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'purchase/entry_form.html', context)
+
+
+# @login_required
+def purchase_entry_print(request, pk):
+    from wholesaleApp.views.security_helpers import has_feature_access
+    if not (has_feature_access(request.user, 'purchase_view') or has_feature_access(request.user, 'purchase_create')):
+        messages.error(request, "Access Denied: You do not have permission to view Purchase Entries.")
+        return redirect('home')
+        
+    entry = get_object_or_404(PurchaseEntry.objects.select_related('supplier', 'tenant').prefetch_related('items__product'), pk=pk)
+    context = {
+        'entry': entry,
+        'page_title': f"Purchase Voucher - {entry.invoice_number}"
+    }
+    return render(request, 'purchase/entry_print.html', context)
+
 
 
 # @login_required
@@ -379,6 +402,13 @@ def purchase_entry_edit(request, pk):
             new_supplier = entry.supplier
             new_supplier.opening_balance += entry.net_amount
             new_supplier.save()
+
+        from wholesaleApp.views.security_helpers import log_activity
+        log_activity(
+            request, 'UPDATE', 'PurchaseEntry', entry.invoice_number,
+            object_id=entry.id,
+            description=f"Updated Purchase Entry #{entry.invoice_number} for Net Amount ₹{entry.net_amount}"
+        )
             
         messages.success(request, f"Purchase Entry {entry.invoice_number} updated successfully!")
         return redirect('purchase_entry_list')
@@ -396,7 +426,7 @@ def purchase_entry_edit(request, pk):
 # @login_required
 @transaction.atomic
 def purchase_entry_delete(request, pk):
-    from wholesaleApp.views.security_helpers import has_feature_access
+    from wholesaleApp.views.security_helpers import has_feature_access, log_activity
     if not has_feature_access(request.user, 'purchase_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete/cancel Purchase Entries.")
         return redirect('purchase_entry_list')
@@ -429,11 +459,14 @@ def purchase_entry_delete(request, pk):
         supplier.opening_balance -= entry.net_amount
         supplier.save()
         
-    # 3. Delete the entry
-    invoice_number = entry.invoice_number
+    log_activity(
+        request, 'DELETE', 'PurchaseEntry', entry.invoice_number,
+        object_id=entry.id,
+        description=f"Deleted Purchase Entry #{entry.invoice_number} of Net Amount ₹{entry.net_amount}"
+    )
+        
     entry.delete()
-    
-    messages.success(request, f"Purchase Entry {invoice_number} deleted successfully, stock adjustments reverted.")
+    messages.success(request, f"Purchase Entry {entry.invoice_number} deleted and stock reverted successfully!")
     return redirect('purchase_entry_list')
 
 

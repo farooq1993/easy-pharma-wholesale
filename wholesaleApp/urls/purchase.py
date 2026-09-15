@@ -7,6 +7,7 @@ from wholesaleApp.views.purchase_views import (
     purchase_entry_create,
     purchase_entry_edit,
     purchase_entry_delete,
+    purchase_entry_print,
     get_product_details,
     supplier_payment_list,
     supplier_payment_create,
@@ -27,6 +28,7 @@ urlpatterns = [
     path('purchase/entry/create/', purchase_entry_create, name='purchase_entry_create'),
     path('purchase/entry/<int:pk>/edit/', purchase_entry_edit, name='purchase_entry_edit'),
     path('purchase/entry/<int:pk>/delete/', purchase_entry_delete, name='purchase_entry_delete'),
+    path('purchase/entry/<int:pk>/print/', purchase_entry_print, name='purchase_entry_print'),
 
     # Supplier Payments
     path('purchase/payment/list/', supplier_payment_list, name='supplier_payment_list'),
