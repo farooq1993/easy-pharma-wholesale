@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, F
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -15,6 +16,7 @@ from wholesaleApp.views.security_helpers import get_user_permissions_context
 
 # ==================== REPORTS MODULE VIEWS ====================
 
+@login_required
 def reports_dashboard(request):
     """Main Reports Hub listing all available reports."""
     context = {
@@ -24,6 +26,7 @@ def reports_dashboard(request):
     return render(request, 'reports/dashboard.html', context)
 
 
+@login_required
 def report_sales(request):
     """Sales & GST Tax reporting with date filters."""
     today = timezone.now().date()
@@ -56,6 +59,7 @@ def report_sales(request):
     return render(request, 'reports/sales_report.html', context)
 
 
+@login_required
 def report_expiry(request):
     """Pharmaceutical Expiry alerts and shelf-life tracking."""
     today = timezone.now().date()
@@ -93,6 +97,7 @@ def report_expiry(request):
     return render(request, 'reports/expiry_report.html', context)
 
 
+@login_required
 def report_stock(request):
     """Current Stock levels and valuation audit reporting."""
     batches = ProductBatch.objects.filter(quantity__gt=0).select_related('product')
@@ -131,6 +136,7 @@ def report_stock(request):
     return render(request, 'reports/stock_valuation.html', context)
 
 
+@login_required
 def report_outstanding(request):
     """Accounts Receivables and Payables outstanding ledgers with date and area filtering."""
     from wholesaleApp.views.security_helpers import has_feature_access
@@ -234,6 +240,7 @@ def report_outstanding(request):
     return render(request, 'reports/outstanding_report.html', context)
 
 
+@login_required
 def report_company_sales(request):
     """Company-wise sales report with date filters."""
     today = timezone.now().date()
@@ -308,6 +315,7 @@ def report_company_sales(request):
     return render(request, 'reports/company_sales.html', context)
 
 
+@login_required
 def report_customer_sales(request):
     """Customer-wise sales report with date filters."""
     today = timezone.now().date()
@@ -352,6 +360,7 @@ def report_customer_sales(request):
     return render(request, 'reports/customer_sales.html', context)
 
 
+@login_required
 def report_gst(request):
     """Detailed B2B GST Report summarizing Input and Output GST taxes."""
     from wholesaleApp.models import SalesInvoiceItem, PurchaseEntryItem

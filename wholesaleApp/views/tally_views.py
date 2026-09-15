@@ -1,4 +1,5 @@
 import csv
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -7,6 +8,9 @@ from decimal import Decimal
 import datetime
 from wholesaleApp.models import SalesInvoice, PurchaseEntry, CustomerPayment, SupplierPayment
 from wholesaleApp.models.tenant import get_current_tenant
+from wholesaleApp.views.security_helpers import log_activity
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def tally_dashboard(request):
@@ -23,6 +27,7 @@ def tally_dashboard(request):
         if request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.is_tenant_admin):
             tenant.tally_export_enabled = True
             tenant.save()
+            log_activity(request, "ACTIVATE", "TallyIntegration", tenant.company_name, object_id=tenant.id, description="Tally export module activated for tenant.")
             messages.success(request, "Tally Integration Module successfully activated (Developer Trial Mode)!")
             return redirect('tally_dashboard')
             
@@ -60,6 +65,8 @@ def tally_export_csv(request):
     except ValueError:
         messages.error(request, "Invalid date format.")
         return redirect('tally_dashboard')
+
+    log_activity(request, "EXPORT", "TallyCSV", f"{export_type.upper()} ({start_date} to {end_date})", description=f"Tally CSV Export for {export_type} generated.")
         
     # Create the HTTP response with CSV headers
     response = HttpResponse(content_type='text/csv')
@@ -149,3 +156,4 @@ def tally_export_csv(request):
             ])
             
     return response
+

@@ -15,7 +15,7 @@ from wholesaleApp.models import (
 )
 
 # ==================== AJAX API ENDPOINTS ====================
-# @login_required@require_GET
+@login_required
 def get_product_batches(request, pk):
     """API endpoint to get active batches with stock for a selected product in FEFO order."""
     from django.core.cache import cache
@@ -46,7 +46,7 @@ def get_product_batches(request, pk):
 
 
 # ==================== SALES BILLING VIEWS ====================
-# @login_required
+@login_required
 def invoice_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not (has_feature_access(request.user, 'sales_view') or has_feature_access(request.user, 'sales_reprint')):
@@ -63,7 +63,7 @@ def invoice_list(request):
     }
     return render(request, 'sale/invoice_list.html', context)
 
-# @login_required
+@login_required
 @transaction.atomic
 def invoice_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
@@ -341,7 +341,7 @@ def number_to_words(number):
         return ""
 
 
-# @login_required
+@login_required
 def invoice_print(request, pk):
     """View to render the printable invoice styled for A4 half-page (A5 landscape)."""
     # Fetch invoice, filtering by tenant is handled automatically by the custom TenantManager
@@ -499,7 +499,7 @@ def invoice_print(request, pk):
     return render(request, 'sale/invoice_print.html', context)
 
 
-# @login_required
+@login_required
 @transaction.atomic
 def invoice_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
@@ -640,7 +640,7 @@ def invoice_edit(request, pk):
     return render(request, 'sale/invoice_edit.html', context)
 
 
-# @login_required
+@login_required
 @transaction.atomic
 def invoice_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
@@ -927,7 +927,7 @@ def invoice_email_bulk(request):
     return render(request, 'sale/invoice_email_bulk.html', context)
 
 
-# @login_required
+@login_required
 def delivery_management(request):
     """View to track pending bills/orders, assign them to delivery boys/salesmen, and update delivery status."""
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context, log_activity

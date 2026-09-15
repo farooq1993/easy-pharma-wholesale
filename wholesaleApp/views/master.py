@@ -16,8 +16,10 @@ from wholesaleApp.models import (
     UserFeaturePermission,
     CustomerPayment
 )
+from django.contrib.auth.decorators import login_required
 from wholesaleApp.views.security_helpers import seed_default_permissions, get_user_permissions_context
 
+@login_required
 def HomeView(request):
     """Dashboard view with LIVE calculation from new transaction database"""
     # Seed permissions dynamically

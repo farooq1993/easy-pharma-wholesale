@@ -15,7 +15,7 @@ from wholesaleApp.models import (
 )
 
 # ==================== AJAX API ENDPOINTS ====================
-# @login_required
+@login_required
 def get_product_details(request, pk):
     """API endpoint to get product details like GST rate and packaging."""
     product = get_object_or_404(ProductMaster, pk=pk, is_deleted=False)
@@ -30,7 +30,7 @@ def get_product_details(request, pk):
 
 
 # ==================== PURCHASE ORDER VIEWS ====================
-# @login_required
+@login_required
 def po_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access
     if not has_feature_access(request.user, 'po_view'):
@@ -56,7 +56,7 @@ def po_list(request):
     }
     return render(request, 'purchase/po_list.html', context)
 
-# @login_required
+@login_required
 @transaction.atomic
 def po_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access
@@ -122,7 +122,7 @@ def po_create(request):
 
 
 # ==================== PURCHASE ENTRY (INVOICE) VIEWS ====================
-# @login_required
+@login_required
 def purchase_entry_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not (has_feature_access(request.user, 'purchase_view') or has_feature_access(request.user, 'purchase_create')):
@@ -137,7 +137,7 @@ def purchase_entry_list(request):
     }
     return render(request, 'purchase/entry_list.html', context)
 
-# @login_required
+@login_required
 @transaction.atomic
 def purchase_entry_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
@@ -257,7 +257,7 @@ def purchase_entry_create(request):
     return render(request, 'purchase/entry_form.html', context)
 
 
-# @login_required
+@login_required
 def purchase_entry_print(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
     if not (has_feature_access(request.user, 'purchase_view') or has_feature_access(request.user, 'purchase_create')):
@@ -273,7 +273,7 @@ def purchase_entry_print(request, pk):
 
 
 
-# @login_required
+@login_required
 @transaction.atomic
 def purchase_entry_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
@@ -423,7 +423,7 @@ def purchase_entry_edit(request, pk):
     return render(request, 'purchase/entry_edit.html', context)
 
 
-# @login_required
+@login_required
 @transaction.atomic
 def purchase_entry_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, log_activity
@@ -745,7 +745,7 @@ def purchase_return_delete(request, pk):
     return redirect('purchase_return_list')
 
 
-# @login_required
+@login_required
 def po_email_send(request, pk):
     """View to trigger manual sending of a PO to the supplier via email."""
     from wholesaleApp.views.security_helpers import has_feature_access

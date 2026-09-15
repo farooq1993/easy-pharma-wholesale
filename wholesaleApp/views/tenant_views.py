@@ -1,8 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.db.models import Q
+import logging
 from wholesaleApp.models.tenant import Tenant
-from wholesaleApp.views.security_helpers import get_user_permissions_context, superadmin_required
+from wholesaleApp.views.security_helpers import get_user_permissions_context, superadmin_required, log_activity
+
+logger = logging.getLogger(__name__)
 
 @superadmin_required
 def tenant_list(request):
@@ -28,6 +31,7 @@ def tenant_create(request):
         gstin = request.POST.get('gstin', '').strip()
         gst_dealer_type = request.POST.get('gst_dealer_type', 'Regular').strip()
         dl_number = request.POST.get('dl_number', '').strip()
+        dl_expiry_date = request.POST.get('dl_expiry_date', '').strip() or None
         is_active = request.POST.get('is_active') == 'on'
         business_mode = request.POST.get('business_mode', 'Wholesale').strip()
         
@@ -44,9 +48,11 @@ def tenant_create(request):
                 gstin=gstin,
                 gst_dealer_type=gst_dealer_type,
                 dl_number=dl_number,
+                dl_expiry_date=dl_expiry_date,
                 is_active=is_active,
                 business_mode=business_mode
             )
+            log_activity(request, "CREATE", "Tenant", tenant.company_name, object_id=tenant.id, description=f"New firm/tenant '{company_name}' created.")
             
             # Link current user's profile to the new tenant if not already linked
             if hasattr(request.user, 'profile'):
@@ -79,6 +85,7 @@ def tenant_edit(request, pk):
         gstin = request.POST.get('gstin', '').strip()
         gst_dealer_type = request.POST.get('gst_dealer_type', 'Regular').strip()
         dl_number = request.POST.get('dl_number', '').strip()
+        dl_expiry_date = request.POST.get('dl_expiry_date', '').strip() or None
         is_active = request.POST.get('is_active') == 'on'
         business_mode = request.POST.get('business_mode', 'Wholesale').strip()
         
@@ -93,9 +100,11 @@ def tenant_edit(request, pk):
             tenant.gstin = gstin
             tenant.gst_dealer_type = gst_dealer_type
             tenant.dl_number = dl_number
+            tenant.dl_expiry_date = dl_expiry_date
             tenant.is_active = is_active
             tenant.business_mode = business_mode
             tenant.save()
+            log_activity(request, "UPDATE", "Tenant", tenant.company_name, object_id=tenant.id, description=f"Tenant '{name}' updated.")
             messages.success(request, f"Tenant '{name}' updated successfully.")
             return redirect('tenant_list')
             
@@ -156,12 +165,14 @@ def tenant_email_settings(request):
                 config.default_from_email = default_from_email
                 config.is_active = is_active
                 config.save()
+                log_activity(request, "UPDATE", "TenantEmailConfig", tenant.company_name, object_id=config.id, description=f"SMTP Email settings for '{tenant.company_name}' updated.")
                 
                 messages.success(request, f"SMTP Email configuration for '{tenant.company_name}' updated successfully.")
                 return redirect('tenant_email_settings')
             except ValueError:
                 messages.error(request, "Invalid Port number.")
             except Exception as e:
+                logger.error(f"Error updating SMTP settings for tenant {tenant.id}: {e}")
                 messages.error(request, f"Error saving configuration: {str(e)}")
 
     context = {
@@ -171,5 +182,6 @@ def tenant_email_settings(request):
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'tenant/email_settings.html', context)
+
 
 

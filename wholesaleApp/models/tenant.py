@@ -34,6 +34,7 @@ class Tenant(models.Model):
         verbose_name="GST Dealer Type"
     )
     dl_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="Drug License Number")
+    dl_expiry_date = models.DateField(blank=True, null=True, verbose_name="Drug License Expiry Date")
     
     is_active = models.BooleanField(default=True)
     tally_export_enabled = models.BooleanField(default=False, verbose_name="Tally Export Integration Enabled")

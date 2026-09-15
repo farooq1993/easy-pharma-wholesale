@@ -1,10 +1,14 @@
 import datetime
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from wholesaleApp.models import FinancialYear, SalesInvoice, PurchaseEntry, CustomerPayment, SupplierPayment
 from wholesaleApp.models.tenant import get_current_tenant
+from wholesaleApp.views.security_helpers import log_activity
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def financial_year_list(request):
@@ -24,13 +28,14 @@ def financial_year_list(request):
         elif FinancialYear.objects.filter(tenant=tenant, name=name).exists():
             messages.error(request, f"Financial Year '{name}' already exists.")
         else:
-            FinancialYear.objects.create(
+            fy = FinancialYear.objects.create(
                 tenant=tenant,
                 name=name,
                 start_date=start_date,
                 end_date=end_date,
                 is_closed=False
             )
+            log_activity(request, "CREATE", "FinancialYear", fy.name, object_id=fy.id, description=f"Financial Year '{name}' created ({start_date} to {end_date}).")
             messages.success(request, f"Financial Year '{name}' created successfully.")
             return redirect('financial_year_list')
             
@@ -54,6 +59,7 @@ def financial_year_close(request, pk):
         fy.closed_at = timezone.now()
         fy.closed_by = request.user
         fy.save()
+        log_activity(request, "CLOSE", "FinancialYear", fy.name, object_id=fy.id, description=f"Financial Year '{fy.name}' closed by user '{request.user.username}'.")
         messages.success(request, f"Financial Year '{fy.name}' has been successfully closed. All transactions in this period are now locked.")
         
     return redirect('financial_year_list')
@@ -99,3 +105,4 @@ def archive_dashboard(request):
         'supplier_payments': supplier_payments,
     }
     return render(request, 'archive/archive_dashboard.html', context)
+

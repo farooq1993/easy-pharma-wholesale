@@ -30,6 +30,9 @@ def is_date_in_closed_fy(date_val, tenant=None):
     Check if the given date falls under a closed financial year for the tenant.
     Auto-creates the current financial year if no financial years exist.
     """
+    if not date_val:
+        return False
+        
     if not tenant:
         tenant = get_current_tenant()
     

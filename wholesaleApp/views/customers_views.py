@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from wholesaleApp.models.customers import CustomerMaster, AreaMaster, SubareaMaster
 
 # ==================== CUSTOMER MASTER VIEWS ====================
-# @login_required
+@login_required
 def customer_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not has_feature_access(request.user, 'customer_view'):
@@ -20,7 +20,7 @@ def customer_list(request):
     }
     return render(request, 'customers/customer_list.html', context)
 
-# @login_required
+@login_required
 def customer_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not has_feature_access(request.user, 'customer_create'):
@@ -71,7 +71,7 @@ def customer_create(request):
     }
     return render(request, 'customers/customer_form.html', context)
 
-# @login_required
+@login_required
 def customer_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not has_feature_access(request.user, 'customer_edit'):
@@ -111,7 +111,7 @@ def customer_edit(request, pk):
     }
     return render(request, 'customers/customer_form.html', context)
 
-# @login_required
+@login_required
 def customer_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
     if not has_feature_access(request.user, 'customer_delete'):
@@ -126,7 +126,7 @@ def customer_delete(request, pk):
 
 
 # ==================== AREA MASTER VIEWS ====================
-# @login_required
+@login_required
 def area_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not has_feature_access(request.user, 'area_view'):
@@ -143,7 +143,7 @@ def area_list(request):
     }
     return render(request, 'customers/area_list.html', context)
 
-# @login_required
+@login_required
 def area_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not has_feature_access(request.user, 'area_create'):
@@ -169,7 +169,7 @@ def area_create(request):
     }
     return render(request, 'customers/area_form.html', context)
 
-# @login_required
+@login_required
 def area_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not has_feature_access(request.user, 'area_edit'):
@@ -191,7 +191,7 @@ def area_edit(request, pk):
     }
     return render(request, 'customers/area_form.html', context)
 
-# @login_required
+@login_required
 def area_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
     if not has_feature_access(request.user, 'area_delete'):
@@ -206,7 +206,7 @@ def area_delete(request, pk):
 
 
 # ==================== SUBAREA MASTER VIEWS ====================
-# @login_required
+@login_required
 def subarea_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not has_feature_access(request.user, 'area_create'):
@@ -233,7 +233,7 @@ def subarea_create(request):
     }
     return render(request, 'customers/subarea_form.html', context)
 
-# @login_required
+@login_required
 def subarea_edit(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
     if not has_feature_access(request.user, 'area_edit'):
@@ -257,7 +257,7 @@ def subarea_edit(request, pk):
     }
     return render(request, 'customers/subarea_form.html', context)
 
-# @login_required
+@login_required
 def subarea_delete(request, pk):
     from wholesaleApp.views.security_helpers import has_feature_access
     if not has_feature_access(request.user, 'area_delete'):
@@ -272,7 +272,7 @@ def subarea_delete(request, pk):
 
 
 # ==================== CUSTOMER LEDGER & PAYMENTS ====================
-# @login_required
+@login_required
 def customer_ledger(request):
     from wholesaleApp.views.security_helpers import get_user_permissions_context, has_feature_access
     if not has_feature_access(request.user, 'customer_ledger'):
@@ -315,7 +315,7 @@ def customer_ledger(request):
                 'remarks': f"Delivery Status: {inv.status}",
                 'id': inv.id,
                 'is_payment': False,
-                'url': f"/invoice/print/{inv.id}/"
+                'url': f"/sales/invoice/{inv.id}/print/"
             })
             all_debit += inv.net_amount
             
@@ -395,8 +395,8 @@ def customer_ledger(request):
     return render(request, 'customers/customer_ledger.html', context)
 
 
-# @login_required
 from django.db import transaction
+@login_required
 @transaction.atomic
 def customer_payment_add(request):
     from wholesaleApp.views.security_helpers import has_feature_access
@@ -442,7 +442,7 @@ def customer_payment_add(request):
     return redirect('customer_ledger')
 
 
-# @login_required
+@login_required
 @transaction.atomic
 def customer_payment_delete(request, pk):
     from wholesaleApp.models import CustomerPayment

@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
+from django.contrib.auth.models import User
 from wholesaleApp.models import (
     CompanyMaster, DrugMaster, ProductTypeMaster, ProductMaster,
     SupplierMaster, ProductBatch, PurchaseOrder, PurchaseOrderItem,
@@ -9,6 +10,8 @@ from wholesaleApp.models import (
 
 class MasterDataTests(TestCase):
     def setUp(self):
+        self.user = User.objects.create_superuser(username="admin_master", password="password123")
+        self.client.force_login(self.user)
         # Create master data
         self.company = CompanyMaster.objects.create(name="Cipla Ltd", code="CIPLA")
         self.drug = DrugMaster.objects.create(name="Paracetamol 500mg")
@@ -55,6 +58,8 @@ class MasterDataTests(TestCase):
 
 class PurchaseModuleTests(TestCase):
     def setUp(self):
+        self.user = User.objects.create_superuser(username="admin_purchase", password="password123")
+        self.client.force_login(self.user)
         # Create base master data
         self.supplier = SupplierMaster.objects.create(
             name="Alpha Pharma Pvt Ltd",
@@ -148,6 +153,8 @@ class PurchaseModuleTests(TestCase):
 
 class AreaMasterTests(TestCase):
     def setUp(self):
+        self.user = User.objects.create_superuser(username="admin_area", password="password123")
+        self.client.force_login(self.user)
         self.area = AreaMaster.objects.create(city="Mumbai", code="MUM")
         self.subarea = SubareaMaster.objects.create(area=self.area, name="Andheri West")
 
@@ -168,6 +175,8 @@ class AreaMasterTests(TestCase):
 
 class SalesModuleTests(TestCase):
     def setUp(self):
+        self.user = User.objects.create_superuser(username="admin_sales", password="password123")
+        self.client.force_login(self.user)
         # Create base master data
         self.area = AreaMaster.objects.create(city="Mumbai", code="MUM")
         self.customer = CustomerMaster.objects.create(

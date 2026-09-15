@@ -102,16 +102,17 @@
         <!-- Main Content -->
         <div class="main-content flex-grow-1">
             <!-- Top Navbar -->
-            <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom px-4 py-3 shadow-sm">
-                <div class="container-fluid">
-                    <button class="btn btn-sm btn-outline-primary me-3" type="button" onclick="toggleSidebar()" title="Toggle Sidebar (Expand/Collapse)">
-                        <i class="bi bi-layout-sidebar-inset fs-6"></i>
+            <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom px-3 px-md-4 py-2 py-md-3 shadow-sm">
+                <div class="container-fluid px-0">
+                    <button class="btn btn-sm btn-outline-primary me-2 me-md-3" type="button" onclick="toggleSidebar()" title="Toggle Sidebar">
+                        <i class="bi bi-list fs-5 d-md-none"></i>
+                        <i class="bi bi-layout-sidebar-inset fs-6 d-none d-md-inline"></i>
                     </button>
-                    <h4 class="mb-0 text-primary">{% block page_title %}Dashboard{% endblock %}</h4>
+                    <h4 class="mb-0 text-primary fs-5 fs-md-4">{% block page_title %}Dashboard{% endblock %}</h4>
                     
-                    <div class="ms-auto d-flex align-items-center gap-3">
+                    <div class="ms-auto d-flex align-items-center gap-2 gap-md-3">
                         {% if user.is_superuser %}
-                        <form method="POST" action="{% url 'switch_tenant' %}" class="d-flex align-items-center me-2">
+                        <form method="POST" action="{% url 'switch_tenant' %}" class="d-flex align-items-center me-1 me-md-2">
                             {% csrf_token %}
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text bg-light text-primary"><i class="bi bi-building"></i></span>
@@ -124,12 +125,12 @@
                             </div>
                         </form>
                         {% elif current_tenant %}
-                        <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 rounded-pill d-flex align-items-center gap-1" style="background-color: #e0e7ff; color: #4338ca; border-color: #c7d2fe !important;">
-                            <i class="bi bi-building"></i> {{ current_tenant.company_name }}
+                        <span class="badge bg-primary-subtle text-primary border border-primary px-2 px-md-3 py-2 rounded-pill d-flex align-items-center gap-1" style="background-color: #e0e7ff; color: #4338ca; border-color: #c7d2fe !important;">
+                            <i class="bi bi-building"></i> <span class="d-none d-sm-inline">{{ current_tenant.company_name }}</span>
                         </span>
                         {% endif %}
                         
-                        <span class="text-muted">{{ user.get_full_name|default:user.username|default:"User" }}</span>
+                        <span class="text-muted small d-none d-sm-inline">{{ user.get_full_name|default:user.username|default:"User" }}</span>
                         <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-danger" title="Logout">
                             <i class="bi bi-box-arrow-right"></i>
                         </a>
@@ -138,7 +139,7 @@
             </nav>
             
             <!-- Page Content -->
-            <div class="p-4">
+            <div class="p-3 p-md-4">
                 {% block content %}
                 {% endblock %}
             </div>
@@ -159,13 +160,25 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
         function toggleSidebar() {
-            document.body.classList.toggle("sidebar-collapsed");
+            if (window.innerWidth <= 768) {
+                document.body.classList.toggle("sidebar-mobile-open");
+            } else {
+                document.body.classList.toggle("sidebar-collapsed");
+            }
         }
         function collapseSidebar() {
-            document.body.classList.add("sidebar-collapsed");
+            if (window.innerWidth <= 768) {
+                document.body.classList.remove("sidebar-mobile-open");
+            } else {
+                document.body.classList.add("sidebar-collapsed");
+            }
         }
         function expandSidebar() {
-            document.body.classList.remove("sidebar-collapsed");
+            if (window.innerWidth <= 768) {
+                document.body.classList.add("sidebar-mobile-open");
+            } else {
+                document.body.classList.remove("sidebar-collapsed");
+            }
         }
 
         function showToast(message, type = 'success') {
@@ -271,6 +284,15 @@
                     showToast("{{ message|escapejs }}", "{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}");
                 {% endfor %}
             {% endif %}
+
+            // Close mobile sidebar when clicking menu links (except accordion triggers)
+            document.querySelectorAll(".sidebar .nav-link:not([data-bs-toggle='collapse'])").forEach(link => {
+                link.addEventListener("click", function() {
+                    if (window.innerWidth <= 768) {
+                        document.body.classList.remove("sidebar-mobile-open");
+                    }
+                });
+            });
         });
     </script>
     {% block extra_js %}{% endblock %}

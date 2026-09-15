@@ -70,7 +70,7 @@ def apply_role_default_permissions(user):
 def has_feature_access(user, codename):
     """Check if the user is granted access to a specific feature codename."""
     if not user.is_authenticated:
-        return True  # Support anonymous testing / local dev
+        return False
     if user.is_superuser or (hasattr(user, 'profile') and user.profile.role in ['Super Admin', 'Owner']):
         return True
     return UserFeaturePermission.objects.filter(
@@ -84,7 +84,7 @@ def has_feature_access(user, codename):
 def get_user_permissions_context(user):
     """Return a set of all feature codenames granted to the user."""
     if not user.is_authenticated:
-        return {f.codename for f in AppFeature.objects.filter(is_active=True)}
+        return set()
     if user.is_superuser or (hasattr(user, 'profile') and user.profile.role in ['Super Admin', 'Owner']):
         return {f.codename for f in AppFeature.objects.filter(is_active=True)}
     return {

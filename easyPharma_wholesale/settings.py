@@ -140,20 +140,31 @@ else:
         }
     }
 # Caching Configuration (Redis with LocMemCache Fallback)
-REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1')
+REDIS_URL = os.environ.get('REDIS_URL', '')
 
-try:
-    import redis
-    r = redis.Redis.from_url(REDIS_URL, socket_connect_timeout=1, socket_timeout=1)
-    r.ping()
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': REDIS_URL,
-            'TIMEOUT': 300,
+if REDIS_URL:
+    try:
+        import redis
+        r = redis.Redis.from_url(REDIS_URL, socket_connect_timeout=3, socket_timeout=3)
+        r.ping()
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+                'LOCATION': REDIS_URL,
+                'TIMEOUT': 300,
+            }
         }
-    }
-except Exception:
+    except Exception as e:
+        import logging
+        logging.getLogger('django').warning(f"Redis connection failed: {e}. Falling back to LocMemCache.")
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+                'LOCATION': 'easypharma-local-cache',
+                'TIMEOUT': 300,
+            }
+        }
+else:
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
@@ -162,6 +173,9 @@ except Exception:
         }
     }
 
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'home'
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -200,7 +214,14 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # Logging configuration
 LOGGING = {
@@ -208,30 +229,50 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '[{asctime}] {levelname} [{name}]: {message}',
             'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
         'simple': {
-            'format': '{levelname} {message}',
+            'format': '[{asctime}] {levelname} [{name}]: {message}',
             'style': '{',
+            'datefmt': '%H:%M:%S',
         },
     },
     'handlers': {
         'console': {
+            'level': 'INFO',
             'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stdout',
             'formatter': 'simple',
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'easypharma.log',
+            'formatter': 'verbose',
         },
     },
     'loggers': {
-        'django': {
-            'handlers': ['console'],
+        '': {
+            'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': True,
         },
-        'wholesaleApp': {
-            'handlers': ['console'],
+        'django': {
+            'handlers': ['console', 'file'],
             'level': 'INFO',
-            'propagate': True,
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'wholesaleApp': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
         },
     },
 }

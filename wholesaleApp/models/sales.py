@@ -43,7 +43,8 @@ class SalesInvoice(TenantModel):
         unique_together = ('tenant', 'invoice_number')
 
     def __str__(self):
-        return f"{self.invoice_number} - {self.customer.name}"
+        cust_name = self.customer.name if self.customer else (self.patient_name or "Walk-in Customer")
+        return f"{self.invoice_number} - {cust_name}"
 
 
 class SalesInvoiceItem(TenantModel):

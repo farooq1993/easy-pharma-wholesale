@@ -175,9 +175,11 @@ def user_delete(request, pk):
 
 
 def create_user_public(request):
-    """Create a new Super Admin user publicly."""
-    if request.user.is_authenticated:
-        return redirect('home')
+    """Create a new Super Admin user. Allowed publicly only for initial setup if no superusers exist."""
+    if User.objects.filter(is_superuser=True).exists():
+        if not (request.user.is_authenticated and request.user.is_superuser):
+            messages.error(request, "Access Denied: Admin user registration is closed.")
+            return redirect('login')
 
     if request.method == 'POST':
         username = request.POST['username'].strip()

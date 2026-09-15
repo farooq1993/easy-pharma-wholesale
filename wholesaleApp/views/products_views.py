@@ -2,11 +2,14 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
+import logging
 from wholesaleApp.models import CompanyMaster, DrugMaster, ProductTypeMaster, ProductMaster
-from wholesaleApp.views.security_helpers import has_feature_access
+from wholesaleApp.views.security_helpers import has_feature_access, log_activity
+
+logger = logging.getLogger(__name__)
 
 # ==================== COMPANY MASTER VIEWS ====================
-# @login_required
+@login_required
 def company_list(request):
     if not has_feature_access(request.user, 'product_view'):
         messages.error(request, "Access Denied: You do not have permission to view Company Master.")
@@ -18,7 +21,7 @@ def company_list(request):
     }
     return render(request, 'companies/company_list.html', context)
 
-# @login_required
+@login_required
 def company_create(request):
     if not has_feature_access(request.user, 'product_create'):
         messages.error(request, "Access Denied: You do not have permission to add Company Master.")
@@ -36,13 +39,14 @@ def company_create(request):
                 created_by=request.user if request.user.is_authenticated else None
             )
             company.save()
+            log_activity(request, "CREATE", "CompanyMaster", company.name, object_id=company.id, description=f"Company '{name}' created.")
             messages.success(request, 'Company created successfully!')
             return redirect('company_list')
             
     context = {'page_title': 'Add New Company'}
     return render(request, 'companies/company_form.html', context)
 
-# @login_required
+@login_required
 def company_edit(request, pk):
     if not has_feature_access(request.user, 'product_edit'):
         messages.error(request, "Access Denied: You do not have permission to edit Company Master.")
@@ -58,13 +62,14 @@ def company_edit(request, pk):
             company.name = name
             company.code = code
             company.save()
+            log_activity(request, "UPDATE", "CompanyMaster", company.name, object_id=company.id, description=f"Company '{name}' updated.")
             messages.success(request, 'Company updated successfully!')
             return redirect('company_list')
             
     context = {'company': company, 'page_title': 'Edit Company'}
     return render(request, 'companies/company_form.html', context)
 
-# @login_required
+@login_required
 def company_delete(request, pk):
     if not has_feature_access(request.user, 'product_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete Company Master.")
@@ -72,12 +77,13 @@ def company_delete(request, pk):
     company = get_object_or_404(CompanyMaster, pk=pk)
     company.is_deleted = True
     company.save()
+    log_activity(request, "DELETE", "CompanyMaster", company.name, object_id=company.id, description=f"Company '{company.name}' soft deleted.")
     messages.success(request, 'Company deleted successfully!')
     return redirect('company_list')
 
 
 # ==================== DRUG MASTER VIEWS ====================
-# @login_required
+@login_required
 def drug_list(request):
     if not has_feature_access(request.user, 'product_view'):
         messages.error(request, "Access Denied: You do not have permission to view Drug Compositions.")
@@ -89,7 +95,7 @@ def drug_list(request):
     }
     return render(request, 'drugs/drug_list.html', context)
 
-# @login_required
+@login_required
 def drug_create(request):
     if not has_feature_access(request.user, 'product_create'):
         messages.error(request, "Access Denied: You do not have permission to add Drug Compositions.")
@@ -104,13 +110,14 @@ def drug_create(request):
                 created_by=request.user if request.user.is_authenticated else None
             )
             drug.save()
+            log_activity(request, "CREATE", "DrugMaster", drug.name, object_id=drug.id, description=f"Drug composition '{name}' created.")
             messages.success(request, 'Drug composition created successfully!')
             return redirect('drug_list')
             
     context = {'page_title': 'Add New Generic Composition'}
     return render(request, 'drugs/drug_form.html', context)
 
-# @login_required
+@login_required
 def drug_edit(request, pk):
     if not has_feature_access(request.user, 'product_edit'):
         messages.error(request, "Access Denied: You do not have permission to edit Drug Compositions.")
@@ -123,13 +130,14 @@ def drug_edit(request, pk):
         else:
             drug.name = name
             drug.save()
+            log_activity(request, "UPDATE", "DrugMaster", drug.name, object_id=drug.id, description=f"Drug composition '{name}' updated.")
             messages.success(request, 'Drug composition updated successfully!')
             return redirect('drug_list')
             
     context = {'drug': drug, 'page_title': 'Edit Generic Composition'}
     return render(request, 'drugs/drug_form.html', context)
 
-# @login_required
+@login_required
 def drug_delete(request, pk):
     if not has_feature_access(request.user, 'product_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete Drug Compositions.")
@@ -137,12 +145,13 @@ def drug_delete(request, pk):
     drug = get_object_or_404(DrugMaster, pk=pk)
     drug.is_deleted = True
     drug.save()
+    log_activity(request, "DELETE", "DrugMaster", drug.name, object_id=drug.id, description=f"Drug composition '{drug.name}' soft deleted.")
     messages.success(request, 'Drug composition deleted successfully!')
     return redirect('drug_list')
 
 
 # ==================== PRODUCT TYPE MASTER VIEWS ====================
-# @login_required
+@login_required
 def type_list(request):
     if not has_feature_access(request.user, 'product_view'):
         messages.error(request, "Access Denied: You do not have permission to view Product Types.")
@@ -154,7 +163,7 @@ def type_list(request):
     }
     return render(request, 'product_types/type_list.html', context)
 
-# @login_required
+@login_required
 def type_create(request):
     if not has_feature_access(request.user, 'product_create'):
         messages.error(request, "Access Denied: You do not have permission to add Product Types.")
@@ -169,13 +178,14 @@ def type_create(request):
                 created_by=request.user if request.user.is_authenticated else None
             )
             p_type.save()
+            log_activity(request, "CREATE", "ProductTypeMaster", p_type.name, object_id=p_type.id, description=f"Product type '{name}' created.")
             messages.success(request, 'Product Type created successfully!')
             return redirect('type_list')
             
     context = {'page_title': 'Add New Product Type / Form'}
     return render(request, 'product_types/type_form.html', context)
 
-# @login_required
+@login_required
 def type_edit(request, pk):
     if not has_feature_access(request.user, 'product_edit'):
         messages.error(request, "Access Denied: You do not have permission to edit Product Types.")
@@ -188,13 +198,14 @@ def type_edit(request, pk):
         else:
             p_type.name = name
             p_type.save()
+            log_activity(request, "UPDATE", "ProductTypeMaster", p_type.name, object_id=p_type.id, description=f"Product type '{name}' updated.")
             messages.success(request, 'Product Type updated successfully!')
             return redirect('type_list')
             
     context = {'p_type': p_type, 'page_title': 'Edit Product Type'}
     return render(request, 'product_types/type_form.html', context)
 
-# @login_required
+@login_required
 def type_delete(request, pk):
     if not has_feature_access(request.user, 'product_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete Product Types.")
@@ -202,12 +213,13 @@ def type_delete(request, pk):
     p_type = get_object_or_404(ProductTypeMaster, pk=pk)
     p_type.is_deleted = True
     p_type.save()
+    log_activity(request, "DELETE", "ProductTypeMaster", p_type.name, object_id=p_type.id, description=f"Product type '{p_type.name}' soft deleted.")
     messages.success(request, 'Product Type deleted successfully!')
     return redirect('type_list')
 
 
 # ==================== PRODUCT MASTER (ITEM MASTER) VIEWS ====================
-# @login_required
+@login_required
 def product_list(request):
     if not has_feature_access(request.user, 'product_view'):
         messages.error(request, "Access Denied: You do not have permission to view Products.")
@@ -219,7 +231,7 @@ def product_list(request):
     }
     return render(request, 'products/product_list.html', context)
 
-# @login_required
+@login_required
 def product_create(request):
     if not has_feature_access(request.user, 'product_create'):
         messages.error(request, "Access Denied: You do not have permission to add Products.")
@@ -254,6 +266,7 @@ def product_create(request):
             created_by=request.user if request.user.is_authenticated else None
         )
         product.save()
+        log_activity(request, "CREATE", "ProductMaster", product.name, object_id=product.id, description=f"Product '{name}' (Pack: {pack_size}, HSN: {hsn_code}) created.")
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
             return JsonResponse({
@@ -275,7 +288,7 @@ def product_create(request):
     }
     return render(request, 'products/product_form.html', context)
 
-# @login_required
+@login_required
 def product_edit(request, pk):
     if not has_feature_access(request.user, 'product_edit'):
         messages.error(request, "Access Denied: You do not have permission to edit Products.")
@@ -296,6 +309,7 @@ def product_edit(request, pk):
         product.gst_rate = request.POST.get('gst_rate', 12.00)
         product.min_stock = request.POST.get('min_stock', 10)
         product.save()
+        log_activity(request, "UPDATE", "ProductMaster", product.name, object_id=product.id, description=f"Product '{product.name}' updated.")
         
         messages.success(request, 'Product updated successfully!')
         return redirect('product_list')
@@ -309,7 +323,7 @@ def product_edit(request, pk):
     }
     return render(request, 'products/product_form.html', context)
 
-# @login_required
+@login_required
 def product_delete(request, pk):
     if not has_feature_access(request.user, 'product_delete'):
         messages.error(request, "Access Denied: You do not have permission to delete Products.")
@@ -317,5 +331,7 @@ def product_delete(request, pk):
     product = get_object_or_404(ProductMaster, pk=pk)
     product.is_deleted = True
     product.save()
+    log_activity(request, "DELETE", "ProductMaster", product.name, object_id=product.id, description=f"Product '{product.name}' soft deleted.")
     messages.success(request, 'Product deleted successfully!')
     return redirect('product_list')
+

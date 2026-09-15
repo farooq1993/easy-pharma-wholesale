@@ -1,11 +1,12 @@
-import threading
-from django.utils.deprecation import MiddlewareMixin
 from wholesaleApp.models.tenant import Tenant, set_current_tenant
 
-class TenantMiddleware(MiddlewareMixin):
-    def process_request(self, request):
+class TenantMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
         tenant = None
-        if request.user.is_authenticated:
+        if hasattr(request, 'user') and request.user.is_authenticated:
             # Check session for an active tenant ID
             session_tenant_id = request.session.get('active_tenant_id')
             if session_tenant_id:
@@ -23,7 +24,8 @@ class TenantMiddleware(MiddlewareMixin):
         set_current_tenant(tenant)
         request.tenant = tenant
 
-    def process_response(self, request, response):
-        # Clear thread-local tenant to prevent memory leaks / context bleeding
-        set_current_tenant(None)
-        return response
+        try:
+            return self.get_response(request)
+        finally:
+            # Clear thread-local tenant to prevent memory leaks / context bleeding
+            set_current_tenant(None)
