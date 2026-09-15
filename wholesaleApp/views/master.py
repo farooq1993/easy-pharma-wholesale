@@ -291,8 +291,28 @@ def HomeView(request):
             p_rate = float(batch.purchase_rate) if batch else 50.00
             purchase_req_forecast += (deficit * p_rate)
             
-    if purchase_req_forecast == 0:
-        purchase_req_forecast = sales_forecast * 0.70
+    # ---------------- NEAR EXPIRY ALERTS (< 90 DAYS) ----------------
+    expiry_limit_date = today + timedelta(days=90)
+    expiring_batches = ProductBatch.objects.filter(
+        expiry_date__lte=expiry_limit_date,
+        expiry_date__gte=today,
+        quantity__gt=0
+    ).select_related('product').order_by('expiry_date')
+
+    expiring_soon = []
+    for b in expiring_batches[:10]:
+        days_left = (b.expiry_date - today).days
+        expiring_soon.append({
+            'product_name': b.product.name,
+            'pack_size': b.product.pack_size,
+            'batch_number': b.batch_number,
+            'stock': b.quantity,
+            'expiry_date': b.expiry_date,
+            'days_left': days_left,
+            'mrp': float(b.mrp),
+            'sale_rate': float(b.sale_rate)
+        })
+    expiring_soon_count = expiring_batches.count()
 
     context = {
         'sales_forecast': sales_forecast,
@@ -311,6 +331,7 @@ def HomeView(request):
         'orders_by_status': orders_by_status,
         'area_wise_orders': area_wise_orders,
         'expiring_soon': expiring_soon,
+        'expiring_soon_count': expiring_soon_count,
         'low_stock_alerts': low_stock_alerts,
         'total_outstanding': total_outstanding,
         'overdue_amount': total_outstanding * 0.4,

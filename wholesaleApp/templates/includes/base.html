@@ -29,7 +29,11 @@
             margin-left: 260px;
             transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             min-height: 100vh;
-            background-color: #f8fafc;
+        input[type="text"]:not(.no-uppercase), input[type="email"]:not(.no-uppercase), textarea:not(.no-uppercase) {
+            text-transform: uppercase;
+        }
+        input[type="text"]::placeholder, input[type="email"]::placeholder, textarea::placeholder {
+            text-transform: none;
         }
 
         /* Desktop Mini-Sidebar Mode (Collapsed) */
@@ -292,6 +296,23 @@
                         document.body.classList.remove("sidebar-mobile-open");
                     }
                 });
+            });
+
+            // Global Auto-Uppercase Input Typing
+            document.addEventListener('input', function(e) {
+                if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+                    var t = e.target.type;
+                    if (t === 'text' || t === 'email' || e.target.tagName === 'TEXTAREA') {
+                        if (!e.target.classList.contains('no-uppercase') && t !== 'password') {
+                            var start = e.target.selectionStart;
+                            var end = e.target.selectionEnd;
+                            e.target.value = e.target.value.toUpperCase();
+                            if (start !== null && end !== null && t === 'text') {
+                                try { e.target.setSelectionRange(start, end); } catch(err){}
+                            }
+                        }
+                    }
+                }
             });
         });
     </script>

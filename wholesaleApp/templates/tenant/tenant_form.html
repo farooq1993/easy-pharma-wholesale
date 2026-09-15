@@ -15,6 +15,21 @@
             {% csrf_token %}
             
             <div class="row g-3 mb-3">
+                <div class="col-md-12">
+                    <label class="form-label text-muted small fw-bold">Assigned Owner User <span class="text-danger">*</span></label>
+                    <select name="owner_user_id" class="form-select" required>
+                        <option value="">-- Select Owner / Creator User --</option>
+                        {% for u in owner_users %}
+                        <option value="{{ u.id }}" {% if tenant.user_id == u.id or user.id == u.id and not tenant %}selected{% endif %}>
+                            {{ u.username }} ({% if u.get_full_name %}{{ u.get_full_name }}{% else %}{{ u.email|default:'No Email' }}{% endif %}) - Role: {{ u.profile.role|default:'User' }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text text-muted">Select the registered user who owns and manages this firm.</div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <label class="form-label text-muted small fw-bold">Short Tenant Identifier <span class="text-danger">*</span></label>
                     <input type="text" name="name" class="form-control" value="{{ tenant.name|default:'' }}" placeholder="e.g. main_shop" required>

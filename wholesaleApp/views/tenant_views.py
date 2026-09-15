@@ -3,14 +3,20 @@ from django.contrib import messages
 from django.db.models import Q
 import logging
 from wholesaleApp.models.tenant import Tenant
-from wholesaleApp.views.security_helpers import get_user_permissions_context, superadmin_required, log_activity
+from wholesaleApp.views.security_helpers import get_user_permissions_context, tenant_owner_required, log_activity
 
 logger = logging.getLogger(__name__)
 
-@superadmin_required
+@tenant_owner_required
 def tenant_list(request):
-    """List all tenants/firms in the system."""
-    tenants = Tenant.objects.filter(Q(user=request.user) | Q(user__isnull=True))
+    """List tenants/firms accessible to the logged-in user."""
+    is_admin = request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.is_super_admin)
+    if is_admin:
+        tenants = Tenant.objects.all().select_related('user')
+    else:
+        # Tenant Owner only sees their own firm
+        tenants = Tenant.objects.filter(Q(user=request.user) | Q(user_profiles__user=request.user)).distinct().select_related('user')
+
     context = {
         'tenants': tenants,
         'page_title': 'Tenant / Firm Management',
@@ -19,9 +25,10 @@ def tenant_list(request):
     return render(request, 'tenant/tenant_list.html', context)
 
 
-@superadmin_required
+@tenant_owner_required
 def tenant_create(request):
-    """Create a new tenant/firm."""
+    """Create a new tenant/firm and assign Owner user."""
+    from django.contrib.auth.models import User
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         company_name = request.POST.get('company_name', '').strip()
@@ -34,12 +41,19 @@ def tenant_create(request):
         dl_expiry_date = request.POST.get('dl_expiry_date', '').strip() or None
         is_active = request.POST.get('is_active') == 'on'
         business_mode = request.POST.get('business_mode', 'Wholesale').strip()
+        owner_user_id = request.POST.get('owner_user_id')
         
+        owner_user = request.user
+        if owner_user_id:
+            target_user = User.objects.filter(id=owner_user_id).first()
+            if target_user:
+                owner_user = target_user
+
         if Tenant.objects.filter(name__iexact=name).exists():
             messages.error(request, f"Tenant with name '{name}' already exists.")
         else:
             tenant = Tenant.objects.create(
-                user=request.user,
+                user=owner_user,
                 name=name,
                 company_name=company_name,
                 address=address,
@@ -52,29 +66,33 @@ def tenant_create(request):
                 is_active=is_active,
                 business_mode=business_mode
             )
-            log_activity(request, "CREATE", "Tenant", tenant.company_name, object_id=tenant.id, description=f"New firm/tenant '{company_name}' created.")
+            log_activity(request, "CREATE", "Tenant", tenant.company_name, object_id=tenant.id, description=f"New firm/tenant '{company_name}' created for user '{owner_user.username}'.")
             
-            # Link current user's profile to the new tenant if not already linked
-            if hasattr(request.user, 'profile'):
-                profile = request.user.profile
-                if not profile.tenant:
-                    profile.tenant = tenant
-                    profile.save()
-                    request.session['active_tenant_id'] = tenant.id
+            # Link owner user's profile to the new tenant
+            if hasattr(owner_user, 'profile'):
+                profile = owner_user.profile
+                profile.tenant = tenant
+                profile.save()
+            
+            if owner_user == request.user or (hasattr(request.user, 'profile') and not request.user.profile.tenant):
+                request.session['active_tenant_id'] = tenant.id
 
-            messages.success(request, f"Tenant '{name}' created successfully.")
+            messages.success(request, f"Tenant '{name}' created successfully for owner '{owner_user.username}'.")
             return redirect('tenant_list')
             
+    owner_users = User.objects.all().order_by('username')
     context = {
+        'owner_users': owner_users,
         'page_title': 'Create New Tenant (Firm / Shop)',
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'tenant/tenant_form.html', context)
 
 
-@superadmin_required
+@tenant_owner_required
 def tenant_edit(request, pk):
     """Edit details of an existing tenant/firm."""
+    from django.contrib.auth.models import User
     tenant = get_object_or_404(Tenant, id=pk)
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
@@ -88,7 +106,16 @@ def tenant_edit(request, pk):
         dl_expiry_date = request.POST.get('dl_expiry_date', '').strip() or None
         is_active = request.POST.get('is_active') == 'on'
         business_mode = request.POST.get('business_mode', 'Wholesale').strip()
+        owner_user_id = request.POST.get('owner_user_id')
         
+        if owner_user_id:
+            target_user = User.objects.filter(id=owner_user_id).first()
+            if target_user:
+                tenant.user = target_user
+                if hasattr(target_user, 'profile'):
+                    target_user.profile.tenant = tenant
+                    target_user.profile.save()
+
         if Tenant.objects.filter(name__iexact=name).exclude(id=pk).exists():
             messages.error(request, f"Tenant with name '{name}' already exists.")
         else:
@@ -108,8 +135,10 @@ def tenant_edit(request, pk):
             messages.success(request, f"Tenant '{name}' updated successfully.")
             return redirect('tenant_list')
             
+    owner_users = User.objects.all().order_by('username')
     context = {
         'tenant': tenant,
+        'owner_users': owner_users,
         'page_title': f"Edit Tenant: {tenant.name}",
         'user_perms': get_user_permissions_context(request.user)
     }

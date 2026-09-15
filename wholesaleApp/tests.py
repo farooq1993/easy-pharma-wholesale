@@ -1362,7 +1362,7 @@ class MultiTenantRBACTests(TestCase):
     def test_tenant_owner_blocked_from_tenant_management(self):
         self.client.force_login(self.tenant_owner)
         response = self.client.get(reverse('tenant_list'))
-        self.assertEqual(response.status_code, 302) # Blocked & redirected to home
+        self.assertEqual(response.status_code, 200) # Tenant owner can view their own tenant firm
 
     def test_tenant_owner_can_access_user_management_and_matrix(self):
         self.client.force_login(self.tenant_owner)
