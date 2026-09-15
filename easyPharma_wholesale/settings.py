@@ -224,6 +224,10 @@ STORAGES = {
 }
 
 # Logging configuration
+active_log_handlers = ['console']
+if not IS_VERCEL:
+    active_log_handlers.append('file')
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -246,36 +250,38 @@ LOGGING = {
             'stream': 'ext://sys.stdout',
             'formatter': 'simple',
         },
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'easypharma.log',
-            'formatter': 'verbose',
-        },
     },
     'loggers': {
         '': {
-            'handlers': ['console', 'file'],
+            'handlers': active_log_handlers,
             'level': 'INFO',
             'propagate': True,
         },
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': active_log_handlers,
             'level': 'INFO',
             'propagate': False,
         },
         'django.server': {
-            'handlers': ['console', 'file'],
+            'handlers': active_log_handlers,
             'level': 'INFO',
             'propagate': False,
         },
         'wholesaleApp': {
-            'handlers': ['console', 'file'],
+            'handlers': active_log_handlers,
             'level': 'INFO',
             'propagate': False,
         },
     },
 }
+
+if not IS_VERCEL:
+    LOGGING['handlers']['file'] = {
+        'level': 'INFO',
+        'class': 'logging.FileHandler',
+        'filename': BASE_DIR / 'easypharma.log',
+        'formatter': 'verbose',
+    }
 
 # Email Configuration
 if DEBUG and not os.environ.get('EMAIL_HOST_USER'):
