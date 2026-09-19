@@ -16,7 +16,7 @@
     </div>
     
     <div class="p-2 py-3">
-        <ul class="nav flex-column gap-1">
+        <ul class="nav flex-column gap-1" id="sidebarMenuAccordion">
             
             <li class="nav-item">
                 <a href="{% url 'home' %}" class="nav-link text-white d-flex align-items-center" title="Dashboard">
@@ -35,7 +35,7 @@
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="mastersCollapse">
+                <div class="collapse ms-3" id="mastersCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
                         {% if 'area_view' in user_perms %}
                         <li class="nav-item"><a href="{% url 'area_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Area Master</span></a></li>
@@ -70,7 +70,7 @@
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="purchaseCollapse">
+                <div class="collapse ms-3" id="purchaseCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
                         {% if 'po_view' in user_perms %}
                         <li class="nav-item"><a href="{% url 'po_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Purchase Order</span></a></li>
@@ -99,7 +99,7 @@
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="salesCollapse">
+                <div class="collapse ms-3" id="salesCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
                         {% if 'sales_create' in user_perms %}
                         <li class="nav-item"><a href="{% url 'invoice_create' %}" class="nav-link text-light py-1.5"><span class="menu-text">Create Sales Bill</span></a></li>
@@ -128,7 +128,7 @@
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="stockCollapse">
+                <div class="collapse ms-3" id="stockCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
                         <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=stock" class="nav-link text-light py-1.5"><span class="menu-text">Stock Valuation</span></a></li>
                         <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=expiry" class="nav-link text-light py-1.5"><span class="menu-text">Expiry Alerts</span></a></li>
@@ -146,7 +146,7 @@
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="accountsCollapse">
+                <div class="collapse ms-3" id="accountsCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
                         {% if 'payment_collection_view' in user_perms %}
                         <li class="nav-item"><a href="{% url 'customer_payment_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Payment Collection</span></a></li>
@@ -171,7 +171,7 @@
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="complianceCollapse">
+                <div class="collapse ms-3" id="complianceCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
                         <li class="nav-item"><a href="{% url 'tally_dashboard' %}" class="nav-link text-light py-1.5"><span class="menu-text">Tally Integration</span></a></li>
                     </ul>
@@ -188,7 +188,7 @@
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="reportsCollapse">
+                <div class="collapse ms-3" id="reportsCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
                         <li class="nav-item"><a href="{% url 'reports_dashboard' %}" class="nav-link text-light py-1.5"><span class="menu-text">Reports Hub</span></a></li>
                         <li class="nav-item"><a href="{% url 'reports_dashboard' %}?tab=sales" class="nav-link text-light py-1.5"><span class="menu-text">GST Sales Summary</span></a></li>
@@ -208,7 +208,7 @@
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="settingsCollapse">
+                <div class="collapse ms-3" id="settingsCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
                         {% if user.is_superuser %}
                         <li class="nav-item"><a href="{% url 'tenant_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Tenant Management</span></a></li>
@@ -235,6 +235,22 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        // Auto-close other accordion menus when one is clicked/expanded
+        document.querySelectorAll('.sidebar [data-bs-toggle="collapse"]').forEach(toggleBtn => {
+            toggleBtn.addEventListener('click', function () {
+                const targetId = this.getAttribute('href') || this.getAttribute('data-bs-target');
+                document.querySelectorAll('.sidebar .collapse').forEach(other => {
+                    if (targetId && `#${other.id}` !== targetId && other.classList.contains('show')) {
+                        if (typeof bootstrap !== "undefined" && bootstrap.Collapse) {
+                            const bsCollapse = bootstrap.Collapse.getInstance(other) || new bootstrap.Collapse(other, { toggle: false });
+                            bsCollapse.hide();
+                        } else {
+                            other.classList.remove('show');
+                        }
+                    }
+                });
+            });
+        });
         const navLinks = document.querySelectorAll(".sidebar .nav-link");
         const currentPath = window.location.pathname;
         let matched = false;

@@ -17,14 +17,11 @@
                     <div class="row g-3">
                         <div class="col-md-4 col-12">
                             <label class="form-label text-muted small fw-bold">Select Customer <span class="text-danger">*</span></label>
-                            <select name="customer" id="customerSelect" class="form-select rounded-3" required>
-                                <option value="">-- Choose Customer --</option>
-                                {% for cust in customers %}
-                                    <option value="{{ cust.id }}">
-                                        {{ cust.name }} (Outstanding Dues: ₹{{ cust.opening_balance|floatformat:2 }})
-                                    </option>
-                                {% endfor %}
-                            </select>
+                            <div class="combobox-container">
+                                <input type="text" id="customerSearch" class="form-control combobox-input rounded-3" placeholder="Type Chemist / Customer Name..." required autocomplete="off">
+                                <input type="hidden" name="customer" id="customerSelect" class="combobox-hidden-value" required>
+                                <ul class="combobox-menu shadow-sm"></ul>
+                            </div>
                         </div>
                         
                         <div class="col-md-4 col-12">
@@ -131,12 +128,11 @@
 <table style="display: none;">
     <tr id="rowTemplate">
         <td class="ps-4">
-            <select name="product[]" class="form-select product-select" required>
-                <option value="">-- Select Product --</option>
-                {% for prod in products %}
-                    <option value="{{ prod.id }}">{{ prod.name }} (Pack: {{ prod.pack_size }})</option>
-                {% endfor %}
-            </select>
+            <div class="combobox-container">
+                <input type="text" class="form-control billing-input combobox-input product-search-input" placeholder="Type Medicine Name..." required autocomplete="off">
+                <input type="hidden" name="product[]" class="select-product combobox-hidden-value" required>
+                <ul class="combobox-menu shadow-sm"></ul>
+            </div>
         </td>
         <td>
             <select name="batch[]" class="form-select batch-select" required disabled>
@@ -159,14 +155,264 @@
         </td>
     </tr>
 </table>
+<!-- FEFO Batch Selection Modal & Customer Purchase History -->
+<div class="modal fade" id="fefoBatchModal" tabindex="-1" aria-labelledby="fefoBatchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow-lg border-0 rounded-4">
+            <div class="modal-header bg-primary text-white py-3 rounded-top-4">
+                <h5 class="modal-title fw-bold" id="fefoBatchModalLabel">
+                    <i class="bi bi-box-seam me-2"></i>Select Return Batch &amp; History
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3 bg-light p-3 rounded-3 border">
+                    <div>
+                        <h6 class="mb-0 fw-bold text-primary" id="fefoProductName">Product Name</h6>
+                        <span class="text-muted small" id="fefoProductDetails">Pack: -</span>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-bold">
+                        <i class="bi bi-keyboard me-1"></i> Use Arrow Keys &amp; Enter
+                    </span>
+                </div>
+
+                <!-- Customer Sales History Banner -->
+                <div id="customerSalesHistoryBox" class="mb-3" style="display: none;">
+                    <div class="card border-info bg-info-subtle rounded-3 p-3">
+                        <h6 class="fw-bold text-info-emphasis mb-2">
+                            <i class="bi bi-receipt-cutoff me-1"></i> Customer Previous Purchase History:
+                        </h6>
+                        <div class="table-responsive" style="max-height: 140px; overflow-y: auto;">
+                            <table class="table table-sm table-hover align-middle mb-0 bg-white rounded-2">
+                                <thead class="table-light small">
+                                    <tr>
+                                        <th>Inv Date</th>
+                                        <th>Invoice #</th>
+                                        <th>Batch</th>
+                                        <th>Qty Sold</th>
+                                        <th>Billed Rate</th>
+                                        <th>Disc %</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customerHistoryTableBody" class="small">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold text-dark mb-2"><i class="bi bi-layers me-1 text-secondary"></i> Available Inventory Batches:</h6>
+                <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                    <table class="table table-hover align-middle border mb-0" id="fefoBatchTable">
+                        <thead class="table-light text-center sticky-top">
+                            <tr>
+                                <th style="width: 26%;">Batch No</th>
+                                <th style="width: 18%;">Expiry</th>
+                                <th style="width: 15%;">MRP (₹)</th>
+                                <th style="width: 17%;">Sale Rate (₹)</th>
+                                <th style="width: 14%;">Stock</th>
+                                <th style="width: 10%;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fefoBatchTableBody" class="text-center">
+                            <!-- Dynamic FEFO batches rendered here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2 px-3 justify-content-between">
+                <span class="text-muted small"><i class="bi bi-info-circle me-1"></i> Press <strong>Enter</strong> or click any row to select batch &amp; rate.</span>
+                <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<style>
+    .table-responsive {
+        overflow: visible !important;
+    }
+    tr:focus-within {
+        position: relative;
+        z-index: 1050;
+    }
+    .combobox-container {
+        position: relative;
+    }
+    .combobox-input {
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    .combobox-input:focus {
+        border-color: #6366f1 !important;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+    }
+    .combobox-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        z-index: 1060;
+        display: none;
+        min-width: 100%;
+        padding: 6px 0;
+        margin-top: 4px;
+        background-color: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 12px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        max-height: 240px;
+        overflow-y: auto;
+    }
+    .combobox-menu li a {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        color: #334155;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+    .combobox-menu li.active a,
+    .combobox-menu li a:hover {
+        color: #ffffff !important;
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+    }
+</style>
+
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const itemsTableBody = document.querySelector("#itemsTable tbody");
         const addItemBtn = document.getElementById("addItemBtn");
         const rowTemplate = document.getElementById("rowTemplate");
+
+        const productCatalogList = [
+            {% for prod in products %}
+            { id: "{{ prod.id }}", name: "{{ prod.name|escapejs }}", pack: "{{ prod.pack_size|default:''|escapejs }}" },
+            {% endfor %}
+        ];
+
+        function setupCombobox(inputEl, dataset, onSelectCallback) {
+            const container = inputEl.closest(".combobox-container");
+            if (!container) return;
+            const menu = container.querySelector(".combobox-menu");
+            const hiddenInput = container.querySelector(".combobox-hidden-value");
+            let activeIdx = -1;
+
+            inputEl.addEventListener("focus", () => {
+                renderSuggestions(inputEl.value);
+            });
+
+            document.addEventListener("click", (e) => {
+                if (!container.contains(e.target)) {
+                    menu.style.display = "none";
+                }
+            });
+
+            inputEl.addEventListener("input", () => {
+                renderSuggestions(inputEl.value);
+                if (inputEl.value.trim() === "") {
+                    hiddenInput.value = "";
+                    if (onSelectCallback) onSelectCallback("", "");
+                }
+            });
+
+            inputEl.addEventListener("keydown", (e) => {
+                const items = menu.querySelectorAll("li");
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    if (menu.style.display === "none") {
+                        menu.style.display = "block";
+                        return;
+                    }
+                    if (items.length > 0) {
+                        activeIdx = (activeIdx + 1) % items.length;
+                        highlightItem(items);
+                    }
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    if (items.length > 0) {
+                        activeIdx = (activeIdx - 1 + items.length) % items.length;
+                        highlightItem(items);
+                    }
+                } else if (e.key === "Enter") {
+                    if (menu.style.display !== "none") {
+                        e.preventDefault();
+                        if (activeIdx > -1 && activeIdx < items.length) {
+                            selectItem(items[activeIdx]);
+                        } else if (items.length > 0) {
+                            selectItem(items[0]);
+                        } else {
+                            menu.style.display = "none";
+                        }
+                    }
+                } else if (e.key === "Escape") {
+                    menu.style.display = "none";
+                }
+            });
+
+            function highlightItem(items) {
+                items.forEach((item, idx) => {
+                    if (idx === activeIdx) {
+                        item.classList.add("active");
+                        item.scrollIntoView({ block: "nearest" });
+                    } else {
+                        item.classList.remove("active");
+                    }
+                });
+            }
+
+            function selectItem(liEl) {
+                const id = liEl.dataset.id;
+                const name = liEl.dataset.name;
+                hiddenInput.value = id;
+                inputEl.value = name;
+                menu.style.display = "none";
+                activeIdx = -1;
+                if (onSelectCallback) {
+                    onSelectCallback(id, name);
+                }
+            }
+
+            function renderSuggestions(query) {
+                activeIdx = -1;
+                menu.innerHTML = "";
+                const filtered = dataset.filter(item => 
+                    item.name.toLowerCase().includes(query.toLowerCase())
+                );
+
+                if (filtered.length > 0) {
+                    filtered.forEach(item => {
+                        const li = document.createElement("li");
+                        li.dataset.id = item.id;
+                        li.dataset.name = item.name + (item.pack ? ` (${item.pack})` : '');
+                        li.innerHTML = `<a class="dropdown-item d-flex justify-content-between align-items-center"><span>${item.name}</span> ${item.pack ? `<span class="badge bg-light text-secondary border ms-2">${item.pack}</span>` : ''}</a>`;
+                        li.addEventListener("click", () => selectItem(li));
+                        menu.appendChild(li);
+                    });
+                } else {
+                    const li = document.createElement("li");
+                    li.className = "text-muted p-3 text-center small";
+                    li.textContent = "No matching products found";
+                    menu.appendChild(li);
+                }
+                menu.style.display = "block";
+            }
+        }
+
+        const customerCatalogList = [
+            {% for cust in customers %}
+            { id: "{{ cust.id }}", name: "{{ cust.name|escapejs }} (Outstanding: ₹{{ cust.opening_balance|floatformat:2 }})" },
+            {% endfor %}
+        ];
+        
+        setupCombobox(document.getElementById("customerSearch"), customerCatalogList, function(id) {
+            document.getElementById("customerSelect").value = id;
+        });
 
         // Add Initial Row
         addBlankRow();
@@ -193,34 +439,6 @@
 
         itemsTableBody.addEventListener("change", function(e) {
             const row = e.target.closest("tr");
-            if (e.target.classList.contains("product-select")) {
-                const productId = e.target.value;
-                const batchSelect = row.querySelector(".batch-select");
-                const rateInput = row.querySelector(".rate-input");
-                
-                if (!productId) {
-                    batchSelect.innerHTML = '<option value="">-- Choose Batch --</option>';
-                    batchSelect.disabled = true;
-                    rateInput.value = '';
-                    calculateRowTotal(row);
-                    calculateTotals();
-                    return;
-                }
-
-                // Fetch batches for product via AJAX
-                fetch(`/api/product/${productId}/batches/`)
-                    .then(response => response.json())
-                    .then(batches => {
-                        batchSelect.innerHTML = '<option value="">-- Choose Batch --</option>';
-                        batches.forEach(b => {
-                            batchSelect.innerHTML += `<option value="${b.id}" data-rate="${b.sale_rate}" data-exp="${b.expiry_date}">
-                                ${b.batch_number} (Exp: ${b.expiry_date} | Rate: ₹${b.sale_rate})
-                            </option>`;
-                        });
-                        batchSelect.disabled = false;
-                    });
-            }
-
             if (e.target.classList.contains("batch-select")) {
                 const selectedOption = e.target.options[e.target.selectedIndex];
                 const rateInput = row.querySelector(".rate-input");
@@ -236,10 +454,190 @@
             }
         });
 
+        function showReturnBatchModal(newRow, productId, productName, batches, history) {
+            const product = productCatalogList.find(p => p.id == productId);
+            document.getElementById("fefoProductName").textContent = productName || (product ? product.name : "Product Batches");
+            document.getElementById("fefoProductDetails").textContent = product && product.pack ? `Pack: ${product.pack}` : "";
+
+            // 1. Render Customer Sales History
+            const historyBox = document.getElementById("customerSalesHistoryBox");
+            const historyTbody = document.getElementById("customerHistoryTableBody");
+            historyTbody.innerHTML = "";
+
+            if (history && history.length > 0) {
+                historyBox.style.display = "block";
+                history.forEach(item => {
+                    const tr = document.createElement("tr");
+                    tr.style.cursor = "pointer";
+                    tr.innerHTML = `
+                        <td>${item.invoice_date}</td>
+                        <td class="fw-bold text-primary">${item.invoice_number}</td>
+                        <td><span class="badge bg-light text-dark border">${item.batch_number}</span></td>
+                        <td>${item.quantity}</td>
+                        <td class="fw-bold text-success">₹${item.sale_rate.toFixed(2)}</td>
+                        <td>${item.discount_percentage}%</td>
+                        <td><button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 rounded-pill">Use Rate &amp; Batch</button></td>
+                    `;
+                    tr.addEventListener("click", () => {
+                        applyBatchAndRate(item.batch_id, item.sale_rate);
+                    });
+                    historyTbody.appendChild(tr);
+                });
+            } else {
+                historyBox.style.display = "block";
+                historyTbody.innerHTML = `<tr><td colspan="7" class="text-muted text-center py-2"><i class="bi bi-info-circle me-1"></i>No previous purchase history found for this customer &amp; product.</td></tr>`;
+            }
+
+            // 2. Render Batches Table
+            const tbody = document.getElementById("fefoBatchTableBody");
+            tbody.innerHTML = "";
+
+            if (!batches || batches.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-muted py-4"><i class="bi bi-exclamation-circle text-warning me-2 fs-5"></i>No active batches found for this product.</td></tr>`;
+            } else {
+                batches.forEach((b, index) => {
+                    const isRecommended = (index === 0);
+                    const tr = document.createElement("tr");
+                    tr.className = isRecommended ? "table-success fw-semibold cursor-pointer" : "cursor-pointer";
+                    tr.setAttribute("tabindex", "0");
+                    tr.style.cursor = "pointer";
+
+                    tr.innerHTML = `
+                        <td>
+                            <span class="fw-bold text-dark">${b.batch_number}</span>
+                            ${isRecommended ? '<span class="badge bg-success ms-2" style="font-size: 0.7rem;">Earliest Exp</span>' : ''}
+                        </td>
+                        <td><span class="badge bg-light text-dark border font-monospace px-2 py-1 fs-6">${b.expiry_mask || b.expiry_real}</span></td>
+                        <td>₹${parseFloat(b.mrp).toFixed(2)}</td>
+                        <td class="fw-bold text-primary">₹${parseFloat(b.sale_rate).toFixed(2)}</td>
+                        <td>
+                            <span class="badge ${b.quantity > 0 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary'} rounded-pill px-3 py-1 font-monospace fs-6">
+                                ${b.quantity}
+                            </span>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1">
+                                Select <i class="bi bi-arrow-right-short"></i>
+                            </button>
+                        </td>
+                    `;
+
+                    const selectAction = () => {
+                        applyBatchAndRate(b.id, b.sale_rate);
+                    };
+
+                    tr.addEventListener("click", selectAction);
+                    tr.addEventListener("keydown", (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            selectAction();
+                        } else if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            const nextTr = tr.nextElementSibling;
+                            if (nextTr && nextTr.tagName === "TR") nextTr.focus();
+                        } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            const prevTr = tr.previousElementSibling;
+                            if (prevTr && prevTr.tagName === "TR") prevTr.focus();
+                        }
+                    });
+                    tbody.appendChild(tr);
+                });
+            }
+
+            function applyBatchAndRate(batchId, rate) {
+                const batchSelect = newRow.querySelector(".batch-select");
+                const rateInput = newRow.querySelector(".rate-input");
+
+                batchSelect.value = batchId;
+                if (rate !== undefined && rate !== null) {
+                    rateInput.value = parseFloat(rate).toFixed(2);
+                }
+
+                calculateRowTotal(newRow);
+                calculateTotals();
+
+                const fefoModalEl = document.getElementById('fefoBatchModal');
+                const modalInstance = bootstrap.Modal.getInstance(fefoModalEl);
+                if (modalInstance) modalInstance.hide();
+
+                setTimeout(() => {
+                    const qtyInput = newRow.querySelector(".qty-input");
+                    if (qtyInput) {
+                        qtyInput.focus();
+                        if (qtyInput.select) qtyInput.select();
+                    }
+                }, 200);
+            }
+
+            const fefoModal = new bootstrap.Modal(document.getElementById('fefoBatchModal'));
+            fefoModal.show();
+
+            document.getElementById('fefoBatchModal').addEventListener('shown.bs.modal', function () {
+                const firstTr = tbody.querySelector("tr");
+                if (firstTr) firstTr.focus();
+            }, { once: true });
+        }
+
         function addBlankRow() {
             const newRow = rowTemplate.cloneNode(true);
             newRow.removeAttribute("id");
             itemsTableBody.appendChild(newRow);
+
+            const qtyInput = newRow.querySelector(".qty-input");
+            const rateInput = newRow.querySelector(".rate-input");
+
+            qtyInput.addEventListener("keydown", function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    rateInput.focus();
+                    if (rateInput.select) rateInput.select();
+                }
+            });
+
+            rateInput.addEventListener("keydown", function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    calculateRowTotal(newRow);
+                    calculateTotals();
+                    addBlankRow();
+                }
+            });
+
+            const productSearchInput = newRow.querySelector(".product-search-input");
+            setupCombobox(productSearchInput, productCatalogList, function(productId, productName) {
+                const batchSelect = newRow.querySelector(".batch-select");
+                
+                if (!productId) {
+                    batchSelect.innerHTML = '<option value="">-- Choose Batch --</option>';
+                    batchSelect.disabled = true;
+                    rateInput.value = '';
+                    calculateRowTotal(newRow);
+                    calculateTotals();
+                    return;
+                }
+
+                const customerId = document.getElementById("customerSelect").value;
+
+                Promise.all([
+                    fetch(`/api/product/${productId}/batches/?all=true`).then(res => res.json()),
+                    customerId ? fetch(`/api/customer/${customerId}/product/${productId}/sales-history/`).then(res => res.json()) : Promise.resolve([])
+                ]).then(([batches, history]) => {
+                    batchSelect.innerHTML = '<option value="">-- Choose Batch --</option>';
+                    batches.forEach(b => {
+                        batchSelect.innerHTML += `<option value="${b.id}" data-rate="${b.sale_rate}" data-exp="${b.expiry_mask || b.expiry_real}">
+                            ${b.batch_number} (Exp: ${b.expiry_mask || b.expiry_real} | Rate: ₹${parseFloat(b.sale_rate).toFixed(2)}) [Stock: ${b.quantity}]
+                        </option>`;
+                    });
+                    batchSelect.disabled = false;
+
+                    showReturnBatchModal(newRow, productId, productName, batches, history);
+                });
+            });
+
+            setTimeout(() => {
+                productSearchInput.focus();
+            }, 50);
         }
 
         function calculateRowTotal(row) {
@@ -256,7 +654,6 @@
                 gross += parseFloat(t.value) || 0.00;
             });
             
-            // Assume 12% average GST for returning products
             const gst = gross * 0.12;
             const net = gross + gst;
 

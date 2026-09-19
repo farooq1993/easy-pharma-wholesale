@@ -131,7 +131,7 @@
         @media print {
             @page {
                 size: A5 landscape;
-                margin: 4mm;
+                margin: 8mm 10mm;
             }
             body {
                 background: #fff;
@@ -212,8 +212,7 @@
                         <div class="small">
                             <strong>Invoice No:</strong> <span class="font-monospace fw-bold">{{ invoice.invoice_number }}</span><br>
                             <strong>Date:</strong> {{ invoice.invoice_date|date:"d-m-Y" }}<br>
-                            <strong>Payment Mode:</strong> <span class="fw-bold text-uppercase text-primary">{{ invoice.payment_type }}</span><br>
-                            <strong>Delivery Status:</strong> <span class="fw-bold">{{ invoice.status }}</span>
+                            <strong>Payment Mode:</strong> <span class="fw-bold text-uppercase text-primary">{{ invoice.payment_type }}</span>
                         </div>
                     </div>
                 </div>
@@ -250,6 +249,12 @@
                 <div class="text-dark mt-1">
                     {{ customer.address|default:"" }}, {{ customer.city }}, {{ customer.state }} - {{ customer.pincode }}
                 </div>
+                {% if customer.dl_number_1 or customer.dl_number_2 %}
+                <div class="mt-1"><strong>DL No:</strong> <span class="font-monospace">{{ customer.dl_number_1|default:'' }}{% if customer.dl_number_2 %}, {{ customer.dl_number_2 }}{% endif %}</span></div>
+                {% endif %}
+                {% if customer.mobile %}
+                <div><strong>Mobile:</strong> {{ customer.mobile }}</div>
+                {% endif %}
             </div>
             <div class="col-6 ps-3">
                 <span class="text-uppercase text-muted fw-bold" style="font-size: 8px; display: block; margin-bottom: 2px;">Registration / Contact Details</span>

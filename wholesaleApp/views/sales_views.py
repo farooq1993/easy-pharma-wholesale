@@ -17,13 +17,17 @@ from wholesaleApp.models import (
 # ==================== AJAX API ENDPOINTS ====================
 @login_required
 def get_product_batches(request, pk):
-    """API endpoint to get active batches with stock for a selected product in FEFO order."""
+    """API endpoint to get active batches for a selected product in FEFO order."""
     from django.core.cache import cache
-    cache_key = f"product_batches_{pk}"
+    include_all = request.GET.get('all') == 'true'
+    cache_key = f"product_batches_{pk}_all_{include_all}"
     data = cache.get(cache_key)
     
     if data is None:
-        batches = ProductBatch.objects.filter(product_id=pk, quantity__gt=0).select_related('product').order_by('expiry_date')
+        if include_all:
+            batches = ProductBatch.objects.filter(product_id=pk).select_related('product').order_by('expiry_date')
+        else:
+            batches = ProductBatch.objects.filter(product_id=pk, quantity__gt=0).select_related('product').order_by('expiry_date')
         data = []
         for b in batches:
             # Format MM/YY for display mask and YYYY-MM-DD for form submit
@@ -42,6 +46,53 @@ def get_product_batches(request, pk):
                 'units_per_strip': b.product.units_per_strip
             })
         cache.set(cache_key, data, timeout=60)
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def get_customer_product_sales_history(request, customer_id, product_id):
+    """API endpoint to get past sales invoice history for a given customer and product."""
+    from wholesaleApp.models import SalesInvoiceItem
+    items = SalesInvoiceItem.objects.filter(
+        sales_invoice__customer_id=customer_id,
+        product_id=product_id
+    ).select_related('sales_invoice', 'batch').order_by('-sales_invoice__invoice_date', '-id')[:10]
+    
+    data = []
+    for item in items:
+        data.append({
+            'invoice_number': item.sales_invoice.invoice_number,
+            'invoice_date': item.sales_invoice.invoice_date.strftime('%d/%m/%Y'),
+            'batch_id': item.batch.id,
+            'batch_number': item.batch.batch_number,
+            'expiry_mask': item.batch.expiry_date.strftime('%m/%y') if item.batch.expiry_date else 'N/A',
+            'quantity': float(item.quantity),
+            'free_quantity': float(item.free_quantity),
+            'sale_rate': float(item.sale_rate),
+            'discount_percentage': float(item.discount_percentage),
+            'total_amount': float(item.total_amount)
+        })
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def get_customer_credit_notes(request, customer_id):
+    """API endpoint to get active/unadjusted Credit Notes (Sales Returns) for a customer."""
+    from wholesaleApp.models import SalesReturn
+    returns = SalesReturn.objects.filter(
+        customer_id=customer_id,
+        is_adjusted=False
+    ).order_by('-return_date', '-id')
+    
+    data = []
+    for r in returns:
+        data.append({
+            'id': r.id,
+            'return_number': r.return_number,
+            'return_date': r.return_date.strftime('%d/%m/%Y'),
+            'net_amount': float(r.net_amount),
+            'remarks': r.remarks or ''
+        })
     return JsonResponse(data, safe=False)
 
 
@@ -159,6 +210,8 @@ def invoice_create(request):
                 break
             next_id += 1
         
+        cn_adjusted = Decimal(request.POST.get('cn_adjusted', 0) or 0)
+        
         # 2. Create Sales Invoice
         invoice = SalesInvoice.objects.create(
             invoice_number=invoice_number,
@@ -171,10 +224,16 @@ def invoice_create(request):
             gross_amount=gross_amount,
             discount_amount=discount_amount,
             gst_amount=gst_amount,
+            cn_adjusted=cn_adjusted,
             net_amount=net_amount,
             is_retail=is_retail,
             created_by=request.user if request.user.is_authenticated else None
         )
+        
+        adjusted_cn_id = request.POST.get('adjusted_cn_id')
+        if adjusted_cn_id:
+            from wholesaleApp.models import SalesReturn
+            SalesReturn.objects.filter(id=adjusted_cn_id).update(is_adjusted=True, adjusted_invoice=invoice)
         
         # 3. Create items and deduct stock
         for i in range(len(product_ids)):
@@ -576,6 +635,8 @@ def invoice_edit(request, pk):
         # 4. Delete old invoice items
         invoice.items.all().delete()
         
+        cn_adjusted = Decimal(request.POST.get('cn_adjusted', 0) or 0)
+        
         # 5. Save updated invoice headers
         invoice.customer_id = customer_id
         invoice.patient_name = patient_name
@@ -586,6 +647,7 @@ def invoice_edit(request, pk):
         invoice.gross_amount = gross_amount
         invoice.discount_amount = discount_amount
         invoice.gst_amount = gst_amount
+        invoice.cn_adjusted = cn_adjusted
         invoice.net_amount = net_amount
         invoice.is_retail = is_retail
         invoice.save()
@@ -630,10 +692,32 @@ def invoice_edit(request, pk):
         request.session['print_invoice_id'] = invoice.id
         return redirect('invoice_list')
         
+    items_data = []
+    for item in invoice.items.all().select_related('product', 'batch'):
+        items_data.append({
+            'id': item.id,
+            'productId': item.product.id,
+            'productName': item.product.name,
+            'packSize': item.product.pack_size or '',
+            'batchId': item.batch.id,
+            'batchNumber': item.batch.batch_number,
+            'expiryMask': item.batch.expiry_date.strftime('%m/%y') if item.batch.expiry_date else 'N/A',
+            'mrpReal': float(item.batch.mrp),
+            'saleRate': float(item.sale_rate),
+            'quantity': float(item.quantity),
+            'freeQuantity': float(item.free_quantity),
+            'gstRate': float(item.product.gst_rate),
+            'discountPercentage': float(item.discount_percentage),
+            'totalAmount': float(item.total_amount)
+        })
+    import json
+    existing_items_json = json.dumps(items_data)
+
     context = {
         'invoice': invoice,
         'customers': customers,
         'products': products,
+        'existing_items_json': existing_items_json,
         'page_title': f'Edit Sales Invoice {invoice.invoice_number}',
         'user_perms': get_user_permissions_context(request.user)
     }

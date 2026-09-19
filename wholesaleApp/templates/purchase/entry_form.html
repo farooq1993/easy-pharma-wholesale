@@ -331,14 +331,14 @@
                         </div>
 
                         <!-- Tax breakdown -->
-                        <div class="ps-2 border-start border-3 border-primary my-2">
-                            <div class="d-flex justify-content-between align-items-center text-muted small mb-1">
-                                <span>CGST</span>
-                                <span>₹<span id="summaryCgst">0.00</span></span>
+                        <div class="ps-2 border-start border-3 border-primary my-2" id="taxBreakdownBlock">
+                            <div class="d-flex justify-content-between align-items-center text-muted small mb-1" id="taxLine1">
+                                <span id="taxLabel1">CGST</span>
+                                <span>₹<span id="summaryTax1">0.00</span></span>
                             </div>
-                            <div class="d-flex justify-content-between align-items-center text-muted small mb-1">
-                                <span>SGST</span>
-                                <span>₹<span id="summarySgst">0.00</span></span>
+                            <div class="d-flex justify-content-between align-items-center text-muted small mb-1" id="taxLine2">
+                                <span id="taxLabel2">SGST</span>
+                                <span>₹<span id="summaryTax2">0.00</span></span>
                             </div>
                         </div>
 
@@ -457,6 +457,13 @@
                             <label class="form-label">State</label>
                             <input type="text" id="suppState" class="form-control">
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Out of State (IGST)</label>
+                            <select id="suppOutState" class="form-select">
+                                <option value="false" selected>No — Intrastate (CGST + SGST)</option>
+                                <option value="true">Yes — Interstate (IGST)</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-top-0">
@@ -473,19 +480,20 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 rounded-4 shadow">
             <div class="modal-header border-bottom-0">
-                <h5 class="modal-title fw-bold"><i class="bi bi-box-seam me-1"></i> Quick Add Product Item</h5>
+                <h5 class="modal-title fw-bold" id="productModalTitle"><i class="bi bi-box-seam me-1"></i> Quick Add Product Item</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="quickProductForm">
+                <input type="hidden" id="editProdId" value="">
                 <div class="modal-body">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Brand Name <span class="text-danger">*</span></label>
-                            <input type="text" id="prodName" class="form-control" required>
+                            <input type="text" id="prodName" class="form-control text-uppercase" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Packaging / Pack Size <span class="text-danger">*</span></label>
-                            <input type="text" id="prodPack" class="form-control" placeholder="e.g. 10 Tab" required>
+                            <input type="text" id="prodPack" class="form-control text-uppercase" placeholder="e.g. 10 Tab" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Company / Manufacturer <span class="text-danger">*</span></label>
@@ -506,13 +514,18 @@
                                 <option value="5.00">5%</option>
                                 <option value="18.00">18%</option>
                                 <option value="0.00">0%</option>
+                                <option value="28.00">28%</option>
                             </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">HSN Code</label>
+                            <input type="text" id="prodHsn" class="form-control text-uppercase" placeholder="e.g. 3004">
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer border-top-0">
                     <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary rounded-pill px-4">Save Product</button>
+                    <button type="submit" id="productModalSubmitBtn" class="btn btn-primary rounded-pill px-4">Save Product</button>
                 </div>
             </form>
         </div>
@@ -523,7 +536,7 @@
     // Global datasets
     const supplierList = [
         {% for supplier in suppliers %}
-        { id: "{{ supplier.id }}", name: "{{ supplier.name }}" },
+        { id: "{{ supplier.id }}", name: "{{ supplier.name }}", is_out_state: {% if supplier.is_out_state %}true{% else %}false{% endif %} },
         {% endfor %}
     ];
 
@@ -767,16 +780,16 @@
         }
 
         const qty = parseInt(document.getElementById("entryQty").value) || 0;
-        if (qty <= 0) {
-            showToast("Quantity must be greater than 0.", "warning");
+        const freeQty = parseInt(document.getElementById("entryFree").value) || 0;
+        if (qty <= 0 && freeQty <= 0) {
+            showToast("Total Quantity (Billed Qty or Free Qty) must be greater than 0.", "warning");
             document.getElementById("entryQty").focus();
             return;
         }
 
-        const freeQty = parseInt(document.getElementById("entryFree").value) || 0;
         const prate = parseFloat(document.getElementById("entryPrate").value) || 0;
-        if (prate <= 0) {
-            showToast("Purchase Rate must be greater than 0.", "warning");
+        if (prate < 0) {
+            showToast("Purchase Rate cannot be negative.", "warning");
             document.getElementById("entryPrate").focus();
             return;
         }
@@ -960,12 +973,29 @@
 
         const finalNet = netTotal - billDiscAmt;
         const totalDiscCombined = discountTotal + billDiscAmt;
-        const cgst = gstTotal / 2;
-        const sgst = gstTotal / 2;
+
+        // Determine if current supplier is out-of-state
+        const selectedSuppId = document.getElementById("supplierSelect").value;
+        const selectedSupp = supplierList.find(s => String(s.id) === String(selectedSuppId));
+        const isOutState = selectedSupp ? selectedSupp.is_out_state : false;
+
+        if (isOutState) {
+            // Interstate: Show IGST (full GST amount)
+            document.getElementById("taxLabel1").textContent = "IGST";
+            document.getElementById("summaryTax1").textContent = gstTotal.toFixed(2);
+            document.getElementById("taxLine2").style.display = "none";
+        } else {
+            // Intrastate: Show CGST + SGST (50/50 split)
+            const cgst = gstTotal / 2;
+            const sgst = gstTotal / 2;
+            document.getElementById("taxLabel1").textContent = "CGST";
+            document.getElementById("summaryTax1").textContent = cgst.toFixed(2);
+            document.getElementById("taxLabel2").textContent = "SGST";
+            document.getElementById("summaryTax2").textContent = sgst.toFixed(2);
+            document.getElementById("taxLine2").style.display = "";
+        }
 
         document.getElementById("summaryGross").textContent = grossTaxable.toFixed(2);
-        document.getElementById("summaryCgst").textContent = cgst.toFixed(2);
-        document.getElementById("summarySgst").textContent = sgst.toFixed(2);
         document.getElementById("summaryGst").textContent = gstTotal.toFixed(2);
         document.getElementById("summaryNet").textContent = finalNet.toFixed(2);
 
@@ -1116,6 +1146,7 @@
             supplierList,
             (id) => {
                 document.getElementById("supplierSelect").value = id;
+                recalculateOrderSummary(); // Update IGST vs CGST+SGST display
                 document.getElementById("invoiceNumber").focus();
             },
             () => openSupplierModal()
@@ -1162,35 +1193,102 @@
     };
 
     function openSupplierModal() {
+        const suppGstInput = document.getElementById("suppGst");
+        const suppNameInput = document.getElementById("suppName");
+        const previewSupplier = document.getElementById("previewSupplierName");
+
+        if (previewSupplier && previewSupplier.value.trim() && suppNameInput && !suppNameInput.value) {
+            suppNameInput.value = previewSupplier.value.trim();
+        }
+
+        if (typeof currentScannedData !== 'undefined' && currentScannedData && currentScannedData.supplier_gstin && suppGstInput && !suppGstInput.value) {
+            suppGstInput.value = currentScannedData.supplier_gstin;
+            verifySupplierGST();
+        }
+
         const modal = getBSModal('addSupplierModal');
         if (modal) modal.show();
     }
 
-    function openProductModal() {
-        const modal = getBSModal('addProductModal');
-        if (modal) modal.show();
-    }
-
     function verifySupplierGST() {
-        const gstin = document.getElementById("suppGst").value.trim();
+        const gstin = document.getElementById("suppGst").value.trim().toUpperCase();
         if (gstin.length < 15) {
-            showToast("Please enter a valid 15-digit GSTIN.", "warning");
+            showToast("Please enter a valid 15-digit GSTIN (e.g. 06AAACB8658E2ZO).", "warning");
             return;
         }
-        document.getElementById("suppName").value = "Apex Pharmaceuticals Ltd";
-        document.getElementById("suppMobile").value = "9887711223";
-        document.getElementById("suppCity").value = "Mumbai";
-        document.getElementById("suppState").value = "Maharashtra";
-        showToast("GSTIN Verified! Details auto-filled.", "success");
+
+        const autoFillBtn = document.querySelector("#addSupplierModal button[onclick='verifySupplierGST()']");
+        if (autoFillBtn) {
+            autoFillBtn.disabled = true;
+            autoFillBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Fetching...`;
+        }
+
+        const previewSupplier = document.getElementById("previewSupplierName");
+        if (previewSupplier && previewSupplier.value.trim()) {
+            document.getElementById("suppName").value = previewSupplier.value.trim();
+        }
+
+        fetch(`/api/gst-lookup/?gstin=${encodeURIComponent(gstin)}`, {
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === "success") {
+                if (data.name) {
+                    document.getElementById("suppName").value = data.name;
+                }
+                if (data.state) document.getElementById("suppState").value = data.state;
+                if (data.city) document.getElementById("suppCity").value = data.city;
+                if (data.mobile && document.getElementById("suppMobile") && !document.getElementById("suppMobile").value) {
+                    document.getElementById("suppMobile").value = data.mobile;
+                }
+                // Auto-set Out of State based on API response
+                const outStateSelect = document.getElementById("suppOutState");
+                if (outStateSelect && data.is_out_state !== undefined) {
+                    outStateSelect.value = data.is_out_state ? "true" : "false";
+                }
+                showToast(`GSTIN Details Verified! State: ${data.state || 'India'}${data.name ? ' (' + data.name + ')' : ''}`, "success");
+            } else {
+                showToast(data.message || "Invalid GSTIN or lookup failed.", "warning");
+            }
+        })
+        .catch(() => {
+            const stateCode = gstin.substring(0, 2);
+            const stateMap = {
+                '01': 'Jammu & Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh',
+                '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan', '09': 'Uttar Pradesh',
+                '10': 'Bihar', '11': 'Sikkim', '12': 'Arunachal Pradesh', '13': 'Nagaland', '14': 'Manipur',
+                '15': 'Mizoram', '16': 'Tripura', '17': 'Meghalaya', '18': 'Assam', '19': 'West Bengal',
+                '20': 'Jharkhand', '21': 'Odisha', '22': 'Chhattisgarh', '23': 'Madhya Pradesh', '24': 'Gujarat',
+                '26': 'Dadra & Nagar Haveli', '27': 'Maharashtra', '28': 'Andhra Pradesh', '29': 'Karnataka',
+                '30': 'Goa', '31': 'Lakshadweep', '32': 'Kerala', '33': 'Tamil Nadu', '34': 'Puducherry',
+                '35': 'Andaman & Nicobar', '36': 'Telangana', '37': 'Andhra Pradesh', '38': 'Ladakh'
+            };
+            const detectedState = stateMap[stateCode] || "";
+            if (detectedState) {
+                document.getElementById("suppState").value = detectedState;
+                showToast(`GSTIN State detected: ${detectedState}`, "info");
+            } else {
+                showToast("GSTIN format verified.", "success");
+            }
+        })
+        .finally(() => {
+            if (autoFillBtn) {
+                autoFillBtn.disabled = false;
+                autoFillBtn.innerHTML = `<i class="bi bi-shield-check"></i> Auto-Fill`;
+            }
+        });
     }
 
     // Quick Add Supplier AJAX
     document.getElementById("quickSupplierForm").addEventListener("submit", function(e) {
         e.preventDefault();
-        const name = document.getElementById("suppName").value;
-        const mobile = document.getElementById("suppMobile").value;
-        const city = document.getElementById("suppCity").value;
-        const state = document.getElementById("suppState").value;
+        const name = document.getElementById("suppName").value.trim();
+        const mobile = document.getElementById("suppMobile").value.trim();
+        const city = document.getElementById("suppCity").value.trim();
+        const state = document.getElementById("suppState").value.trim();
+        const gstin = document.getElementById("suppGst").value.trim().toUpperCase();
+        const isOutState = document.getElementById("suppOutState").value === "true";
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
         const formData = new FormData();
@@ -1198,6 +1296,8 @@
         formData.append("mobile", mobile);
         formData.append("city", city);
         formData.append("state", state);
+        formData.append("gstin", gstin);
+        formData.append("is_out_state", isOutState ? "true" : "false");
 
         fetch("/supplier/create/?json=true", {
             method: "POST",
@@ -1207,24 +1307,36 @@
         .then(res => res.json())
         .then(data => {
             if (data.status === "success") {
-                supplierList.push({ id: data.id, name: data.name });
+                supplierList.push({ id: data.id, name: data.name, is_out_state: data.is_out_state || false });
                 document.getElementById("supplierSelect").value = data.id;
                 document.getElementById("supplierSearch").value = data.name;
-                bootstrap.Modal.getInstance(document.getElementById('addSupplierModal')).hide();
+                const modalEl = document.getElementById('addSupplierModal');
+                if (modalEl) {
+                    const bsModal = getBSModal('addSupplierModal');
+                    if (bsModal) bsModal.hide();
+                }
                 showToast(`Supplier "${data.name}" added successfully!`, "success");
                 document.getElementById("invoiceNumber").focus();
+            } else {
+                showToast(data.message || "Error adding supplier.", "danger");
             }
+        })
+        .catch(() => {
+            showToast("Failed to save supplier.", "danger");
         });
     });
 
-    // Quick Add Product AJAX
+    // Quick Add / Edit Product AJAX
     document.getElementById("quickProductForm").addEventListener("submit", function(e) {
         e.preventDefault();
-        const name = document.getElementById("prodName").value;
-        const pack = document.getElementById("prodPack").value;
+        const editId = document.getElementById("editProdId").value;
+        const name = document.getElementById("prodName").value.trim();
+        const pack = document.getElementById("prodPack").value.trim();
         const comp = document.getElementById("prodCompany").value;
         const type = document.getElementById("prodType").value;
         const gst = document.getElementById("prodGst").value;
+        const hsnEl = document.getElementById("prodHsn");
+        const hsn = hsnEl ? hsnEl.value.trim() : "";
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
         const formData = new FormData();
@@ -1233,8 +1345,11 @@
         formData.append("company", comp);
         formData.append("product_type", type);
         formData.append("gst_rate", gst);
+        formData.append("hsn_code", hsn);
 
-        fetch("/product/create/?json=true", {
+        const url = editId ? `/product/edit/${editId}/?json=true` : "/product/create/?json=true";
+
+        fetch(url, {
             method: "POST",
             headers: { "X-CSRFToken": csrftoken, "X-Requested-With": "XMLHttpRequest" },
             body: formData
@@ -1242,17 +1357,43 @@
         .then(res => res.json())
         .then(data => {
             if (data.status === "success") {
-                productList.push({ id: data.id, name: data.name, pack: data.pack_size });
-                productCatalog[data.id] = { name: data.name, pack: data.pack_size, gst: parseFloat(data.gst_rate) };
+                const prodId = String(data.id);
+                productCatalog[prodId] = {
+                    name: data.name,
+                    pack: data.pack_size,
+                    gst: parseFloat(data.gst_rate),
+                    hsn: data.hsn_code || "",
+                    company_id: data.company_id,
+                    product_type_id: data.product_type_id
+                };
 
-                document.getElementById("entryProdId").value = data.id;
-                document.getElementById("entryProdSearch").value = data.name + ` (${data.pack_size})`;
-                onProductSelectEntryBar(data.id);
+                const existingIdx = productList.findIndex(p => String(p.id) === prodId);
+                if (existingIdx >= 0) {
+                    productList[existingIdx].name = data.name;
+                    productList[existingIdx].pack = data.pack_size;
+                } else {
+                    productList.push({ id: data.id, name: data.name, pack: data.pack_size });
+                }
 
-                bootstrap.Modal.getInstance(document.getElementById('addProductModal')).hide();
-                showToast(`Product "${data.name}" added successfully!`, "success");
+                if (!editId || document.getElementById("entryProdId").value === prodId) {
+                    document.getElementById("entryProdId").value = data.id;
+                    document.getElementById("entryProdSearch").value = data.name + (data.pack_size ? ` (${data.pack_size})` : '');
+                    onProductSelectEntryBar(data.id);
+                }
+
+                const modalEl = document.getElementById('addProductModal');
+                if (modalEl) {
+                    const bsModal = getBSModal('addProductModal');
+                    if (bsModal) bsModal.hide();
+                }
+                showToast(`Product "${data.name}" ${editId ? 'updated' : 'added'} successfully!`, "success");
                 document.getElementById("entryBatch").focus();
+            } else {
+                showToast(data.message || "Error saving product.", "danger");
             }
+        })
+        .catch(err => {
+            showToast("Failed to save product.", "danger");
         });
     });
 
@@ -1515,9 +1656,9 @@
         const expiryMask = item.expiry_date || '12/27';
         const expiryReal = resolveExpiryDate(expiryMask) || '2027-12-31';
 
-        const qty = parseInt(item.quantity) || 1;
-        const freeQty = parseInt(item.free_quantity) || 0;
-        const prate = parseFloat(item.purchase_rate) || 10.0;
+        const qty = (item.quantity !== undefined && item.quantity !== null && !isNaN(parseInt(item.quantity))) ? Math.max(0, parseInt(item.quantity)) : 0;
+        const freeQty = (item.free_quantity !== undefined && item.free_quantity !== null && !isNaN(parseInt(item.free_quantity))) ? Math.max(0, parseInt(item.free_quantity)) : 0;
+        const prate = (item.purchase_rate !== undefined && item.purchase_rate !== null && !isNaN(parseFloat(item.purchase_rate))) ? Math.max(0, parseFloat(item.purchase_rate)) : 0.0;
         const discPct = parseFloat(item.discount_percent) || 0;
         const gstPct = parseFloat(item.gst_rate) || 12.0;
         const mrp = parseFloat(item.mrp) || (prate * 1.3);
@@ -1639,9 +1780,9 @@
             const prodName = nameInput ? nameInput.value : item.product_name;
             const batchNo = batchInput ? batchInput.value : item.batch_number;
             const expiryDate = expiryInput ? expiryInput.value : item.expiry_date;
-            const qty = qtyInput ? parseInt(qtyInput.value) || 1 : item.quantity;
-            const freeQty = freeInput ? parseInt(freeInput.value) || 0 : item.free_quantity;
-            const prate = prateInput ? parseFloat(prateInput.value) || 10 : item.purchase_rate;
+            const qty = qtyInput && qtyInput.value !== "" ? Math.max(0, parseInt(qtyInput.value) || 0) : (item.quantity || 0);
+            const freeQty = freeInput && freeInput.value !== "" ? Math.max(0, parseInt(freeInput.value) || 0) : (item.free_quantity || 0);
+            const prate = prateInput && prateInput.value !== "" ? Math.max(0, parseFloat(prateInput.value) || 0) : (item.purchase_rate || 0);
             const mrp = mrpInput ? parseFloat(mrpInput.value) || (prate * 1.3) : item.mrp;
             const gst = gstInput ? parseFloat(gstInput.value) || 12 : item.gst_rate;
 

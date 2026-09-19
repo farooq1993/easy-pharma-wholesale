@@ -291,6 +291,8 @@ def product_create(request):
 @login_required
 def product_edit(request, pk):
     if not has_feature_access(request.user, 'product_edit'):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
+            return JsonResponse({'status': 'error', 'message': 'Access Denied: You do not have permission to edit Products.'}, status=403)
         messages.error(request, "Access Denied: You do not have permission to edit Products.")
         return redirect('product_list')
     product = get_object_or_404(ProductMaster, pk=pk, is_deleted=False)
@@ -299,20 +301,57 @@ def product_edit(request, pk):
     types = ProductTypeMaster.objects.filter(status=True, is_deleted=False)
     
     if request.method == 'POST':
-        product.name = request.POST.get('name')
-        product.company_id = request.POST.get('company')
+        name = request.POST.get('name')
+        if name:
+            product.name = name
+        company_id = request.POST.get('company')
+        if company_id:
+            product.company_id = company_id
         drug_id = request.POST.get('drug_composition')
-        product.drug_composition_id = drug_id if drug_id else None
-        product.product_type_id = request.POST.get('product_type')
-        product.pack_size = request.POST.get('pack_size')
-        product.hsn_code = request.POST.get('hsn_code', '')
-        product.gst_rate = request.POST.get('gst_rate', 12.00)
-        product.min_stock = request.POST.get('min_stock', 10)
+        if drug_id is not None:
+            product.drug_composition_id = drug_id if drug_id else None
+        type_id = request.POST.get('product_type')
+        if type_id:
+            product.product_type_id = type_id
+        pack_size = request.POST.get('pack_size')
+        if pack_size:
+            product.pack_size = pack_size
+        if 'hsn_code' in request.POST:
+            product.hsn_code = request.POST.get('hsn_code', '')
+        if 'gst_rate' in request.POST:
+            product.gst_rate = request.POST.get('gst_rate', 12.00)
+        if 'min_stock' in request.POST and request.POST.get('min_stock'):
+            product.min_stock = request.POST.get('min_stock')
         product.save()
         log_activity(request, "UPDATE", "ProductMaster", product.name, object_id=product.id, description=f"Product '{product.name}' updated.")
         
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
+            return JsonResponse({
+                'status': 'success',
+                'id': product.id,
+                'name': product.name,
+                'pack_size': product.pack_size,
+                'gst_rate': float(product.gst_rate),
+                'company_id': product.company_id,
+                'product_type_id': product.product_type_id,
+                'hsn_code': product.hsn_code
+            })
+
         messages.success(request, 'Product updated successfully!')
         return redirect('product_list')
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
+        return JsonResponse({
+            'status': 'success',
+            'id': product.id,
+            'name': product.name,
+            'pack_size': product.pack_size,
+            'gst_rate': float(product.gst_rate),
+            'company_id': product.company_id,
+            'product_type_id': product.product_type_id,
+            'hsn_code': product.hsn_code,
+            'min_stock': product.min_stock
+        })
         
     context = {
         'product': product,

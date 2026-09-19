@@ -16,6 +16,7 @@ class SalesInvoice(TenantModel):
     gross_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Gross Amount (₹)")
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Discount (₹)")
     gst_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="GST Amount (₹)")
+    cn_adjusted = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Credit Note Adjusted (₹)")
     net_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Net Amount Receivable (₹)")
     
     status = models.CharField(
@@ -75,6 +76,8 @@ class SalesReturn(TenantModel):
     
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    is_adjusted = models.BooleanField(default=False, verbose_name="Is Credit Note Adjusted")
+    adjusted_invoice = models.ForeignKey('SalesInvoice', on_delete=models.SET_NULL, null=True, blank=True, related_name='adjusted_credit_notes')
 
     class Meta:
         verbose_name = "Sales Return"

@@ -54,17 +54,24 @@
                         </div>
 
                         <!-- Address & Location -->
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">City</label>
                             <input type="text" name="city" class="form-control" value="{{ supplier.city|default:'' }}">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">State</label>
                             <input type="text" name="state" class="form-control" value="{{ supplier.state|default:'' }}">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Pincode</label>
                             <input type="text" name="pincode" class="form-control" value="{{ supplier.pincode|default:'' }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Out of State (IGST)</label>
+                            <select name="is_out_state" class="form-select">
+                                <option value="false" {% if not supplier.is_out_state %}selected{% endif %}>No — Intrastate (CGST + SGST)</option>
+                                <option value="true" {% if supplier.is_out_state %}selected{% endif %}>Yes — Interstate (IGST)</option>
+                            </select>
                         </div>
                         <div class="col-12">
                             <label class="form-label">Full Address</label>
