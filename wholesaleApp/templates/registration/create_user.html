@@ -130,7 +130,7 @@
         <div class="register-header">
             <span class="logo-icon">🏢</span>
             <h3 class="fw-extrabold mb-1">Create Account</h3>
-            <p class="text-white-50 mb-0 small">Register Super Admin</p>
+            <p class="text-white-50 mb-0 small">Register Wholesaler / Admin Account</p>
         </div>
 
         <div class="p-4 pt-2">
@@ -148,6 +148,14 @@
 
             <form method="POST">
                 {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label text-muted small fw-bold"><i class="bi bi-shield-lock-fill"></i> User / Account Type <span class="text-danger">*</span></label>
+                    <select name="account_type" class="form-select fw-semibold" required>
+                        <option value="Owner" selected>Tenant Shop Owner (Default)</option>
+                        <option value="Super Admin">SaaS Platform Admin</option>
+                    </select>
+                </div>
+
                 <div class="row g-3 mb-3">
                     <div class="col-md-12">
                         <label class="form-label text-muted small fw-bold"><i class="bi bi-person-fill"></i> Username <span class="text-danger">*</span></label>
@@ -172,7 +180,7 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary btn-register w-100 text-white shadow-sm mb-3">
-                    Create Admin Account
+                    Create User Account
                 </button>
 
                 <div class="text-center">

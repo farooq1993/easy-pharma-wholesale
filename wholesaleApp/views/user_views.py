@@ -172,27 +172,34 @@ def user_delete(request, pk):
 
 
 def create_user_public(request):
-    """Create a new Super Admin user. Allowed publicly only for initial setup if no superusers exist."""
-    if User.objects.filter(is_superuser=True).exists():
-        if not (request.user.is_authenticated and request.user.is_superuser):
-            messages.error(request, "Access Denied: Admin user registration is closed.")
-            return redirect('login')
-
+    """Create a new user account (Tenant Shop Owner or SaaS Super Admin)."""
     if request.method == 'POST':
         username = request.POST['username'].strip()
         email = request.POST.get('email', '').strip()
         password = request.POST['password']
         mobile = request.POST.get('mobile', '').strip()
+        account_type = request.POST.get('account_type', 'Owner').strip()
 
         if User.objects.filter(username__iexact=username).exists():
             messages.error(request, f"User with username '{username}' already exists.")
         else:
-            # Create Django Superuser
-            user = User.objects.create_superuser(username=username, email=email, password=password)
-            
+            if account_type == 'Super Admin':
+                # Check if superuser registration is restricted
+                if User.objects.filter(is_superuser=True).exists() and not (request.user.is_authenticated and request.user.is_superuser):
+                    messages.error(request, "Super Admin creation is restricted to existing Platform Super Admins. You can register as a Tenant Owner.")
+                    return redirect('create_user')
+
+                user = User.objects.create_superuser(username=username, email=email, password=password)
+                role_name = 'Super Admin'
+                msg_text = f"Super Admin account '{username}' successfully created! Please login."
+            else:
+                user = User.objects.create_user(username=username, email=email, password=password)
+                role_name = 'Owner'
+                msg_text = f"Tenant Owner account '{username}' successfully created! Please login to register your Wholesale Firm."
+
             # Setup User Profile
             profile, created = UserProfile.objects.get_or_create(user=user)
-            profile.role = 'Super Admin'
+            profile.role = role_name
             profile.mobile = mobile
             profile.tenant = None
             profile.save()
@@ -207,14 +214,14 @@ def create_user_public(request):
                 model_name='User', 
                 object_repr=username, 
                 object_id=user.id, 
-                description="Publicly registered Super Admin user"
+                description=f"Registered account as {role_name}"
             )
 
-            messages.success(request, f"Super Admin user '{username}' successfully created! Please login to configure your firm.")
+            messages.success(request, msg_text)
             return redirect('login')
 
     context = {
-        'page_title': 'Create Admin Account'
+        'page_title': 'Create User Account'
     }
     return render(request, 'registration/create_user.html', context)
 
