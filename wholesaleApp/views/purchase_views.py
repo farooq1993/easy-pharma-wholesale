@@ -866,13 +866,17 @@ def scan_purchase_bill(request):
 
     # Match or Auto-create each item in ProductMaster
     enhanced_items = []
+    missing_count = 0
     for item in scanned_items:
         prod_name = item['product_name']
         matched_prod = ProductMaster.objects.filter(name__iexact=prod_name, is_deleted=False).first()
+        is_missing = False
         if not matched_prod:
             matched_prod = ProductMaster.objects.filter(name__icontains=prod_name.split()[0], is_deleted=False).first()
         
         if not matched_prod:
+            is_missing = True
+            missing_count += 1
             matched_prod = ProductMaster.objects.create(
                 name=prod_name,
                 pack_size=item.get('pack_size', '10 TAB'),
@@ -895,7 +899,8 @@ def scan_purchase_bill(request):
             'sale_rate': item['sale_rate'],
             'mrp': item['mrp'],
             'gst_rate': float(matched_prod.gst_rate),
-            'discount_percent': item['discount_percent']
+            'discount_percent': item['discount_percent'],
+            'is_missing_master': is_missing
         })
 
     return JsonResponse({
@@ -906,6 +911,7 @@ def scan_purchase_bill(request):
         'invoice_date': invoice_date,
         'payment_mode': payment_mode,
         'items': enhanced_items,
+        'missing_count': missing_count,
         'total_scanned_count': len(enhanced_items)
     })
 
