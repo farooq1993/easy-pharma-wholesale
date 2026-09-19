@@ -6,6 +6,8 @@ from django.http import JsonResponse
 from decimal import Decimal
 from wholesaleApp.models import (
     SupplierMaster,
+    CompanyMaster,
+    ProductTypeMaster,
     ProductMaster,
     ProductBatch,
     PurchaseOrder,
@@ -864,6 +866,15 @@ def scan_purchase_bill(request):
         )
     supplier_id = supplier_obj.id
 
+    # Get or create default Company and Product Type for missing product auto-creation
+    default_company = CompanyMaster.objects.filter(is_deleted=False).first()
+    if not default_company:
+        default_company = CompanyMaster.objects.create(name="GENERAL PHARMA")
+
+    default_type = ProductTypeMaster.objects.filter(is_deleted=False).first()
+    if not default_type:
+        default_type = ProductTypeMaster.objects.create(name="TABLET")
+
     # Match or Auto-create each item in ProductMaster
     enhanced_items = []
     missing_count = 0
@@ -879,6 +890,8 @@ def scan_purchase_bill(request):
             missing_count += 1
             matched_prod = ProductMaster.objects.create(
                 name=prod_name,
+                company=default_company,
+                product_type=default_type,
                 pack_size=item.get('pack_size', '10 TAB'),
                 gst_rate=item.get('gst_rate', 12.00),
                 hsn_code='30049099',
