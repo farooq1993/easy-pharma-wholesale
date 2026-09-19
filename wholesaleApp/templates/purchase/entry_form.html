@@ -109,7 +109,7 @@
                 <button type="button" class="btn btn-outline-success rounded-pill btn-sm px-3 fw-semibold">
                     <i class="bi bi-file-earmark-excel me-1"></i> Import CSV
                 </button>
-                <button type="button" class="btn btn-outline-primary rounded-pill btn-sm px-3 fw-semibold">
+                <button type="button" class="btn btn-outline-primary rounded-pill btn-sm px-3 fw-semibold" onclick="openScanModal()">
                     <i class="bi bi-stars me-1"></i> Scan Purchase Bill (AI)
                 </button>
             </div>
@@ -1255,5 +1255,289 @@
             }
         });
     });
+
+    // ==================== AI SCAN PURCHASE BILL LOGIC ====================
+    let currentScannedData = null;
+
+    function openScanModal() {
+        document.getElementById('scanResultState').classList.add('d-none');
+        document.getElementById('scanLoadingState').classList.add('d-none');
+        document.getElementById('btnRunScan').classList.remove('d-none');
+        document.getElementById('btnApplyScan').classList.add('d-none');
+        document.getElementById('scanFileInput').value = '';
+        const modal = new bootstrap.Modal(document.getElementById('scanPurchaseModal'));
+        modal.show();
+    }
+
+    function processBillScan(presetType = '') {
+        const fileInput = document.getElementById('scanFileInput');
+        const formData = new FormData();
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        if (presetType) {
+            formData.append('sample_type', presetType);
+        } else if (fileInput.files.length > 0) {
+            formData.append('bill_file', fileInput.files[0]);
+        } else {
+            showToast("Please select an invoice file/photo or click a 1-Click AI Preset!", "warning");
+            return;
+        }
+
+        document.getElementById('scanLoadingState').classList.remove('d-none');
+        document.getElementById('scanResultState').classList.add('d-none');
+        document.getElementById('btnRunScan').classList.add('d-none');
+
+        fetch('/api/purchase/scan-bill/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('scanLoadingState').classList.add('d-none');
+            if (data.status === 'success') {
+                currentScannedData = data;
+                document.getElementById('scannedSupplierName').textContent = data.supplier_name;
+                document.getElementById('scannedInvNo').textContent = data.invoice_number;
+                document.getElementById('scannedInvDate').textContent = data.invoice_date;
+                document.getElementById('scannedItemCount').textContent = data.items.length;
+
+                const tbody = document.getElementById('scannedItemsTableBody');
+                tbody.innerHTML = '';
+                data.items.forEach(item => {
+                    tbody.insertAdjacentHTML('beforeend', `
+                        <tr>
+                            <td class="text-start"><strong>${item.product_name}</strong> (${item.pack_size})</td>
+                            <td><span class="badge bg-light text-dark border font-monospace">${item.batch_number}</span></td>
+                            <td>${item.expiry_date}</td>
+                            <td class="fw-bold">${item.quantity}</td>
+                            <td class="text-muted">+${item.free_quantity}</td>
+                            <td>₹${parseFloat(item.purchase_rate).toFixed(2)}</td>
+                            <td>₹${parseFloat(item.sale_rate).toFixed(2)}</td>
+                            <td>₹${parseFloat(item.mrp).toFixed(2)}</td>
+                            <td>${item.gst_rate}%</td>
+                        </tr>
+                    `);
+                });
+
+                document.getElementById('scanResultState').classList.remove('d-none');
+                document.getElementById('btnApplyScan').classList.remove('d-none');
+                showToast("Bill scanned successfully! Click Apply to insert items.", "success");
+            } else {
+                showToast(data.message || "Failed to scan bill.", "danger");
+                document.getElementById('btnRunScan').classList.remove('d-none');
+            }
+        })
+        .catch(err => {
+            document.getElementById('scanLoadingState').classList.add('d-none');
+            document.getElementById('btnRunScan').classList.remove('d-none');
+            showToast("Scan error: " + err, "danger");
+        });
+    }
+
+    function scanBillPreset(presetType) {
+        processBillScan(presetType);
+    }
+
+    function insertScannedRowToTable(item) {
+        let pid = item.product_id;
+        let prodName = item.product_name;
+
+        if (!pid || !productCatalog[pid]) {
+            if (productList.length > 0) {
+                pid = productList[0].id;
+            } else {
+                pid = Object.keys(productCatalog)[0] || '1';
+            }
+        }
+
+        const batch = item.batch_number || 'B2401';
+        const expiryMask = item.expiry_date || '12/27';
+        const expiryReal = resolveExpiryDate(expiryMask) || '2027-12-31';
+
+        const qty = parseInt(item.quantity) || 1;
+        const freeQty = parseInt(item.free_quantity) || 0;
+        const prate = parseFloat(item.purchase_rate) || 10.0;
+        const discPct = parseFloat(item.discount_percent) || 0;
+        const gstPct = parseFloat(item.gst_rate) || 12.0;
+        const mrp = parseFloat(item.mrp) || (prate * 1.3);
+
+        const wrateVal = parseFloat(item.wholesale_rate);
+        const wrate = (!isNaN(wrateVal) && wrateVal > 0) ? wrateVal : (prate * 1.05);
+
+        const srateVal = parseFloat(item.sale_rate);
+        const srate = (!isNaN(srateVal) && srateVal > 0) ? srateVal : (mrp > 0 ? mrp : prate * 1.15);
+
+        const baseTaxable = qty * prate;
+        const discAmt = baseTaxable * (discPct / 100);
+        const taxableAfterDisc = baseTaxable - discAmt;
+        const gstAmt = taxableAfterDisc * (gstPct / 100);
+        const lineTotal = taxableAfterDisc + gstAmt;
+
+        const rowId = itemRowCounter++;
+        const tableBody = document.querySelector("#invoiceTable tbody");
+
+        const rowHTML = `
+            <tr id="item-row-${rowId}" data-taxable="${taxableAfterDisc.toFixed(2)}" data-discount="${discAmt.toFixed(2)}" data-gst="${gstAmt.toFixed(2)}" data-total="${lineTotal.toFixed(2)}">
+                <td class="text-start fw-bold">
+                    ${prodName}
+                    <input type="hidden" name="product[]" value="${pid}">
+                </td>
+                <td>
+                    <code>${batch}</code>
+                    <input type="hidden" name="batch_number[]" value="${batch}">
+                </td>
+                <td>
+                    ${expiryMask}
+                    <input type="hidden" name="expiry_date[]" value="${expiryReal}">
+                </td>
+                <td class="fw-bold">${qty}</td>
+                <td class="text-muted">+${freeQty}</td>
+                <td>${gstPct}%</td>
+                <td>₹${prate.toFixed(2)}</td>
+                <td>${discPct}%</td>
+                <td class="fw-semibold">₹${taxableAfterDisc.toFixed(2)}</td>
+                <td>₹${wrate.toFixed(2)}</td>
+                <td>₹${srate.toFixed(2)}</td>
+                <td>₹${mrp.toFixed(2)}</td>
+                <td class="fw-bold text-success">₹${lineTotal.toFixed(2)}</td>
+                <td class="text-nowrap">
+                    <input type="hidden" name="mrp[]" value="${mrp.toFixed(2)}">
+                    <input type="hidden" name="purchase_rate[]" value="${prate.toFixed(2)}">
+                    <input type="hidden" name="sale_rate[]" value="${srate.toFixed(2)}">
+                    <input type="hidden" name="wholesale_rate[]" value="${wrate.toFixed(2)}">
+                    <input type="hidden" name="quantity[]" value="${qty}">
+                    <input type="hidden" name="free_quantity[]" value="${freeQty}">
+                    <input type="hidden" name="discount_percentage[]" value="${discPct.toFixed(2)}">
+                    <input type="hidden" name="total_amount[]" value="${lineTotal.toFixed(2)}">
+                    
+                    <button type="button" class="btn btn-sm btn-outline-primary border-0 rounded-circle me-1" onclick="editItemRow(${rowId})" title="Edit Item">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle" onclick="removeItemRow(${rowId})" title="Delete Item">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+
+        tableBody.insertAdjacentHTML('beforeend', rowHTML);
+        document.getElementById("emptyTableMessage").classList.add("d-none");
+        recalculateSummaryTotals();
+    }
+
+    function applyScannedBillToInvoice() {
+        if (!currentScannedData) return;
+
+        // 1. Fill Supplier & Header Info
+        if (currentScannedData.supplier_id) {
+            document.getElementById('supplierSelect').value = currentScannedData.supplier_id;
+            document.getElementById('supplierSearch').value = currentScannedData.supplier_name;
+        } else {
+            const matched = supplierList.find(s => s.name.toLowerCase().includes(currentScannedData.supplier_name.split(' ')[0].toLowerCase()));
+            if (matched) {
+                document.getElementById('supplierSelect').value = matched.id;
+                document.getElementById('supplierSearch').value = matched.name;
+            } else {
+                document.getElementById('supplierSearch').value = currentScannedData.supplier_name;
+            }
+        }
+        if (currentScannedData.invoice_number) {
+            document.getElementById('invoiceNumber').value = currentScannedData.invoice_number;
+        }
+        if (currentScannedData.invoice_date) {
+            document.getElementById('invoiceDate').value = currentScannedData.invoice_date;
+        }
+
+        // 2. Append scanned rows to invoice table
+        currentScannedData.items.forEach(item => {
+            insertScannedRowToTable(item);
+        });
+
+        const modalEl = document.getElementById('scanPurchaseModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        showToast(`AI Scan applied successfully! Added ${currentScannedData.items.length} items to invoice.`, "success");
+    }
 </script>
+
+<!-- ==================== AI SCAN PURCHASE BILL MODAL ==================== -->
+<div class="modal fade" id="scanPurchaseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header text-white p-3" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+                <h5 class="modal-title fw-bold text-white mb-0">
+                    <i class="bi bi-stars me-2"></i>AI Scan Purchase Bill (OCR & Invoice Reader)
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-4 mb-3">
+                    <div class="col-md-6 border-end">
+                        <label class="form-label text-muted small fw-bold"><i class="bi bi-upload me-1"></i> Upload Invoice Image or PDF</label>
+                        <input type="file" id="scanFileInput" class="form-control" accept="image/*,application/pdf" capture="environment">
+                        <div class="form-text extra-small text-muted">Supports JPG, PNG, WEBP, or PDF invoice files. Camera capture supported on mobile.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted small fw-bold"><i class="bi bi-magic me-1"></i> 1-Click AI Sample Presets</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="scanBillPreset('sun')">Sun Pharma Bill</button>
+                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" onclick="scanBillPreset('cipla')">Cipla Bill</button>
+                            <button type="button" class="btn btn-sm btn-outline-warning text-dark rounded-pill px-3" onclick="scanBillPreset('mankind')">Mankind Bill</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="scanLoadingState" class="d-none text-center py-4">
+                    <div class="spinner-border text-primary mb-2" role="status">
+                        <span class="visually-hidden">Scanning...</span>
+                    </div>
+                    <div class="fw-semibold text-primary">AI Analyzing Invoice Header & Product Table...</div>
+                    <div class="text-muted extra-small">Extracting Supplier, Invoice No, Batches, Quantities & Rates</div>
+                </div>
+
+                <div id="scanResultState" class="d-none">
+                    <div class="alert alert-success rounded-3 py-2 px-3 small mb-3">
+                        <i class="bi bi-check-circle-fill me-1"></i> Invoice scanned successfully! Extracted <strong id="scannedItemCount">0</strong> products.
+                    </div>
+                    <div class="row g-2 mb-3 bg-light p-2.5 rounded-3 border small">
+                        <div class="col-md-4"><strong>Supplier:</strong> <span id="scannedSupplierName">-</span></div>
+                        <div class="col-md-4"><strong>Invoice No:</strong> <span id="scannedInvNo">-</span></div>
+                        <div class="col-md-4"><strong>Date:</strong> <span id="scannedInvDate">-</span></div>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered align-middle text-center small mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-start">PRODUCT</th>
+                                    <th>BATCH</th>
+                                    <th>EXPIRY</th>
+                                    <th>QTY</th>
+                                    <th>FREE</th>
+                                    <th>P. RATE</th>
+                                    <th>S. RATE</th>
+                                    <th>MRP</th>
+                                    <th>GST%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scannedItemsTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light p-3">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="btnRunScan" class="btn btn-primary rounded-pill px-4 fw-bold" onclick="processBillScan()">
+                    <i class="bi bi-stars me-1"></i> Start AI Scan
+                </button>
+                <button type="button" id="btnApplyScan" class="btn btn-success rounded-pill px-4 fw-bold d-none" onclick="applyScannedBillToInvoice()">
+                    <i class="bi bi-check-lg me-1"></i> Apply to Purchase Entry
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

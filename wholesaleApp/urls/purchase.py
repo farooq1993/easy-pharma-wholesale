@@ -14,7 +14,8 @@ from wholesaleApp.views.purchase_views import (
     supplier_payment_delete,
     purchase_return_list,
     purchase_return_create,
-    purchase_return_delete
+    purchase_return_delete,
+    scan_purchase_bill
 )
 
 urlpatterns = [
@@ -42,5 +43,6 @@ urlpatterns = [
 
     # API endpoints
     path('api/product/<int:pk>/details/', get_product_details, name='api_product_details'),
+    path('api/purchase/scan-bill/', scan_purchase_bill, name='scan_purchase_bill'),
 ]
 
