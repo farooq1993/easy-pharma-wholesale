@@ -2001,7 +2001,7 @@ class PublicUserCreationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'registration/create_user.html')
 
-    def test_create_user_public_post_success(self):
+    def test_create_user_public_post_owner_default(self):
         from django.urls import reverse
         from django.contrib.auth.models import User
         
@@ -2015,18 +2015,36 @@ class PublicUserCreationTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('login'))
         
-        # Verify user creation
+        # Verify default account creation is Tenant Owner
         user = User.objects.filter(username='newsignup').first()
         self.assertIsNotNone(user)
         self.assertEqual(user.email, 'newsignup@example.com')
-        self.assertTrue(user.is_superuser)
-        self.assertTrue(user.is_staff)
+        self.assertFalse(user.is_superuser)
         
         # Verify profile and linking
         profile = user.profile
-        self.assertEqual(profile.role, 'Super Admin')
+        self.assertEqual(profile.role, 'Owner')
         self.assertEqual(profile.mobile, '9876543210')
         self.assertIsNone(profile.tenant)
+
+    def test_create_user_public_post_super_admin(self):
+        from django.urls import reverse
+        from django.contrib.auth.models import User
+        
+        response = self.client.post(reverse('create_user_public'), {
+            'username': 'newsuperadmin',
+            'email': 'superadmin@example.com',
+            'password': 'password123',
+            'mobile': '9876543210',
+            'account_type': 'Super Admin'
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('login'))
+        
+        user = User.objects.filter(username='newsuperadmin').first()
+        self.assertIsNotNone(user)
+        self.assertTrue(user.is_superuser)
+        self.assertEqual(user.profile.role, 'Super Admin')
 
     def test_create_user_public_post_existing_username(self):
         from django.urls import reverse
