@@ -1162,13 +1162,13 @@
     };
 
     function openSupplierModal() {
-        const modal = new bootstrap.Modal(document.getElementById('addSupplierModal'));
-        modal.show();
+        const modal = getBSModal('addSupplierModal');
+        if (modal) modal.show();
     }
 
     function openProductModal() {
-        const modal = new bootstrap.Modal(document.getElementById('addProductModal'));
-        modal.show();
+        const modal = getBSModal('addProductModal');
+        if (modal) modal.show();
     }
 
     function verifySupplierGST() {
@@ -1257,7 +1257,16 @@
     });
 
     // ==================== AI SCAN PURCHASE BILL LOGIC ====================
-    let currentScannedData = null;
+    // Helper to safely get or create Bootstrap modal instance
+    function getBSModal(elementId) {
+        const el = typeof elementId === 'string' ? document.getElementById(elementId) : elementId;
+        if (!el) return null;
+        const bs = window.bootstrap || (typeof bootstrap !== 'undefined' ? bootstrap : null);
+        if (bs && bs.Modal) {
+            return bs.Modal.getInstance(el) || new bs.Modal(el);
+        }
+        return null;
+    }
 
     function openScanModal() {
         document.getElementById('scanResultState').classList.add('d-none');
@@ -1265,8 +1274,8 @@
         document.getElementById('btnRunScan').classList.remove('d-none');
         document.getElementById('btnApplyScan').classList.add('d-none');
         document.getElementById('scanFileInput').value = '';
-        const modal = new bootstrap.Modal(document.getElementById('scanPurchaseModal'));
-        modal.show();
+        const modal = getBSModal('scanPurchaseModal');
+        if (modal) modal.show();
     }
 
     function processBillScan(presetType = '') {
