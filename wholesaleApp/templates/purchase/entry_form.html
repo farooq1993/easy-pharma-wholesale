@@ -1289,27 +1289,27 @@
         const btnScanBack = document.getElementById('btnScanBack');
 
         if (stepNum === 1) {
-            step1Pill.className = 'scan-step-pill active';
-            step2Pill.className = 'scan-step-pill';
-            step3Pill.className = 'scan-step-pill';
-            step1Body.classList.remove('d-none');
-            step2Body.classList.add('d-none');
-            btnRunScan.classList.remove('d-none');
-            btnApplyScan.classList.add('d-none');
-            btnScanBack.classList.add('d-none');
+            if (step1Pill) step1Pill.className = 'scan-step-pill active';
+            if (step2Pill) step2Pill.className = 'scan-step-pill';
+            if (step3Pill) step3Pill.className = 'scan-step-pill';
+            if (step1Body) step1Body.classList.remove('d-none');
+            if (step2Body) step2Body.classList.add('d-none');
+            if (btnRunScan) btnRunScan.classList.remove('d-none');
+            if (btnApplyScan) btnApplyScan.classList.add('d-none');
+            if (btnScanBack) btnScanBack.classList.add('d-none');
         } else if (stepNum === 2) {
-            step1Pill.className = 'scan-step-pill completed';
-            step2Pill.className = 'scan-step-pill active';
-            step3Pill.className = 'scan-step-pill';
-            step1Body.classList.add('d-none');
-            step2Body.classList.remove('d-none');
-            btnRunScan.classList.add('d-none');
-            btnApplyScan.classList.remove('d-none');
-            btnScanBack.classList.remove('d-none');
+            if (step1Pill) step1Pill.className = 'scan-step-pill completed';
+            if (step2Pill) step2Pill.className = 'scan-step-pill active';
+            if (step3Pill) step3Pill.className = 'scan-step-pill';
+            if (step1Body) step1Body.classList.add('d-none');
+            if (step2Body) step2Body.classList.remove('d-none');
+            if (btnRunScan) btnRunScan.classList.add('d-none');
+            if (btnApplyScan) btnApplyScan.classList.remove('d-none');
+            if (btnScanBack) btnScanBack.classList.remove('d-none');
         } else if (stepNum === 3) {
-            step1Pill.className = 'scan-step-pill completed';
-            step2Pill.className = 'scan-step-pill completed';
-            step3Pill.className = 'scan-step-pill active';
+            if (step1Pill) step1Pill.className = 'scan-step-pill completed';
+            if (step2Pill) step2Pill.className = 'scan-step-pill completed';
+            if (step3Pill) step3Pill.className = 'scan-step-pill active';
         }
     }
 
@@ -1320,15 +1320,17 @@
 
         if (presetType) {
             formData.append('sample_type', presetType);
-        } else if (fileInput.files.length > 0) {
+        } else if (fileInput && fileInput.files && fileInput.files.length > 0) {
             formData.append('bill_file', fileInput.files[0]);
         } else {
             showToast("Please select an invoice file/photo or click a 1-Click AI Preset!", "warning");
             return;
         }
 
-        document.getElementById('scanLoadingState').classList.remove('d-none');
-        document.getElementById('scanStep1Controls').classList.add('d-none');
+        const scanLoading = document.getElementById('scanLoadingState');
+        const scanControls = document.getElementById('scanStep1Controls');
+        if (scanLoading) scanLoading.classList.remove('d-none');
+        if (scanControls) scanControls.classList.add('d-none');
 
         fetch('/api/purchase/scan-bill/', {
             method: 'POST',
@@ -1337,28 +1339,31 @@
         })
         .then(res => res.json())
         .then(data => {
-            document.getElementById('scanLoadingState').classList.add('d-none');
-            document.getElementById('scanStep1Controls').classList.remove('d-none');
+            if (scanLoading) scanLoading.classList.add('d-none');
+            if (scanControls) scanControls.classList.remove('d-none');
 
             if (data.status === 'success') {
                 currentScannedData = data;
                 scannedItemRows = [...data.items];
 
                 // Populate Step 2 Header Controls
-                document.getElementById('previewSupplierName').value = data.supplier_name || '';
-                document.getElementById('previewInvoiceNo').value = data.invoice_number || '';
-                document.getElementById('previewInvoiceDate').value = data.invoice_date || '';
-                if (data.payment_mode) {
-                    document.getElementById('previewPaymentMode').value = data.payment_mode;
-                }
+                const suppEl = document.getElementById('previewSupplierName');
+                const invNoEl = document.getElementById('previewInvoiceNo');
+                const invDateEl = document.getElementById('previewInvoiceDate');
+                const payModeEl = document.getElementById('previewPaymentMode');
+
+                if (suppEl) suppEl.value = data.supplier_name || '';
+                if (invNoEl) invNoEl.value = data.invoice_number || '';
+                if (invDateEl) invDateEl.value = data.invoice_date || '';
+                if (payModeEl && data.payment_mode) payModeEl.value = data.payment_mode;
 
                 // Show Missing Master Alert if any items were not matched
                 const missingAlert = document.getElementById('previewMissingAlert');
                 const missingCountSpan = document.getElementById('previewMissingCount');
                 if (data.missing_count && data.missing_count > 0) {
-                    missingCountSpan.textContent = data.missing_count;
-                    missingAlert.classList.remove('d-none');
-                } else {
+                    if (missingCountSpan) missingCountSpan.textContent = data.missing_count;
+                    if (missingAlert) missingAlert.classList.remove('d-none');
+                } else if (missingAlert) {
                     missingAlert.classList.add('d-none');
                 }
 
@@ -1370,8 +1375,8 @@
             }
         })
         .catch(err => {
-            document.getElementById('scanLoadingState').classList.add('d-none');
-            document.getElementById('scanStep1Controls').classList.remove('d-none');
+            if (scanLoading) scanLoading.classList.add('d-none');
+            if (scanControls) scanControls.classList.remove('d-none');
             showToast("Scan error: " + err, "danger");
         });
     }
@@ -1382,8 +1387,11 @@
 
     function renderScannedPreviewTable() {
         const tbody = document.getElementById('scannedItemsTableBody');
+        const itemCountEl = document.getElementById('previewItemCount');
+        if (itemCountEl) itemCountEl.textContent = scannedItemRows.length;
+        if (!tbody) return;
+
         tbody.innerHTML = '';
-        document.getElementById('previewItemCount').textContent = scannedItemRows.length;
 
         if (scannedItemRows.length === 0) {
             tbody.innerHTML = `<tr><td colspan="11" class="text-muted py-4 text-center">No items in preview list.</td></tr>`;
@@ -1440,9 +1448,13 @@
     }
 
     function recalcScannedRowTotal(idx) {
-        const qty = parseInt(document.getElementById(`scannedQty-${idx}`).value) || 0;
-        const prate = parseFloat(document.getElementById(`scannedPrate-${idx}`).value) || 0;
-        const gst = parseFloat(document.getElementById(`scannedGst-${idx}`).value) || 0;
+        const qtyEl = document.getElementById(`scannedQty-${idx}`);
+        const prateEl = document.getElementById(`scannedPrate-${idx}`);
+        const gstEl = document.getElementById(`scannedGst-${idx}`);
+
+        const qty = qtyEl ? (parseInt(qtyEl.value) || 0) : 0;
+        const prate = prateEl ? (parseFloat(prateEl.value) || 0) : 0;
+        const gst = gstEl ? (parseFloat(gstEl.value) || 0) : 0;
         const lineTotal = (qty * prate) * (1 + gst / 100);
 
         const totalCell = document.getElementById(`scannedTotal-${idx}`);
@@ -1524,6 +1536,7 @@
 
         const rowId = itemRowCounter++;
         const tableBody = document.querySelector("#invoiceTable tbody");
+        if (!tableBody) return;
 
         const rowHTML = `
             <tr id="item-row-${rowId}" data-taxable="${taxableAfterDisc.toFixed(2)}" data-discount="${discAmt.toFixed(2)}" data-gst="${gstAmt.toFixed(2)}" data-total="${lineTotal.toFixed(2)}">
@@ -1570,29 +1583,46 @@
         `;
 
         tableBody.insertAdjacentHTML('beforeend', rowHTML);
-        document.getElementById("emptyTableMessage").classList.add("d-none");
+        const emptyMsg = document.getElementById("emptyTableMessage");
+        if (emptyMsg) emptyMsg.classList.add("d-none");
         recalculateOrderSummary();
     }
 
     function applyScannedBillToInvoice() {
         setScanStep(3);
 
-        const supplierName = document.getElementById('previewSupplierName').value.trim();
-        const invoiceNo = document.getElementById('previewInvoiceNo').value.trim();
-        const invoiceDate = document.getElementById('previewInvoiceDate').value.trim();
-        const paymentMode = document.getElementById('previewPaymentMode').value;
+        const suppNameEl = document.getElementById('previewSupplierName');
+        const invNoEl = document.getElementById('previewInvoiceNo');
+        const invDateEl = document.getElementById('previewInvoiceDate');
+        const payModeEl = document.getElementById('previewPaymentMode');
+
+        const supplierName = suppNameEl ? suppNameEl.value.trim() : '';
+        const invoiceNo = invNoEl ? invNoEl.value.trim() : '';
+        const invoiceDate = invDateEl ? invDateEl.value.trim() : '';
+        const paymentMode = payModeEl ? payModeEl.value : '';
 
         // 1. Header Information
         if (supplierName) {
-            document.getElementById('supplierSearch').value = supplierName;
+            const suppSearch = document.getElementById('supplierSearch');
+            if (suppSearch) suppSearch.value = supplierName;
             const matchedSupp = supplierList.find(s => s.name.toLowerCase().includes(supplierName.split(' ')[0].toLowerCase()));
             if (matchedSupp) {
-                document.getElementById('supplierSelect').value = matchedSupp.id;
+                const suppSel = document.getElementById('supplierSelect');
+                if (suppSel) suppSel.value = matchedSupp.id;
             }
         }
-        if (invoiceNo) document.getElementById('invoiceNumber').value = invoiceNo;
-        if (invoiceDate) document.getElementById('invoiceDate').value = invoiceDate;
-        if (paymentMode) document.getElementById('paymentType').value = paymentMode;
+        if (invoiceNo) {
+            const invNoInput = document.getElementById('invoiceNumber');
+            if (invNoInput) invNoInput.value = invoiceNo;
+        }
+        if (invoiceDate) {
+            const invDateInput = document.getElementById('invoiceDate');
+            if (invDateInput) invDateInput.value = invoiceDate;
+        }
+        if (paymentMode) {
+            const payTypeInput = document.getElementById('paymentType');
+            if (payTypeInput) payTypeInput.value = paymentMode;
+        }
 
         // 2. Insert edited items from table into main purchase entry table
         let loadedCount = 0;
@@ -1633,11 +1663,231 @@
         });
 
         const modalEl = document.getElementById('scanPurchaseModal');
-        const modal = bootstrap.Modal.getInstance(modalEl);
-        if (modal) modal.hide();
+        if (modalEl) {
+            const modal = getBSModal(modalEl);
+            if (modal) modal.hide();
+        }
 
         showToast(`AI Scan purchase loaded successfully! Transferred ${loadedCount} items to invoice.`, "success");
     }
 </script>
 
+<!-- CSS for Stepper Pills -->
+<style>
+    .scan-step-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 16px;
+        border-radius: 50rem;
+        font-size: 13px;
+        font-weight: 600;
+        color: #4b5563;
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s ease;
+    }
+    .scan-step-pill .step-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #d1d5db;
+        color: #374151;
+        font-size: 11px;
+        font-weight: 700;
+        margin-right: 6px;
+    }
+    .scan-step-pill.active {
+        background: #0d9488;
+        color: #ffffff;
+        border-color: #0d9488;
+    }
+    .scan-step-pill.active .step-badge {
+        background: #ffffff;
+        color: #0d9488;
+    }
+    .scan-step-pill.completed {
+        background: #ecfdf5;
+        color: #047857;
+        border-color: #a7f3d0;
+    }
+    .scan-step-pill.completed .step-badge {
+        background: #10b981;
+        color: #ffffff;
+    }
+    .step-connector {
+        height: 2px;
+        width: 24px;
+        background: #e5e7eb;
+    }
+</style>
+
+<!-- ==================== AI SCAN PURCHASE BILL MODAL ==================== -->
+<div class="modal fade" id="scanPurchaseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <!-- Modal Header with Teal Gradient -->
+            <div class="modal-header text-white p-3" style="background: linear-gradient(135deg, #0d9488, #0f766e);">
+                <div class="d-flex align-items-center">
+                    <div class="rounded-circle bg-white text-teal p-2 me-2.5 d-flex align-items-center justify-content-center" style="width:38px; height:38px; color: #0d9488;">
+                        <i class="bi bi-pencil-square fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-white mb-0">AI Scan Purchase Bill</h5>
+                        <div class="text-white-50 extra-small">Upload bill photo — AI will read, extract & match items</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Stepper Progress Bar -->
+            <div class="d-flex align-items-center justify-content-center bg-light py-2 px-3 border-bottom">
+                <div id="stepPill1" class="scan-step-pill active me-2">
+                    <span class="step-badge">1</span> Upload Photo
+                </div>
+                <div class="step-connector me-2"></div>
+                <div id="stepPill2" class="scan-step-pill me-2">
+                    <span class="step-badge">2</span> AI Preview
+                </div>
+                <div class="step-connector me-2"></div>
+                <div id="stepPill3" class="scan-step-pill">
+                    <span class="step-badge">3</span> Load Purchase
+                </div>
+            </div>
+
+            <div class="modal-body p-4">
+                <!-- STEP 1: Upload Photo / Choose Presets -->
+                <div id="scanStep1Body">
+                    <div id="scanStep1Controls" class="row g-4 mb-3">
+                        <div class="col-md-6 border-end">
+                            <label class="form-label text-muted small fw-bold"><i class="bi bi-upload me-1"></i> Upload Invoice Image or PDF</label>
+                            <input type="file" id="scanFileInput" class="form-control form-control-lg" accept="image/*,application/pdf" capture="environment">
+                            <div class="form-text extra-small text-muted">Supports JPG, PNG, WEBP, or PDF invoice files. Camera capture supported on mobile.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold"><i class="bi bi-magic me-1"></i> 1-Click AI Sample Presets</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-primary rounded-pill px-3 fw-bold" onclick="scanBillPreset('cubit')">Cubit Life Sciences Bill</button>
+                                <button type="button" class="btn btn-outline-success rounded-pill px-3" onclick="scanBillPreset('cipla')">Cipla Bill</button>
+                                <button type="button" class="btn btn-outline-warning text-dark rounded-pill px-3" onclick="scanBillPreset('mankind')">Mankind Bill</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="scanLoadingState" class="d-none text-center py-5">
+                        <div class="spinner-border text-teal mb-3" style="color: #0d9488;" role="status">
+                            <span class="visually-hidden">Scanning...</span>
+                        </div>
+                        <div class="fw-bold text-dark fs-5">AI Analyzing Invoice Header & Product Table...</div>
+                        <div class="text-muted small mt-1">Extracting Supplier, Invoice No, Batches, Quantities & Rates</div>
+                    </div>
+                </div>
+
+                <!-- STEP 2: AI Preview Window (Matching Screenshot) -->
+                <div id="scanStep2Body" class="d-none">
+                    <!-- Missing Master Alert Notification Banner -->
+                    <div id="previewMissingAlert" class="alert alert-warning border-warning d-flex align-items-center justify-content-between py-2 px-3 mb-3 rounded-3 small d-none">
+                        <div>
+                            <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-6"></i>
+                            <strong><span id="previewMissingCount">0</span> Products missing in Master Catalog!</strong>
+                            <span class="text-muted ms-1">They will be auto-registered with default GST & Pack size.</span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-warning text-dark fw-bold rounded-pill px-3" onclick="openProductModal()">
+                            <i class="bi bi-plus-circle me-1"></i> Quick Add Product
+                        </button>
+                    </div>
+
+                    <!-- Header Inputs: Supplier, Invoice No, Date, Payment Mode -->
+                    <div class="row g-3 mb-3 bg-light p-3 rounded-3 border">
+                        <div class="col-md-4">
+                            <label class="form-label extra-small fw-bold text-muted uppercase mb-1">Supplier / Vendor</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" id="previewSupplierName" class="form-control fw-bold" placeholder="Supplier Name">
+                                <button type="button" class="btn btn-outline-success" onclick="openSupplierModal()" title="Quick Add Supplier">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label extra-small fw-bold text-muted uppercase mb-1">Invoice Number</label>
+                            <input type="text" id="previewInvoiceNo" class="form-control form-control-sm font-monospace" placeholder="INV-001">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label extra-small fw-bold text-muted uppercase mb-1">Purchase Date</label>
+                            <input type="date" id="previewInvoiceDate" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label extra-small fw-bold text-muted uppercase mb-1">Payment Mode</label>
+                            <select id="previewPaymentMode" class="form-select form-select-sm">
+                                <option value="Cash">Cash</option>
+                                <option value="Credit" selected>Credit</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Table Header Action Bar -->
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="small text-muted fw-semibold">
+                            <i class="bi bi-list-check text-success me-1"></i> <span id="previewItemCount">0</span> items extracted
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="small text-muted me-2"><i class="bi bi-pencil me-1"></i> Edit cells directly to fix errors</span>
+                            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="clearAllScannedRows()">
+                                <i class="bi bi-trash me-1"></i> Clear All
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Editable Preview Table -->
+                    <div class="table-responsive border rounded-3" style="max-height: 280px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered align-middle text-center small mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th style="width:40px;">#</th>
+                                    <th class="text-start" style="min-width:180px;">Medicine Name</th>
+                                    <th style="width:110px;">Batch No</th>
+                                    <th style="width:100px;">Expiry</th>
+                                    <th style="width:70px;">Qty</th>
+                                    <th style="width:70px;">Free</th>
+                                    <th style="width:100px;">Pur. Rate</th>
+                                    <th style="width:100px;">MRP</th>
+                                    <th style="width:75px;">GST%</th>
+                                    <th style="width:100px;">Total</th>
+                                    <th style="width:50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="scannedItemsTableBody">
+                            </tbody>
+                            <tfoot class="table-light fw-bold">
+                                <tr>
+                                    <td colspan="4" class="text-start ps-3">BILL TOTAL (excluding tax)</td>
+                                    <td class="text-center text-success" id="previewTotalQty">0</td>
+                                    <td colspan="4"></td>
+                                    <td class="text-end text-success fs-6" id="previewTotalNet">₹0.00</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="modal-footer bg-light p-3">
+                <button type="button" id="btnScanBack" class="btn btn-outline-secondary rounded-pill px-4 d-none" onclick="setScanStep(1)">
+                    <i class="bi bi-arrow-left me-1"></i> Back
+                </button>
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="btnRunScan" class="btn rounded-pill px-4 fw-bold text-white" style="background-color: #0d9488;" onclick="processBillScan()">
+                    <i class="bi bi-stars me-1"></i> Start AI Scan
+                </button>
+                <button type="button" id="btnApplyScan" class="btn btn-success rounded-pill px-4 fw-bold d-none" onclick="applyScannedBillToInvoice()">
+                    <i class="bi bi-check-circle-fill me-1"></i> Confirm & Load to Purchase
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
