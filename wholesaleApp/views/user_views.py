@@ -14,18 +14,18 @@ from wholesaleApp.views.security_helpers import (
 
 @tenant_owner_required
 def user_list(request):
-    """List all employees/staff users belonging to the logged-in Tenant Owner's firm or all tenants for Super Admin."""
+    """List all employees/staff users belonging strictly to the logged-in Tenant Owner's firm."""
     current_profile = getattr(request.user, 'profile', None)
+    tenant = getattr(request, 'tenant', None) or (current_profile.tenant if current_profile else None)
     
-    if request.user.is_superuser or (current_profile and current_profile.is_super_admin):
+    if tenant:
+        # Strictly filter users belonging to this logged-in tenant firm ONLY
+        users = User.objects.filter(profile__tenant=tenant, is_superuser=False).select_related('profile__tenant')
+    elif request.user.is_superuser:
+        # Platform Superuser without active tenant filter sees all non-superuser accounts
         users = User.objects.filter(is_superuser=False).select_related('profile__tenant')
     else:
-        # Tenant Owner sees only users in their firm
-        tenant = request.tenant or (current_profile.tenant if current_profile else None)
-        if tenant:
-            users = User.objects.filter(profile__tenant=tenant, is_superuser=False).select_related('profile__tenant')
-        else:
-            users = User.objects.none()
+        users = User.objects.none()
 
     context = {
         'users': users,
@@ -37,9 +37,10 @@ def user_list(request):
 
 @tenant_owner_required
 def user_create(request):
-    """Create a new staff user & auto-assign role-based default permissions."""
+    """Create a new staff user & auto-assign role-based default permissions for the logged-in tenant."""
     current_profile = getattr(request.user, 'profile', None)
-    is_sa = request.user.is_superuser or (current_profile and current_profile.is_super_admin)
+    tenant_obj = getattr(request, 'tenant', None) or (current_profile.tenant if current_profile else None)
+    is_sa = request.user.is_superuser and not tenant_obj
 
     # Role choices available
     if is_sa:
@@ -60,8 +61,6 @@ def user_create(request):
         password = request.POST['password']
         role = request.POST.get('role', 'Salesman')
         mobile = request.POST.get('mobile', '').strip()
-        
-        tenant_obj = request.tenant or (current_profile.tenant if current_profile else None)
 
         if User.objects.filter(username__iexact=username).exists():
             messages.error(request, f"User with username '{username}' already exists.")
@@ -93,16 +92,15 @@ def user_create(request):
 
 @tenant_owner_required
 def user_edit(request, pk):
-    """Edit existing staff user details and sync role default permissions if role changes."""
+    """Edit existing staff user details within the logged-in tenant."""
     current_profile = getattr(request.user, 'profile', None)
-    is_sa = request.user.is_superuser or (current_profile and current_profile.is_super_admin)
+    tenant = getattr(request, 'tenant', None) or (current_profile.tenant if current_profile else None)
+    is_sa = request.user.is_superuser and not tenant
 
     if is_sa:
         target_user = get_object_or_404(User, id=pk, is_superuser=False)
         role_choices = UserProfile.ROLE_CHOICES
     else:
-        # Shop Owners edit staff within their firm
-        tenant = request.tenant or (current_profile.tenant if current_profile else None)
         target_user = get_object_or_404(User, id=pk, profile__tenant=tenant, is_superuser=False)
         role_choices = [
             ('Manager', 'Store Manager'),
@@ -131,8 +129,7 @@ def user_edit(request, pk):
             role_changed = (profile.role != role)
             profile.role = role
             profile.mobile = mobile
-            
-            profile.tenant = request.tenant or profile.tenant
+            profile.tenant = tenant or profile.tenant
             profile.save()
 
             # Auto sync permissions if role changed or explicitly requested
@@ -157,14 +154,14 @@ def user_edit(request, pk):
 
 @tenant_owner_required
 def user_delete(request, pk):
-    """Delete a staff user."""
+    """Delete a staff user within the logged-in tenant."""
     current_profile = getattr(request.user, 'profile', None)
-    is_sa = request.user.is_superuser or (current_profile and current_profile.is_super_admin)
+    tenant = getattr(request, 'tenant', None) or (current_profile.tenant if current_profile else None)
+    is_sa = request.user.is_superuser and not tenant
 
     if is_sa:
         target_user = get_object_or_404(User, id=pk, is_superuser=False)
     else:
-        tenant = request.tenant or (current_profile.tenant if current_profile else None)
         target_user = get_object_or_404(User, id=pk, profile__tenant=tenant, is_superuser=False)
 
     username = target_user.username

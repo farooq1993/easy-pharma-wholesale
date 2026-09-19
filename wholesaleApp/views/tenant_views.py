@@ -72,6 +72,8 @@ def tenant_create(request):
             if hasattr(owner_user, 'profile'):
                 profile = owner_user.profile
                 profile.tenant = tenant
+                if not owner_user.is_superuser:
+                    profile.role = 'Owner'
                 profile.save()
             
             if owner_user == request.user or (hasattr(request.user, 'profile') and not request.user.profile.tenant):
@@ -114,6 +116,8 @@ def tenant_edit(request, pk):
                 tenant.user = target_user
                 if hasattr(target_user, 'profile'):
                     target_user.profile.tenant = tenant
+                    if not target_user.is_superuser:
+                        target_user.profile.role = 'Owner'
                     target_user.profile.save()
 
         if Tenant.objects.filter(name__iexact=name).exclude(id=pk).exists():
