@@ -859,7 +859,7 @@ def scan_purchase_bill(request):
             city='Bavla, Ahmedabad',
             state='Gujarat',
             gstin='24AANFC6646D1ZH',
-            dl_number='MH-YEO-438214',
+            dl_number_1='MH-YEO-438214',
             status=True
         )
     supplier_id = supplier_obj.id
