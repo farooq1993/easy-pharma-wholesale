@@ -1,0 +1,540 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}Manage Customer: {{ customer.name }}{% endblock %}
+{% block page_title %}Customer Management{% endblock %}
+
+{% block content %}
+<style>
+    .manage-nav-tabs .nav-link {
+        border: none;
+        color: #64748b;
+        font-weight: 500;
+        padding: 12px 18px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    .manage-nav-tabs .nav-link:hover {
+        background-color: #f1f5f9;
+        color: #0284c7;
+    }
+    .manage-nav-tabs .nav-link.active {
+        color: #ffffff !important;
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+        box-shadow: 0 4px 10px -3px rgba(2, 132, 199, 0.4) !important;
+    }
+    .stat-card-widget {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        transition: transform 0.2s;
+    }
+    .stat-card-widget:hover {
+        transform: translateY(-2px);
+    }
+    .form-section-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+</style>
+
+<!-- Top Breadcrumbs & Header -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'customer_list' %}" class="text-decoration-none">Customer Master</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Manage Settings</li>
+            </ol>
+        </nav>
+        <div class="d-flex align-items-center gap-2">
+            <h3 class="fw-bold mb-0 text-dark">{{ customer.name }}</h3>
+            {% if customer.customer_type == 'Wholesaler' %}
+                <span class="badge bg-info text-dark px-2.5 py-1.5"><i class="bi bi-shop"></i> Wholesaler</span>
+            {% else %}
+                <span class="badge bg-light text-dark border px-2.5 py-1.5"><i class="bi bi-capsule"></i> Retailer</span>
+            {% endif %}
+            {% if customer.status %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle"></i> Active</span>
+            {% else %}
+                <span class="badge bg-secondary px-2 py-1">Inactive</span>
+            {% endif %}
+        </div>
+        <p class="text-muted small mb-0 mt-1">
+            <i class="bi bi-telephone text-primary"></i> {{ customer.mobile }}
+            {% if customer.gstin %} &bull; <span class="fw-semibold">GSTIN:</span> {{ customer.gstin }}{% endif %}
+            {% if customer.city %} &bull; <i class="bi bi-geo-alt text-danger"></i> {{ customer.city }}{% if customer.subarea %}, {{ customer.subarea.name }}{% endif %}{% endif %}
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to List
+        </a>
+        <a href="{% url 'customer_ledger' %}?customer={{ customer.id }}" class="btn btn-outline-primary">
+            <i class="bi bi-journal-text"></i> View Ledger
+        </a>
+        <a href="{% url 'customer_edit' customer.id %}" class="btn btn-outline-dark">
+            <i class="bi bi-pencil"></i> Edit Profile
+        </a>
+    </div>
+</div>
+
+{% if manage_detail.operator_note %}
+<div class="alert alert-warning border-start border-warning border-4 shadow-sm mb-4 d-flex align-items-center justify-content-between" role="alert">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill fs-4 text-warning"></i>
+        <div>
+            <strong class="text-dark">Billing Alert / Operator Note:</strong>
+            <div class="text-secondary mt-0.5">{{ manage_detail.operator_note }}</div>
+        </div>
+    </div>
+    <span class="badge bg-warning text-dark">Active Warning</span>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <!-- LEFT COLUMN: Form with Tabs (Marg ERP Style Management) -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 rounded-3">
+            <div class="card-header bg-white border-bottom p-3">
+                <ul class="nav manage-nav-tabs border-0 bg-light p-1.5 rounded-3 gap-1" id="customerManageTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="discounts-tab" data-bs-toggle="tab" data-bs-target="#discounts" type="button" role="tab">
+                            <i class="bi bi-percent"></i> Schemes & Discounts
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="billing-tab" data-bs-toggle="tab" data-bs-target="#billing" type="button" role="tab">
+                            <i class="bi bi-receipt"></i> Billing & Rates
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="credit-tab" data-bs-toggle="tab" data-bs-target="#credit" type="button" role="tab">
+                            <i class="bi bi-shield-lock"></i> Credit & Limits
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="transport-tab" data-bs-toggle="tab" data-bs-target="#transport" type="button" role="tab">
+                            <i class="bi bi-truck"></i> Transport & Bank
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <form method="POST">
+                {% csrf_token %}
+                <div class="card-body p-4">
+                    <div class="tab-content" id="customerManageTabContent">
+                        
+                        <!-- ================= TAB 1: SCHEMES & DISCOUNTS ================= -->
+                        <div class="tab-pane fade show active" id="discounts" role="tabpanel">
+                            <div class="form-section-title">
+                                <i class="bi bi-tags text-primary"></i> Tiered Item Discounts (दर छूट %)
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold text-muted small">Item Discount % (Rate A)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light fw-bold">A</span>
+                                        <input type="number" step="0.01" name="item_discount_a" class="form-control" value="{{ manage_detail.item_discount_a }}">
+                                        <span class="input-group-text bg-light">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold text-muted small">Item Discount % (Rate B)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light fw-bold">B</span>
+                                        <input type="number" step="0.01" name="item_discount_b" class="form-control" value="{{ manage_detail.item_discount_b }}">
+                                        <span class="input-group-text bg-light">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold text-muted small">Item Discount % (Rate C)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light fw-bold">C</span>
+                                        <input type="number" step="0.01" name="item_discount_c" class="form-control" value="{{ manage_detail.item_discount_c }}">
+                                        <span class="input-group-text bg-light">%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr class="text-muted opacity-25">
+
+                            <div class="form-section-title mt-4">
+                                <i class="bi bi-cash-stack text-success"></i> Collection, Margin & Return Discounts
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Collection / Cash Disc. %</label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" name="collection_disc" class="form-control" value="{{ manage_detail.collection_disc }}">
+                                        <span class="input-group-text bg-light">%</span>
+                                    </div>
+                                    <small class="text-muted">Prompt payment discount allowed to customer</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Minimum Margin %</label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" name="min_margin" class="form-control" value="{{ manage_detail.min_margin }}">
+                                        <span class="input-group-text bg-light">%</span>
+                                    </div>
+                                    <small class="text-muted">Alert operator if gross margin falls below this</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Volume Discount %</label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" name="volume_disc" class="form-control" value="{{ manage_detail.volume_disc }}">
+                                        <span class="input-group-text bg-light">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Breakage / Expiry Disc. % [MRP]</label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" name="breakage_expiry_disc" class="form-control" value="{{ manage_detail.breakage_expiry_disc }}">
+                                        <span class="input-group-text bg-light">%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr class="text-muted opacity-25">
+
+                            <div class="form-section-title mt-4">
+                                <i class="bi bi-gift text-danger"></i> Product Scheme & Special Offers Notes (उत्पाद योजना)
+                            </div>
+                            <div class="mb-2">
+                                <textarea name="product_scheme_notes" class="form-control" rows="3" placeholder="e.g. Dolo 650: Buy 10 Get 1 Free, Azithromycin: 5% Extra discount, Paracetamol: Fixed rate Rs 1.20">{{ manage_detail.product_scheme_notes|default:'' }}</textarea>
+                                <small class="text-muted">Enter any special customer-specific product schemes, deals, or fixed prices for quick reference.</small>
+                            </div>
+                        </div>
+
+                        <!-- ================= TAB 2: BILLING & RATES ================= -->
+                        <div class="tab-pane fade" id="billing" role="tabpanel">
+                            <div class="form-section-title">
+                                <i class="bi bi-currency-rupee text-primary"></i> Default Sales Rate & Format
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Default Sales Rate</label>
+                                    <select name="sales_rate_type" class="form-select">
+                                        <option value="wholesale" {% if manage_detail.sales_rate_type == 'wholesale' %}selected{% endif %}>Wholesale Rate (Standard)</option>
+                                        <option value="mrp" {% if manage_detail.sales_rate_type == 'mrp' %}selected{% endif %}>MRP Rate</option>
+                                        <option value="purchase" {% if manage_detail.sales_rate_type == 'purchase' %}selected{% endif %}>Purchase Rate</option>
+                                        <option value="rate_a" {% if manage_detail.sales_rate_type == 'rate_a' %}selected{% endif %}>Special Rate A</option>
+                                        <option value="rate_b" {% if manage_detail.sales_rate_type == 'rate_b' %}selected{% endif %}>Special Rate B</option>
+                                    </select>
+                                    <small class="text-muted">Automatically applied when adding items in sales bill</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Invoice Format</label>
+                                    <select name="invoice_format" class="form-select">
+                                        <option value="DEFAULT" {% if manage_detail.invoice_format == 'DEFAULT' %}selected{% endif %}>Standard Tax Invoice (A4)</option>
+                                        <option value="THERMAL" {% if manage_detail.invoice_format == 'THERMAL' %}selected{% endif %}>Thermal Roll (3 Inch)</option>
+                                        <option value="HALF_PAGE" {% if manage_detail.invoice_format == 'HALF_PAGE' %}selected{% endif %}>Half Page (A5)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <hr class="text-muted opacity-25">
+
+                            <div class="form-section-title mt-4">
+                                <i class="bi bi-sliders text-success"></i> Expiry & Batch Billing Controls
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Near Expiry in Bill</label>
+                                    <select name="near_expiry_action" class="form-select">
+                                        <option value="allowed" {% if manage_detail.near_expiry_action == 'allowed' %}selected{% endif %}>Allowed (Always permit)</option>
+                                        <option value="warn" {% if manage_detail.near_expiry_action == 'warn' %}selected{% endif %}>Warn Operator Only</option>
+                                        <option value="not_allowed" {% if manage_detail.near_expiry_action == 'not_allowed' %}selected{% endif %}>Restricted (Block Billing)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-flex flex-column justify-content-center">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" name="print_batch" id="printBatchCheck" {% if manage_detail.print_batch %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold text-dark" for="printBatchCheck">
+                                            Print Batch & Expiry on Bill
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="new_item_billing" id="newItemCheck" {% if manage_detail.new_item_billing %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold text-dark" for="newItemCheck">
+                                            Allow New Item Billing
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ================= TAB 3: CREDIT LIMITS & TERMS ================= -->
+                        <div class="tab-pane fade" id="credit" role="tabpanel">
+                            <div class="form-section-title">
+                                <i class="bi bi-bank text-danger"></i> Credit Limit & Risk Controls (उधारी नियंत्रण)
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Credit Limit Amount (₹)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">₹</span>
+                                        <input type="number" step="0.01" name="credit_limit_amount" class="form-control fw-bold" value="{{ manage_detail.credit_limit_amount }}">
+                                    </div>
+                                    <small class="text-muted">Maximum allowable outstanding balance</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Max Unpaid Bills Allowed</label>
+                                    <input type="number" name="credit_limit_bills" class="form-control" value="{{ manage_detail.credit_limit_bills }}">
+                                    <small class="text-muted">Set 0 for unlimited bills</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold text-muted small">Credit Days</label>
+                                    <div class="input-group">
+                                        <input type="number" name="credit_days" class="form-control" value="{{ manage_detail.credit_days }}">
+                                        <span class="input-group-text bg-light">Days</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold text-muted small">Overdue Interest % (p.a.)</label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" name="interest_percentage" class="form-control" value="{{ manage_detail.interest_percentage }}">
+                                        <span class="input-group-text bg-light">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold text-muted small">On Limit Breach Action</label>
+                                    <select name="credit_limit_action" class="form-select fw-semibold">
+                                        <option value="indicate" {% if manage_detail.credit_limit_action == 'indicate' %}selected{% endif %} class="text-warning">⚠️ Only Indicate / Warn</option>
+                                        <option value="stop" {% if manage_detail.credit_limit_action == 'stop' %}selected{% endif %} class="text-danger">🛑 Stop / Block Billing</option>
+                                        <option value="none" {% if manage_detail.credit_limit_action == 'none' %}selected{% endif %} class="text-secondary">No Restriction</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <hr class="text-muted opacity-25">
+
+                            <div class="form-section-title mt-4">
+                                <i class="bi bi-calendar-week text-primary"></i> Bank Rebate & Payment Collection Days
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Bank Rebate %</label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.01" name="bank_rebate_percent" class="form-control" value="{{ manage_detail.bank_rebate_percent }}">
+                                        <span class="input-group-text bg-light">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Rebate Valid Upto</label>
+                                    <div class="input-group">
+                                        <input type="number" name="bank_rebate_days" class="form-control" value="{{ manage_detail.bank_rebate_days }}">
+                                        <span class="input-group-text bg-light">Days</span>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold text-muted small d-block">Collection Days (पेमेंट वसूली के दिन)</label>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 bg-light">
+                                            <input class="form-check-input" type="checkbox" name="collection_days" value="Mon" id="dayMon" {% if 'Mon' in saved_days %}checked{% endif %}>
+                                            <label class="form-check-label fw-semibold" for="dayMon">Mon</label>
+                                        </div>
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 bg-light">
+                                            <input class="form-check-input" type="checkbox" name="collection_days" value="Tue" id="dayTue" {% if 'Tue' in saved_days %}checked{% endif %}>
+                                            <label class="form-check-label fw-semibold" for="dayTue">Tue</label>
+                                        </div>
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 bg-light">
+                                            <input class="form-check-input" type="checkbox" name="collection_days" value="Wed" id="dayWed" {% if 'Wed' in saved_days %}checked{% endif %}>
+                                            <label class="form-check-label fw-semibold" for="dayWed">Wed</label>
+                                        </div>
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 bg-light">
+                                            <input class="form-check-input" type="checkbox" name="collection_days" value="Thu" id="dayThu" {% if 'Thu' in saved_days %}checked{% endif %}>
+                                            <label class="form-check-label fw-semibold" for="dayThu">Thu</label>
+                                        </div>
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 bg-light">
+                                            <input class="form-check-input" type="checkbox" name="collection_days" value="Fri" id="dayFri" {% if 'Fri' in saved_days %}checked{% endif %}>
+                                            <label class="form-check-label fw-semibold" for="dayFri">Fri</label>
+                                        </div>
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 bg-light">
+                                            <input class="form-check-input" type="checkbox" name="collection_days" value="Sat" id="daySat" {% if 'Sat' in saved_days %}checked{% endif %}>
+                                            <label class="form-check-label fw-semibold" for="daySat">Sat</label>
+                                        </div>
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 bg-light">
+                                            <input class="form-check-input" type="checkbox" name="collection_days" value="Sun" id="daySun" {% if 'Sun' in saved_days %}checked{% endif %}>
+                                            <label class="form-check-label fw-semibold" for="daySun">Sun</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ================= TAB 4: TRANSPORT & BANK ================= -->
+                        <div class="tab-pane fade" id="transport" role="tabpanel">
+                            <div class="form-section-title">
+                                <i class="bi bi-truck-front text-primary"></i> Transport & Delivery Personnel
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Transport / Carrier Name</label>
+                                    <input type="text" name="transport_name" class="form-control" placeholder="e.g. VRL Logistics, SafeX" value="{{ manage_detail.transport_name|default:'' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Delivery By / Sales Rep (MR)</label>
+                                    <input type="text" name="delivery_by" class="form-control" placeholder="e.g. Delivery Boy / Field Rep" value="{{ manage_detail.delivery_by|default:'' }}">
+                                </div>
+                            </div>
+
+                            <hr class="text-muted opacity-25">
+
+                            <div class="form-section-title mt-4">
+                                <i class="bi bi-bank2 text-success"></i> Customer Bank Account Details
+                            </div>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Bank Name</label>
+                                    <input type="text" name="bank_name" class="form-control" placeholder="e.g. State Bank of India" value="{{ manage_detail.bank_name|default:'' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Account Number</label>
+                                    <input type="text" name="bank_account_no" class="form-control" placeholder="Bank Account Number" value="{{ manage_detail.bank_account_no|default:'' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">IFSC Code</label>
+                                    <input type="text" name="bank_ifsc" class="form-control" placeholder="e.g. SBIN0001234" value="{{ manage_detail.bank_ifsc|default:'' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold text-muted small">Branch Name</label>
+                                    <input type="text" name="bank_branch" class="form-control" placeholder="Branch location" value="{{ manage_detail.bank_branch|default:'' }}">
+                                </div>
+                            </div>
+
+                            <hr class="text-muted opacity-25">
+
+                            <div class="form-section-title mt-4">
+                                <i class="bi bi-bell text-warning"></i> Operator Note / Billing Alert Banner
+                            </div>
+                            <div>
+                                <textarea name="operator_note" class="form-control" rows="2" placeholder="e.g. Do not dispatch without 50% advance, or Check expiry before sending">{{ manage_detail.operator_note|default:'' }}</textarea>
+                                <small class="text-muted">This note will appear prominently whenever this customer is selected in Sales Billing!</small>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="card-footer bg-light p-3 d-flex justify-content-between align-items-center">
+                    <span class="text-muted small">Last updated: {{ manage_detail.updated_at|date:"d M Y, h:i A" }}</span>
+                    <button type="submit" class="btn btn-primary px-4 shadow-sm">
+                        <i class="bi bi-check2-circle"></i> Save Settings
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Customer 360 Dashboard Panel (Marg Style but Modernized) -->
+    <div class="col-lg-4">
+        <!-- Outstanding Balance Widget -->
+        <div class="stat-card-widget p-4 mb-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="text-muted small fw-bold text-uppercase">Current Outstanding</span>
+                    <h3 class="fw-bold text-danger mb-0 mt-1">₹ {{ outstanding_balance|floatformat:2 }}</h3>
+                </div>
+                <div class="p-2.5 bg-danger-subtle text-danger rounded-3">
+                    <i class="bi bi-wallet2 fs-4"></i>
+                </div>
+            </div>
+            
+            {% if credit_limit > 0 %}
+            <div class="mt-3">
+                <div class="d-flex justify-content-between small text-muted mb-1">
+                    <span>Credit Utilized</span>
+                    <span class="fw-semibold {% if credit_used_pct > 90 %}text-danger{% elif credit_used_pct > 70 %}text-warning{% else %}text-success{% endif %}">
+                        {{ credit_used_pct }}% of ₹{{ credit_limit|floatformat:0 }}
+                    </span>
+                </div>
+                <div class="progress" style="height: 7px;">
+                    <div class="progress-bar {% if credit_used_pct > 90 %}bg-danger{% elif credit_used_pct > 70 %}bg-warning{% else %}bg-success{% endif %}" 
+                         role="progressbar" style="width: {{ credit_used_pct }}%;"></div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="mt-3 pt-3 border-top d-flex justify-content-between text-muted small">
+                <span>Opening Balance:</span>
+                <span class="fw-semibold text-dark">₹ {{ customer.opening_balance|floatformat:2 }}</span>
+            </div>
+        </div>
+
+        <!-- Turnover & Sales Statistics Widget -->
+        <div class="stat-card-widget p-4 mb-4 shadow-sm">
+            <h6 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-bar-chart-line text-primary"></i> Sales & Invoicing Overview
+            </h6>
+            <div class="row g-2 text-center mb-3">
+                <div class="col-6">
+                    <div class="p-2.5 bg-light rounded-3">
+                        <span class="text-muted small d-block">Total Bills</span>
+                        <span class="fw-bold fs-5 text-dark">{{ total_invoices_count }}</span>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-2.5 bg-light rounded-3">
+                        <span class="text-muted small d-block">Total Turnover</span>
+                        <span class="fw-bold fs-5 text-primary">₹ {{ total_sales|floatformat:0 }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aging Analysis (Marg Style) -->
+            <div class="border rounded-3 p-3 bg-light-subtle">
+                <span class="text-muted small fw-bold text-uppercase d-block mb-2">
+                    <i class="bi bi-clock-history"></i> Bill Aging (समय अनुसार बकाया)
+                </span>
+                <div class="d-flex justify-content-between small py-1 border-bottom">
+                    <span class="text-muted">0 - 30 Days</span>
+                    <span class="fw-semibold text-success">₹ {{ sales_0_30|floatformat:2 }}</span>
+                </div>
+                <div class="d-flex justify-content-between small py-1 border-bottom">
+                    <span class="text-muted">31 - 60 Days</span>
+                    <span class="fw-semibold text-warning">₹ {{ sales_31_60|floatformat:2 }}</span>
+                </div>
+                <div class="d-flex justify-content-between small py-1">
+                    <span class="text-muted">> 60 Days</span>
+                    <span class="fw-semibold text-danger">₹ {{ sales_60_plus|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Invoices Widget -->
+        <div class="stat-card-widget p-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-receipt-cutoff text-info"></i> Recent Invoices
+                </h6>
+                <a href="{% url 'invoice_create' %}?customer={{ customer.id }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-circle"></i> New Bill
+                </a>
+            </div>
+            <div class="list-group list-group-flush small">
+                {% for inv in recent_invoices %}
+                <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{% url 'invoice_print' inv.id %}" target="_blank" class="fw-bold text-decoration-none text-primary">
+                            {{ inv.invoice_number }}
+                        </a>
+                        <span class="text-muted d-block" style="font-size: 0.75rem;">{{ inv.invoice_date|date:"d M Y" }}</span>
+                    </div>
+                    <span class="fw-bold text-dark">₹ {{ inv.net_amount|floatformat:2 }}</span>
+                </div>
+                {% empty %}
+                <div class="text-center py-3 text-muted">No invoices yet for this customer.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

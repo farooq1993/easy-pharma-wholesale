@@ -127,13 +127,74 @@ def po_create(request):
 @login_required
 def purchase_entry_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
+    from wholesaleApp.utils.list_helpers import paginate_queryset, invalidate_list_cache
+    from django.db.models import Q, Sum
+
     if not (has_feature_access(request.user, 'purchase_view') or has_feature_access(request.user, 'purchase_create')):
         messages.error(request, "Access Denied: You do not have permission to view Purchase Entries.")
         return redirect('home')
-        
-    entries = PurchaseEntry.objects.all().select_related('supplier')
+
+    # Query Parameters
+    q = request.GET.get('q', '').strip()
+    from_date = request.GET.get('from_date', '').strip()
+    to_date = request.GET.get('to_date', '').strip()
+    payment_type = request.GET.get('payment_type', '').strip()
+    supplier_id = request.GET.get('supplier', '').strip()
+
+    # Base Queryset
+    entries = PurchaseEntry.objects.all().select_related('supplier', 'created_by')
+
+    # Search filter
+    if q:
+        entries = entries.filter(
+            Q(invoice_number__icontains=q) |
+            Q(supplier__name__icontains=q)
+        )
+
+    # Date Range filter
+    if from_date:
+        entries = entries.filter(invoice_date__gte=from_date)
+    if to_date:
+        entries = entries.filter(invoice_date__lte=to_date)
+
+    # Payment Type filter
+    if payment_type in ['Cash', 'Credit']:
+        entries = entries.filter(payment_type=payment_type)
+
+    # Supplier filter
+    if supplier_id and supplier_id.isdigit():
+        entries = entries.filter(supplier_id=int(supplier_id))
+
+    # Aggregates across filtered dataset
+    summary = entries.aggregate(
+        total_gross=Sum('gross_amount'),
+        total_discount=Sum('discount_amount'),
+        total_gst=Sum('gst_amount'),
+        total_net=Sum('net_amount'),
+    )
+
+    # Sorting
+    entries = entries.order_by('-invoice_date', '-id')
+
+    # Pagination
+    page_data = paginate_queryset(request, entries, default_per_page=25)
+
+    # Filter Suppliers dropdown list
+    filter_suppliers = SupplierMaster.objects.filter(is_deleted=False).only('id', 'name').order_by('name')
+
     context = {
-        'entries': entries,
+        'page_obj': page_data['page_obj'],
+        'paginator': page_data['paginator'],
+        'extra_query': page_data['extra_query'],
+        'per_page': page_data['per_page'],
+        'total_count': page_data['total_count'],
+        'summary': summary,
+        'filter_suppliers': filter_suppliers,
+        'q': q,
+        'from_date': from_date,
+        'to_date': to_date,
+        'payment_type': payment_type,
+        'supplier_id': supplier_id,
         'page_title': 'Purchase Entries (Supplier Bills)',
         'user_perms': get_user_permissions_context(request.user)
     }
@@ -152,7 +213,19 @@ def purchase_entry_create(request):
     
     if request.method == 'POST':
         supplier_id = request.POST.get('supplier')
-        invoice_number = request.POST.get('invoice_number')
+        invoice_number = (request.POST.get('invoice_number') or '').strip()
+        if not invoice_number:
+            messages.error(request, "Validation Error: Invoice number is required.")
+            return redirect('purchase_entry_create')
+            
+        existing_invoice = PurchaseEntry.objects.filter(invoice_number__iexact=invoice_number).first()
+        if existing_invoice:
+            messages.error(
+                request,
+                f"Duplicate Invoice Error: Invoice No. '{invoice_number}' already exists in the system! (Recorded on {existing_invoice.invoice_date.strftime('%d-%m-%Y')} from supplier '{existing_invoice.supplier.name}'). Duplicate invoice numbers are not allowed."
+            )
+            return redirect('purchase_entry_create')
+
         invoice_date = request.POST.get('invoice_date')
         from wholesaleApp.models.financial_year import is_date_in_closed_fy
         if is_date_in_closed_fy(invoice_date):
@@ -185,6 +258,7 @@ def purchase_entry_create(request):
         p_rates = request.POST.getlist('purchase_rate[]')
         s_rates = request.POST.getlist('sale_rate[]')
         wholesale_rates = request.POST.getlist('wholesale_rate[]')
+        rate_cs = request.POST.getlist('rate_c[]')
         quantities = request.POST.getlist('quantity[]')
         free_quantities = request.POST.getlist('free_quantity[]')
         discounts = request.POST.getlist('discount_percentage[]')
@@ -198,6 +272,7 @@ def purchase_entry_create(request):
             pr_val = Decimal(p_rates[i])
             sr_val = Decimal(s_rates[i])
             wr_val = Decimal(wholesale_rates[i]) if (i < len(wholesale_rates) and wholesale_rates[i]) else Decimal('0.00')
+            rc_val = Decimal(rate_cs[i]) if (i < len(rate_cs) and rate_cs[i]) else Decimal('0.00')
             qty = int(quantities[i])
             free_qty = int(free_quantities[i]) if free_quantities[i] else 0
             disc_pct = Decimal(discounts[i]) if discounts[i] else Decimal('0.00')
@@ -213,6 +288,7 @@ def purchase_entry_create(request):
                 purchase_rate=pr_val,
                 sale_rate=sr_val,
                 wholesale_rate=wr_val,
+                rate_c=rc_val,
                 quantity=qty,
                 free_quantity=free_qty,
                 discount_percentage=disc_pct,
@@ -227,11 +303,11 @@ def purchase_entry_create(request):
                 mrp=mrp_val,
                 purchase_rate=pr_val,
                 sale_rate=sr_val,
-                defaults={'quantity': 0, 'wholesale_rate': wr_val}
+                defaults={'quantity': 0, 'wholesale_rate': wr_val, 'rate_c': rc_val}
             )
             batch.quantity += (qty + free_qty)
-            if not created:
-                batch.wholesale_rate = wr_val
+            batch.wholesale_rate = wr_val
+            batch.rate_c = rc_val
             batch.save()
             
         # 3. Update Supplier balance if Credit type
@@ -246,9 +322,11 @@ def purchase_entry_create(request):
             object_id=entry.id,
             description=f"Created Purchase Entry #{entry.invoice_number} from supplier {entry.supplier.name} for Net Amount ₹{entry.net_amount}"
         )
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('purchase_entries')
             
-        messages.success(request, f"Purchase Entry recorded successfully! Stock added for {len(product_ids)} items.")
-        return redirect(f'/purchase/entry/create/?saved_id={entry.id}')
+        messages.success(request, f"Purchase Entry #{entry.invoice_number} recorded successfully! Stock added for {len(product_ids)} items.")
+        return redirect('purchase_entry_list')
         
     context = {
         'suppliers': suppliers,
@@ -293,7 +371,19 @@ def purchase_entry_edit(request, pk):
     
     if request.method == 'POST':
         supplier_id = request.POST.get('supplier')
-        invoice_number = request.POST.get('invoice_number')
+        invoice_number = (request.POST.get('invoice_number') or '').strip()
+        if not invoice_number:
+            messages.error(request, "Validation Error: Invoice number is required.")
+            return redirect('purchase_entry_edit', pk=entry.pk)
+            
+        existing_invoice = PurchaseEntry.objects.filter(invoice_number__iexact=invoice_number).exclude(pk=entry.pk).first()
+        if existing_invoice:
+            messages.error(
+                request,
+                f"Duplicate Invoice Error: Invoice No. '{invoice_number}' is already used by another Purchase Entry (#{existing_invoice.id}, Supplier: '{existing_invoice.supplier.name}', Date: {existing_invoice.invoice_date.strftime('%d-%m-%Y')}). Duplicate invoice numbers are not allowed."
+            )
+            return redirect('purchase_entry_edit', pk=entry.pk)
+
         invoice_date = request.POST.get('invoice_date')
         if is_date_in_closed_fy(invoice_date):
             messages.error(request, "Action Denied: The selected invoice date falls within a closed Financial Year.")
@@ -350,6 +440,7 @@ def purchase_entry_edit(request, pk):
         p_rates = request.POST.getlist('purchase_rate[]')
         s_rates = request.POST.getlist('sale_rate[]')
         wholesale_rates = request.POST.getlist('wholesale_rate[]')
+        rate_cs = request.POST.getlist('rate_c[]')
         quantities = request.POST.getlist('quantity[]')
         free_quantities = request.POST.getlist('free_quantity[]')
         discounts = request.POST.getlist('discount_percentage[]')
@@ -363,6 +454,7 @@ def purchase_entry_edit(request, pk):
             pr_val = Decimal(p_rates[i])
             sr_val = Decimal(s_rates[i])
             wr_val = Decimal(wholesale_rates[i]) if (i < len(wholesale_rates) and wholesale_rates[i]) else Decimal('0.00')
+            rc_val = Decimal(rate_cs[i]) if (i < len(rate_cs) and rate_cs[i]) else Decimal('0.00')
             qty = int(quantities[i])
             free_qty = int(free_quantities[i]) if free_quantities[i] else 0
             disc_pct = Decimal(discounts[i]) if discounts[i] else Decimal('0.00')
@@ -378,6 +470,7 @@ def purchase_entry_edit(request, pk):
                 purchase_rate=pr_val,
                 sale_rate=sr_val,
                 wholesale_rate=wr_val,
+                rate_c=rc_val,
                 quantity=qty,
                 free_quantity=free_qty,
                 discount_percentage=disc_pct,
@@ -392,11 +485,11 @@ def purchase_entry_edit(request, pk):
                 mrp=mrp_val,
                 purchase_rate=pr_val,
                 sale_rate=sr_val,
-                defaults={'quantity': 0, 'wholesale_rate': wr_val}
+                defaults={'quantity': 0, 'wholesale_rate': wr_val, 'rate_c': rc_val}
             )
             batch.quantity += (qty + free_qty)
-            if not created:
-                batch.wholesale_rate = wr_val
+            batch.wholesale_rate = wr_val
+            batch.rate_c = rc_val
             batch.save()
             
         # 6. Update Supplier balance if new type is Credit
@@ -411,6 +504,9 @@ def purchase_entry_edit(request, pk):
             object_id=entry.id,
             description=f"Updated Purchase Entry #{entry.invoice_number} for Net Amount ₹{entry.net_amount}"
         )
+            
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('purchase_entries')
             
         messages.success(request, f"Purchase Entry {entry.invoice_number} updated successfully!")
         return redirect('purchase_entry_list')
@@ -468,6 +564,10 @@ def purchase_entry_delete(request, pk):
     )
         
     entry.delete()
+
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('purchase_entries')
+
     messages.success(request, f"Purchase Entry {entry.invoice_number} deleted and stock reverted successfully!")
     return redirect('purchase_entry_list')
 
@@ -927,5 +1027,38 @@ def scan_purchase_bill(request):
         'missing_count': missing_count,
         'total_scanned_count': len(enhanced_items)
     })
+
+
+@login_required
+def check_purchase_invoice_number(request):
+    """
+    AJAX endpoint for real-time duplicate check of Supplier Invoice Number for current tenant.
+    Query params: ?invoice_number=INV-001&entry_id=123 (optional)
+    """
+    invoice_number = (request.GET.get('invoice_number') or '').strip()
+    entry_id = (request.GET.get('entry_id') or '').strip()
+
+    if not invoice_number:
+        return JsonResponse({'exists': False})
+
+    qs = PurchaseEntry.objects.filter(invoice_number__iexact=invoice_number)
+    if entry_id and entry_id.isdigit():
+        qs = qs.exclude(id=int(entry_id))
+
+    existing = qs.select_related('supplier').first()
+    if existing:
+        supplier_name = existing.supplier.name if existing.supplier else 'Unknown Supplier'
+        inv_date = existing.invoice_date.strftime('%d-%m-%Y') if existing.invoice_date else ''
+        return JsonResponse({
+            'exists': True,
+            'invoice_number': existing.invoice_number,
+            'supplier_name': supplier_name,
+            'invoice_date': inv_date,
+            'net_amount': f"{existing.net_amount:.2f}",
+            'entry_id': existing.id,
+            'message': f"Invoice No. '{existing.invoice_number}' already exists! Recorded for supplier '{supplier_name}' on {inv_date} (Net: ₹{existing.net_amount}). Duplicate invoice numbers are not allowed."
+        })
+
+    return JsonResponse({'exists': False})
 
 

@@ -11,12 +11,36 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def supplier_list(request):
+    from wholesaleApp.views.security_helpers import has_feature_access
+    from wholesaleApp.utils.list_helpers import paginate_queryset, invalidate_list_cache
+    from django.db.models import Q
+
     if not has_feature_access(request.user, 'supplier_view'):
         messages.error(request, "Access Denied: You do not have permission to view Supplier Master.")
         return redirect('home')
+
+    q = request.GET.get('q', '').strip()
     suppliers = SupplierMaster.objects.filter(is_deleted=False)
+
+    if q:
+        suppliers = suppliers.filter(
+            Q(name__icontains=q) |
+            Q(email__icontains=q) |
+            Q(mobile__icontains=q) |
+            Q(city__icontains=q) |
+            Q(gstin__icontains=q)
+        )
+
+    suppliers = suppliers.order_by('name')
+    page_data = paginate_queryset(request, suppliers, default_per_page=25)
+
     context = {
-        'suppliers': suppliers,
+        'page_obj': page_data['page_obj'],
+        'paginator': page_data['paginator'],
+        'extra_query': page_data['extra_query'],
+        'per_page': page_data['per_page'],
+        'total_count': page_data['total_count'],
+        'q': q,
         'page_title': 'Supplier Master'
     }
     return render(request, 'suppliers/supplier_list.html', context)
@@ -185,6 +209,8 @@ def supplier_create(request):
         )
         supplier.save()
         log_activity(request, "CREATE", "SupplierMaster", supplier.name, object_id=supplier.id, description=f"Supplier '{supplier.name}' (Mobile: {supplier.mobile}) created.")
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('suppliers')
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
             return JsonResponse({
@@ -229,6 +255,8 @@ def supplier_edit(request, pk):
         supplier.is_out_state = request.POST.get('is_out_state') == 'on' or request.POST.get('is_out_state') == 'true'
         supplier.save()
         log_activity(request, "UPDATE", "SupplierMaster", supplier.name, object_id=supplier.id, description=f"Supplier '{supplier.name}' updated.")
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('suppliers')
         messages.success(request, 'Supplier updated successfully!')
         return redirect('supplier_list')
     
@@ -244,5 +272,7 @@ def supplier_delete(request, pk):
     supplier.is_deleted = True
     supplier.save()
     log_activity(request, "DELETE", "SupplierMaster", supplier.name, object_id=supplier.id, description=f"Supplier '{supplier.name}' soft deleted.")
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('suppliers')
     messages.success(request, 'Supplier deleted successfully!')
     return redirect('supplier_list')

@@ -99,15 +99,25 @@
     }
 </style>
 
+<script>
+    // Automatically collapse sidebar when purchase edit page opens for wide-screen entry
+    document.body.classList.add("sidebar-collapsed");
+</script>
+
 <div class="container-fluid px-0">
     <form method="POST" id="entryForm">
         {% csrf_token %}
 
         <!-- Top Header Action Buttons -->
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0 text-primary fw-bold"><i class="bi bi-pencil-square me-2"></i> {{ page_title }}</h5>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-outline-secondary rounded-pill btn-sm px-3 fw-semibold shadow-sm" onclick="toggleSidebar()" title="Toggle Sidebar (Expand / Collapse Menu)">
+                    <i class="bi bi-list fs-6 align-middle me-1"></i> <span class="d-none d-sm-inline">Menu</span>
+                </button>
+                <h5 class="mb-0 text-primary fw-bold"><i class="bi bi-pencil-square me-2"></i> {{ page_title }}</h5>
+            </div>
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill small fw-semibold">
-                <i class="bi bi-keyboard me-1"></i> F2: Focus Entry | Enter: Add Item | F4: Quick Modal
+                <i class="bi bi-keyboard me-1"></i> F2: Focus Entry | F3: Rates & Margins | Enter: Add Item | F4: Quick Modal
             </span>
         </div>
 
@@ -138,7 +148,8 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label text-muted small fw-bold mb-1">INVOICE NO. <span class="text-danger">*</span></label>
-                                <input type="text" name="invoice_number" id="invoiceNumber" class="form-control billing-input" value="{{ entry.invoice_number }}" required>
+                                <input type="text" name="invoice_number" id="invoiceNumber" class="form-control billing-input" value="{{ entry.invoice_number }}" required autocomplete="off">
+                                <div id="invoiceNumberAlert" class="mt-1 small d-none"></div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label text-muted small fw-bold mb-1">DATE <span class="text-danger">*</span></label>
@@ -175,6 +186,9 @@
                                 <button type="button" class="btn btn-sm btn-outline-warning rounded-pill px-3 fw-semibold" onclick="toggleHistoryDrawer()">
                                     <i class="bi bi-clock-history me-1"></i> History
                                 </button>
+                                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3 fw-semibold" onclick="openBatchPricingModal()" title="Batch Pricing & Margin Intelligence (F3)">
+                                    <i class="bi bi-calculator me-1"></i> Rates & Margins (F3)
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" onclick="openProductModal()">
                                     <i class="bi bi-pencil me-1"></i> Edit Product
                                 </button>
@@ -183,49 +197,53 @@
                         </div>
 
                         <!-- Single Horizontal Entry Bar -->
-                        <div class="row g-2 align-items-end p-3 bg-light rounded-4 border">
-                            <div class="col-md-2">
+                        <div class="d-flex flex-nowrap align-items-end gap-2 p-3 bg-light rounded-4 border overflow-x-auto">
+                            <div style="min-width: 110px; flex: 1.2;">
                                 <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">BATCH NO.</label>
                                 <input type="text" id="entryBatch" class="form-control billing-input text-center" placeholder="e.g. B2401">
                             </div>
-                            <div class="col-md-1">
+                            <div style="min-width: 70px; flex: 0.8;">
                                 <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">EXPIRY</label>
                                 <input type="text" id="entryExpiry" class="form-control billing-input text-center" placeholder="MM/YY" oninput="formatExpiryMask(this)">
                             </div>
-                            <div class="col-md-1">
+                            <div style="min-width: 65px; flex: 0.7;">
                                 <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">QTY</label>
                                 <input type="number" id="entryQty" class="form-control billing-input text-center" value="1" min="1" oninput="recalcEntryBar()">
                             </div>
-                            <div class="col-md-1">
+                            <div style="min-width: 60px; flex: 0.6;">
                                 <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">FREE</label>
                                 <input type="number" id="entryFree" class="form-control billing-input text-center" value="0" min="0">
                             </div>
-                            <div class="col-md-1">
+                            <div style="min-width: 85px; flex: 0.9;">
                                 <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">P. RATE(₹)</label>
                                 <input type="number" id="entryPrate" class="form-control billing-input text-end" placeholder="0.00" step="0.01" min="0" oninput="recalcEntryBar()">
                             </div>
-                            <div class="col-md-1">
+                            <div style="min-width: 65px; flex: 0.7;">
                                 <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">DISC %</label>
                                 <input type="number" id="entryDiscPct" class="form-control billing-input text-center" value="0" step="0.01" min="0" max="100" oninput="recalcEntryBar()">
                             </div>
-                            <div class="col-md-1">
+                            <div style="min-width: 65px; flex: 0.6;">
                                 <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;" title="GST Rate set via Product Master">GST %</label>
                                 <input type="number" id="entryGstPct" class="form-control billing-input text-center bg-secondary-subtle fw-semibold" value="12" step="0.01" min="0" readonly tabindex="-1">
                             </div>
-                            <div class="col-md-1">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;" title="Wholesale / Retailer Rate">W. RATE(₹)</label>
-                                <input type="number" id="entryWrate" class="form-control billing-input text-end" placeholder="0.00" step="0.01" min="0">
+                            <div style="min-width: 85px; flex: 0.9;">
+                                <label class="form-label text-muted small fw-bold mb-1 text-primary" style="font-size: 0.72rem;" title="Standard Sale Rate (Rate A)">S. RATE(₹)</label>
+                                <input type="number" id="entrySrate" class="form-control billing-input text-end fw-semibold border-primary-subtle" placeholder="0.00" step="0.01" min="0">
                             </div>
-                            <div class="col-md-1">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;" title="Chemist / Sale Rate">S. RATE(₹)</label>
-                                <input type="number" id="entrySrate" class="form-control billing-input text-end" placeholder="0.00" step="0.01" min="0">
+                            <div style="min-width: 85px; flex: 0.9;">
+                                <label class="form-label text-muted small fw-bold mb-1 text-info" style="font-size: 0.72rem;" title="Wholesale Rate (Rate B)">W. RATE(₹)</label>
+                                <input type="number" id="entryWrate" class="form-control billing-input text-end fw-semibold border-info-subtle" placeholder="0.00" step="0.01" min="0">
                             </div>
-                            <div class="col-md-1">
+                            <div style="min-width: 85px; flex: 0.9;">
+                                <label class="form-label text-muted small fw-bold mb-1 text-success" style="font-size: 0.72rem;" title="Special Rate (Rate C)">RATE C(₹)</label>
+                                <input type="number" id="entryRateC" class="form-control billing-input text-end fw-semibold border-success-subtle" placeholder="0.00" step="0.01" min="0">
+                            </div>
+                            <div style="min-width: 85px; flex: 0.9;">
                                 <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">MRP (₹)</label>
                                 <input type="number" id="entryMrp" class="form-control billing-input text-end" placeholder="0.00" step="0.01" min="0" oninput="onMrpInput()">
                             </div>
-                            <div class="col-md-1 d-grid">
-                                <button type="button" id="btnAddItem" class="btn btn-purple rounded-3 fw-bold py-2" onclick="addEntryBarToTable()">
+                            <div style="min-width: 80px; flex: 0.8;">
+                                <button type="button" id="btnAddItem" class="btn btn-purple rounded-3 fw-bold w-100 py-2" onclick="addEntryBarToTable()">
                                     <i class="bi bi-plus-lg"></i> Add
                                 </button>
                             </div>
@@ -281,20 +299,21 @@
                             <table class="table table-hover align-middle border text-center mb-0" id="invoiceTable" style="min-width: 1100px;">
                                 <thead class="table-light text-muted small fw-bold text-uppercase">
                                     <tr>
-                                        <th class="text-start" style="width: 16%;">PRODUCT</th>
+                                        <th class="text-start" style="width: 14%;">PRODUCT</th>
                                         <th style="width: 8%;">BATCH</th>
                                         <th style="width: 7%;">EXPIRY</th>
                                         <th style="width: 5%;">QTY</th>
                                         <th style="width: 4%;">FREE</th>
                                         <th style="width: 5%;">GST %</th>
-                                        <th style="width: 7%;">PUR RATE</th>
+                                        <th style="width: 6%;">PUR RATE</th>
                                         <th style="width: 5%;">DISC %</th>
-                                        <th style="width: 8%;" title="Taxable Amount = (Qty * Pur Rate) - Discount">AMOUNT</th>
-                                        <th style="width: 7%;">W. RATE</th>
-                                        <th style="width: 7%;">S. RATE</th>
-                                        <th style="width: 7%;">MRP</th>
-                                        <th style="width: 8%;" title="Net Total = Amount + GST">TOTAL</th>
-                                        <th style="width: 6%;">ACTIONS</th>
+                                        <th style="width: 7%;" title="Taxable Amount = (Qty * Pur Rate) - Discount">AMOUNT</th>
+                                        <th style="width: 6%;">S. RATE</th>
+                                        <th style="width: 6%;">W. RATE</th>
+                                        <th style="width: 6%;">RATE C</th>
+                                        <th style="width: 6%;">MRP</th>
+                                        <th style="width: 7%;" title="Net Total = Amount + GST">TOTAL</th>
+                                        <th style="width: 8%;">ACTIONS</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -375,7 +394,7 @@
 
                         <!-- Submission Actions -->
                         <div class="d-grid gap-2">
-                            <button type="submit" id="submitBtn" class="btn btn-success btn-lg rounded-pill fw-bold py-3 shadow">
+                            <button type="button" id="submitBtn" class="btn btn-success btn-lg rounded-pill fw-bold py-3 shadow" onclick="openSaveConfirmModal()">
                                 <i class="bi bi-check-circle-fill me-2"></i> Update Purchase
                             </button>
                             <a href="{% url 'purchase_entry_list' %}" class="btn btn-outline-secondary rounded-pill py-2">Cancel</a>
@@ -385,6 +404,240 @@
             </div>
         </div>
     </form>
+</div>
+
+<!-- ==================== SAVE CONFIRMATION MODAL (SAVE OR CANCEL) ==================== -->
+<div class="modal fade" id="saveConfirmModal" tabindex="-1" aria-labelledby="saveConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <div class="modal-header text-white border-0 py-3" style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-white bg-opacity-25 p-2 d-flex align-items-center justify-content-center" style="width:36px;height:36px;">
+                        <i class="bi bi-check2-circle fs-5"></i>
+                    </div>
+                    <h5 class="modal-title fw-bold mb-0" id="saveConfirmModalLabel">Update Purchase Entry?</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <p class="text-muted small mb-3">Please confirm the purchase bill details before saving changes:</p>
+                
+                <div class="card border-0 shadow-sm rounded-3 bg-white p-3 mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                        <span class="text-muted small">Supplier:</span>
+                        <strong class="text-dark" id="confirmSupplierName">-</strong>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                        <span class="text-muted small">Invoice No:</span>
+                        <strong class="text-primary font-monospace" id="confirmInvoiceNumber">-</strong>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                        <span class="text-muted small">Invoice Date:</span>
+                        <span class="fw-semibold text-dark" id="confirmInvoiceDate">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                        <span class="text-muted small">Total Items:</span>
+                        <span class="badge bg-primary-subtle text-primary fw-bold" id="confirmItemCount">0 items</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center pt-1">
+                        <span class="fw-bold text-dark fs-6">Grand Total:</span>
+                        <strong class="text-success fs-5">₹<span id="confirmGrandTotal">0.00</span></strong>
+                    </div>
+                </div>
+
+                <div class="alert alert-info py-2 px-3 small rounded-3 mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle-fill fs-6 text-info"></i>
+                    <span>Stock batches and supplier ledger will be updated immediately.</span>
+                </div>
+            </div>
+            <div class="modal-footer bg-white border-top p-3 d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i> Cancel
+                </button>
+                <button type="button" id="btnConfirmSave" class="btn btn-success rounded-pill px-5 fw-bold shadow" onclick="submitEntryFormNow()">
+                    <i class="bi bi-check-circle-fill me-1"></i> Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== BATCH PRICING & MARGIN INTELLIGENCE MODAL (EASYPHARMA PROPRIETARY UI) ==================== -->
+<div class="modal fade" id="batchPricingModal" tabindex="-1" aria-labelledby="batchPricingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <!-- Header with modern EasyPharma indigo gradient -->
+            <div class="modal-header text-white border-0 py-3" style="background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-white bg-opacity-25 p-2 d-flex align-items-center justify-content-center" style="width:38px;height:38px;">
+                        <i class="bi bi-calculator fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="batchPricingModalLabel">Batch Pricing & Margin Setup</h5>
+                        <small class="text-white-50">Multi-Tier Selling Rates & Deal Cost Intelligence</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-4 bg-light">
+                <!-- Product Metadata Strip -->
+                <div class="card border-0 shadow-sm rounded-3 mb-3">
+                    <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-2 bg-white rounded-3">
+                        <div>
+                            <span class="text-muted small fw-semibold text-uppercase">Medicine / Product:</span>
+                            <div class="fw-bold fs-6 text-dark" id="modalProdTitle">Select a medicine first</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary-subtle text-secondary px-3 py-2 rounded-pill fw-semibold" id="modalPackBadge">Pack: -</span>
+                            <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill fw-semibold" id="modalGstBadge">GST: 0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deal & Effective Cost Analysis -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                            <div class="card-body p-3">
+                                <span class="text-muted small fw-bold text-uppercase d-block mb-1">Purchase Cost</span>
+                                <div class="fs-5 fw-bold text-dark mb-1">₹<span id="modalPurRateDisp">0.00</span></div>
+                                <span class="badge bg-light text-muted border small" id="modalDiscBadge">Disc: 0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm rounded-3 h-100 bg-white">
+                            <div class="card-body p-3">
+                                <span class="text-muted small fw-bold text-uppercase d-block mb-1">Scheme Deal</span>
+                                <div class="fs-5 fw-bold text-primary mb-1"><span id="modalDealDisp">0 + 0</span></div>
+                                <span class="badge bg-primary-subtle text-primary small" id="modalDealBonusBadge">Deal Bonus: 0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm rounded-3 h-100 border-start border-4 border-success bg-white">
+                            <div class="card-body p-3">
+                                <span class="text-muted small fw-bold text-uppercase d-block mb-1">True Effective Cost</span>
+                                <div class="fs-5 fw-bold text-success mb-1">₹<span id="modalEffectiveCostDisp">0.00</span></div>
+                                <span class="text-muted small" style="font-size: 0.75rem;">Per unit after Free & Disc</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3 Selling Rates + MRP Cards -->
+                <h6 class="fw-bold text-dark text-uppercase small tracking-wider mb-2">
+                    <i class="bi bi-tag-fill me-1 text-primary"></i> Multi-Tier Selling Rates Definition
+                </h6>
+                <div class="row g-3 mb-3">
+                    <!-- Rate A (Standard Sale Rate) -->
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm rounded-3 bg-white h-100 p-2">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label text-primary fw-bold small mb-0">Rate A (S.Rate)</label>
+                                    <span class="badge bg-primary-subtle text-primary" style="font-size:0.68rem;">Default</span>
+                                </div>
+                                <div class="input-group input-group-sm mb-2">
+                                    <span class="input-group-text bg-light border-end-0">₹</span>
+                                    <input type="number" id="modalRateA" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center small">
+                                    <span class="text-muted" style="font-size:0.75rem;">Margin:</span>
+                                    <span class="badge bg-success-subtle text-success fw-bold" id="marginRateA">0.0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rate B (Wholesale Rate) -->
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm rounded-3 bg-white h-100 p-2">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label text-info fw-bold small mb-0">Rate B (W.Rate)</label>
+                                    <span class="badge bg-info-subtle text-info" style="font-size:0.68rem;">Bulk/WS</span>
+                                </div>
+                                <div class="input-group input-group-sm mb-2">
+                                    <span class="input-group-text bg-light border-end-0">₹</span>
+                                    <input type="number" id="modalRateB" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center small">
+                                    <span class="text-muted" style="font-size:0.75rem;">Margin:</span>
+                                    <span class="badge bg-info-subtle text-info fw-bold" id="marginRateB">0.0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rate C (Special Rate) -->
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm rounded-3 bg-white h-100 p-2">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label text-success fw-bold small mb-0">Rate C (Spl)</label>
+                                    <span class="badge bg-success-subtle text-success" style="font-size:0.68rem;">Tier 3</span>
+                                </div>
+                                <div class="input-group input-group-sm mb-2">
+                                    <span class="input-group-text bg-light border-end-0">₹</span>
+                                    <input type="number" id="modalRateC" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center small">
+                                    <span class="text-muted" style="font-size:0.75rem;">Margin:</span>
+                                    <span class="badge bg-success-subtle text-success fw-bold" id="marginRateC">0.0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MRP Card -->
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm rounded-3 bg-white h-100 p-2">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label text-dark fw-bold small mb-0">M.R.P.</label>
+                                    <span class="badge bg-dark-subtle text-dark" style="font-size:0.68rem;">Retail</span>
+                                </div>
+                                <div class="input-group input-group-sm mb-2">
+                                    <span class="input-group-text bg-light border-end-0">₹</span>
+                                    <input type="number" id="modalMrp" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center small">
+                                    <span class="text-muted" style="font-size:0.75rem;">Retailer:</span>
+                                    <span class="badge bg-dark-subtle text-dark fw-bold" id="marginRetailer">0.0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Last Purchase Benchmark Card -->
+                <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-clock-history text-warning fs-5"></i>
+                            <div>
+                                <span class="small fw-bold text-dark d-block">Historical Benchmark (Last Purchase)</span>
+                                <span class="text-muted small" id="modalLastPurText">Loading historical rates...</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="applyLastRatesToModal()" id="btnApplyLastRates" style="display:none;">
+                            <i class="bi bi-arrow-repeat me-1"></i> Copy Past Rates
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="modal-footer bg-white border-top p-3 d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel (Esc)</button>
+                <button type="button" class="btn btn-success rounded-pill px-4 fw-bold shadow-sm" onclick="applyBatchPricingToEntry()">
+                    <i class="bi bi-check-circle-fill me-1"></i> Apply Rates & Continue
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ==================== QUICK PRODUCT ADD / EDIT MODAL ==================== -->
@@ -458,6 +711,7 @@
             purchaseRate: "{{ item.purchase_rate }}",
             saleRate: "{{ item.sale_rate }}",
             wholesaleRate: "{{ item.wholesale_rate }}",
+            rateC: "{{ item.rate_c|default:'0.00' }}",
             quantity: "{{ item.quantity }}",
             freeQuantity: "{{ item.free_quantity }}",
             discountPercentage: "{{ item.discount_percentage }}",
@@ -504,6 +758,7 @@
         const mrp = parseFloat(item.mrp) || 0;
         const srate = parseFloat(item.saleRate) || 0;
         const wrate = parseFloat(item.wholesaleRate) || 0;
+        const rateC = parseFloat(item.rateC) || 0;
 
         const baseTaxable = qty * prate;
         const discAmt = baseTaxable * (discPct / 100);
@@ -531,8 +786,9 @@
                 <td>₹${prate.toFixed(2)}</td>
                 <td>${discPct}%</td>
                 <td class="fw-semibold">₹${taxableAfterDisc.toFixed(2)}</td>
-                <td>₹${wrate.toFixed(2)}</td>
-                <td>₹${srate.toFixed(2)}</td>
+                <td class="fw-semibold text-primary">₹${srate.toFixed(2)}</td>
+                <td class="fw-semibold text-info">₹${wrate.toFixed(2)}</td>
+                <td class="fw-semibold text-success">₹${rateC.toFixed(2)}</td>
                 <td>₹${mrp.toFixed(2)}</td>
                 <td class="fw-bold text-success">₹${lineTotal.toFixed(2)}</td>
                 <td class="text-nowrap">
@@ -540,6 +796,7 @@
                     <input type="hidden" name="purchase_rate[]" value="${prate.toFixed(2)}">
                     <input type="hidden" name="sale_rate[]" value="${srate.toFixed(2)}">
                     <input type="hidden" name="wholesale_rate[]" value="${wrate.toFixed(2)}">
+                    <input type="hidden" name="rate_c[]" value="${rateC.toFixed(2)}">
                     <input type="hidden" name="quantity[]" value="${qty}">
                     <input type="hidden" name="free_quantity[]" value="${freeQty}">
                     <input type="hidden" name="discount_percentage[]" value="${discPct.toFixed(2)}">
@@ -701,13 +958,17 @@
         const prate = parseFloat(document.getElementById("entryPrate").value) || 0;
         const wrateEl = document.getElementById("entryWrate");
         const srateEl = document.getElementById("entrySrate");
+        const rateCEl = document.getElementById("entryRateC");
 
         if (prate > 0) {
+            if (!srateEl.value || parseFloat(srateEl.value) === 0) {
+                srateEl.value = (prate * 1.15).toFixed(2);
+            }
             if (!wrateEl.value || parseFloat(wrateEl.value) === 0) {
                 wrateEl.value = (prate * 1.05).toFixed(2);
             }
-            if (!srateEl.value || parseFloat(srateEl.value) === 0) {
-                srateEl.value = (prate * 1.15).toFixed(2);
+            if (!rateCEl.value || parseFloat(rateCEl.value) === 0) {
+                rateCEl.value = (prate * 1.10).toFixed(2);
             }
         }
     }
@@ -764,11 +1025,14 @@
         const gstPct = parseFloat(document.getElementById("entryGstPct").value) || 0;
         const mrp = parseFloat(document.getElementById("entryMrp").value) || 0;
         
+        const srateVal = parseFloat(document.getElementById("entrySrate").value);
+        const srate = (!isNaN(srateVal) && srateVal > 0) ? srateVal : (mrp > 0 ? mrp : prate * 1.15);
+
         const wrateVal = parseFloat(document.getElementById("entryWrate").value);
         const wrate = (!isNaN(wrateVal) && wrateVal > 0) ? wrateVal : (prate * 1.05);
 
-        const srateVal = parseFloat(document.getElementById("entrySrate").value);
-        const srate = (!isNaN(srateVal) && srateVal > 0) ? srateVal : (mrp > 0 ? mrp : prate * 1.15);
+        const rateCVal = parseFloat(document.getElementById("entryRateC").value);
+        const rateC = (!isNaN(rateCVal) && rateCVal > 0) ? rateCVal : 0.00;
 
         const baseTaxable = qty * prate;
         const discAmt = baseTaxable * (discPct / 100);
@@ -799,8 +1063,9 @@
                 <td>₹${prate.toFixed(2)}</td>
                 <td>${discPct}%</td>
                 <td class="fw-semibold">₹${taxableAfterDisc.toFixed(2)}</td>
-                <td>₹${wrate.toFixed(2)}</td>
-                <td>₹${srate.toFixed(2)}</td>
+                <td class="fw-semibold text-primary">₹${srate.toFixed(2)}</td>
+                <td class="fw-semibold text-info">₹${wrate.toFixed(2)}</td>
+                <td class="fw-semibold text-success">₹${rateC.toFixed(2)}</td>
                 <td>₹${mrp.toFixed(2)}</td>
                 <td class="fw-bold text-success">₹${lineTotal.toFixed(2)}</td>
                 <td class="text-nowrap">
@@ -808,6 +1073,7 @@
                     <input type="hidden" name="purchase_rate[]" value="${prate.toFixed(2)}">
                     <input type="hidden" name="sale_rate[]" value="${srate.toFixed(2)}">
                     <input type="hidden" name="wholesale_rate[]" value="${wrate.toFixed(2)}">
+                    <input type="hidden" name="rate_c[]" value="${rateC.toFixed(2)}">
                     <input type="hidden" name="quantity[]" value="${qty}">
                     <input type="hidden" name="free_quantity[]" value="${freeQty}">
                     <input type="hidden" name="discount_percentage[]" value="${discPct.toFixed(2)}">
@@ -837,6 +1103,7 @@
         document.getElementById("entryDiscPct").value = "0";
         document.getElementById("entryWrate").value = "";
         document.getElementById("entrySrate").value = "";
+        document.getElementById("entryRateC").value = "";
         document.getElementById("entryMrp").value = "";
         document.getElementById("prodLiveBadgeBar").classList.add("d-none");
 
@@ -858,6 +1125,7 @@
         const discPct = row.querySelector("input[name='discount_percentage[]']").value;
         const wrate = row.querySelector("input[name='wholesale_rate[]']").value;
         const srate = row.querySelector("input[name='sale_rate[]']").value;
+        const rateC = row.querySelector("input[name='rate_c[]']") ? row.querySelector("input[name='rate_c[]']").value : '0.00';
         const mrp = row.querySelector("input[name='mrp[]']").value;
 
         document.getElementById("entryProdId").value = prodId;
@@ -868,8 +1136,9 @@
         document.getElementById("entryFree").value = freeQty;
         document.getElementById("entryPrate").value = prate;
         document.getElementById("entryDiscPct").value = discPct;
-        document.getElementById("entryWrate").value = wrate;
         document.getElementById("entrySrate").value = srate;
+        document.getElementById("entryWrate").value = wrate;
+        document.getElementById("entryRateC").value = rateC;
         document.getElementById("entryMrp").value = mrp;
 
         if (productCatalog[prodId]) {
@@ -1007,7 +1276,341 @@
         }
     });
 
+    // Duplicate Invoice Validation Logic (Edit Mode)
+    let isDuplicateInvoice = false;
+    let invoiceCheckTimer = null;
+    const currentEntryId = "{{ entry.id }}";
+
+    function checkDuplicateInvoiceNumber() {
+        const invInput = document.getElementById("invoiceNumber");
+        const alertBox = document.getElementById("invoiceNumberAlert");
+        const submitBtn = document.getElementById("submitBtn");
+        if (!invInput || !alertBox) return;
+        const val = (invInput.value || "").trim();
+
+        if (!val) {
+            alertBox.className = "mt-1 small d-none";
+            alertBox.innerHTML = "";
+            invInput.classList.remove("is-invalid", "border-danger");
+            isDuplicateInvoice = false;
+            if (submitBtn) submitBtn.disabled = false;
+            return;
+        }
+
+        fetch(`/api/purchase/check-invoice-number/?invoice_number=${encodeURIComponent(val)}&entry_id=${currentEntryId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.exists) {
+                    isDuplicateInvoice = true;
+                    invInput.classList.add("is-invalid", "border-danger");
+                    invInput.classList.remove("is-valid");
+                    alertBox.className = "mt-1 small p-2 rounded-3 bg-danger-subtle text-danger border border-danger fw-semibold animate__animated animate__shakeX";
+                    alertBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> <strong>Already Saved!</strong> Invoice <strong>"${data.invoice_number}"</strong> is used in another Purchase Entry (#{data.entry_id}, ${data.invoice_date}, ${data.supplier_name}). Duplicate invoice numbers are not allowed.`;
+                    if (submitBtn) submitBtn.disabled = true;
+                } else {
+                    isDuplicateInvoice = false;
+                    invInput.classList.remove("is-invalid", "border-danger");
+                    invInput.classList.add("is-valid");
+                    setTimeout(() => invInput.classList.remove("is-valid"), 2000);
+                    alertBox.className = "mt-1 small d-none";
+                    alertBox.innerHTML = "";
+                    if (submitBtn) submitBtn.disabled = false;
+                }
+            })
+            .catch(() => {});
+    }
+
+    const invInputEl = document.getElementById("invoiceNumber");
+    if (invInputEl) {
+        invInputEl.addEventListener("input", function() {
+            clearTimeout(invoiceCheckTimer);
+            invoiceCheckTimer = setTimeout(checkDuplicateInvoiceNumber, 400);
+        });
+        invInputEl.addEventListener("blur", checkDuplicateInvoiceNumber);
+    }
+
+    // Form submission validation & Confirmation Modal
+    let isDirectSubmit = false;
+
+    function openSaveConfirmModal() {
+        if (isDuplicateInvoice) {
+            showToast("Cannot save: Invoice Number already exists in the system!", "danger");
+            document.getElementById("invoiceNumber").focus();
+            return;
+        }
+
+        const suppSelect = document.getElementById("supplierSelect");
+        const suppSearch = document.getElementById("supplierSearch");
+        if (!suppSelect || !suppSelect.value) {
+            showToast("Please select a Supplier first.", "warning");
+            if (suppSearch) suppSearch.focus();
+            return;
+        }
+
+        const invInput = document.getElementById("invoiceNumber");
+        if (!invInput || !invInput.value.trim()) {
+            showToast("Please enter an Invoice Number.", "warning");
+            if (invInput) invInput.focus();
+            return;
+        }
+
+        const invDate = document.getElementById("invoiceDate");
+        if (!invDate || !invDate.value) {
+            showToast("Please select an Invoice Date.", "warning");
+            if (invDate) invDate.focus();
+            return;
+        }
+
+        const rows = document.querySelectorAll("#invoiceTable tbody tr");
+        if (rows.length === 0) {
+            showToast("Please add at least one item before saving.", "danger");
+            document.getElementById("entryProdSearch").focus();
+            return;
+        }
+
+        // Populate summary in modal
+        document.getElementById("confirmSupplierName").textContent = suppSearch ? suppSearch.value : "-";
+        document.getElementById("confirmInvoiceNumber").textContent = invInput.value.trim();
+        document.getElementById("confirmInvoiceDate").textContent = invDate.value;
+        document.getElementById("confirmItemCount").textContent = `${rows.length} ${rows.length === 1 ? 'item' : 'items'}`;
+        document.getElementById("confirmGrandTotal").textContent = document.getElementById("summaryNet").textContent;
+
+        const saveBtn = document.getElementById("btnConfirmSave");
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Save`;
+        }
+
+        const modal = getBSModal('saveConfirmModal');
+        if (modal) modal.show();
+    }
+
+    function submitEntryFormNow() {
+        const saveBtn = document.getElementById("btnConfirmSave");
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Saving...`;
+        }
+        isDirectSubmit = true;
+        document.getElementById("entryForm").submit();
+    }
+
+    const entryFormEl = document.getElementById("entryForm");
+    if (entryFormEl) {
+        entryFormEl.addEventListener("submit", function(e) {
+            if (!isDirectSubmit) {
+                e.preventDefault();
+                openSaveConfirmModal();
+                return;
+            }
+        });
+    }
+
+    // ==================== BATCH PRICING & MARGIN INTELLIGENCE ====================
+    let modalHistoryRates = null;
+
+    function openBatchPricingModal() {
+        const prodId = document.getElementById("entryProdId").value;
+
+        if (!prodId || !productCatalog[prodId]) {
+            showToast("Please select a product first to configure rates & margins.", "warning");
+            document.getElementById("entryProdSearch").focus();
+            return;
+        }
+
+        const prod = productCatalog[prodId];
+        document.getElementById("modalProdTitle").textContent = prod.name;
+        document.getElementById("modalPackBadge").textContent = `Pack: ${prod.pack || '1 TAB'}`;
+        document.getElementById("modalGstBadge").textContent = `GST: ${prod.gst}%`;
+
+        // Read current entry bar inputs
+        const qty = parseInt(document.getElementById("entryQty").value) || 1;
+        const free = parseInt(document.getElementById("entryFree").value) || 0;
+        const prate = parseFloat(document.getElementById("entryPrate").value) || 0;
+        const disc = parseFloat(document.getElementById("entryDiscPct").value) || 0;
+        const srate = parseFloat(document.getElementById("entrySrate").value) || 0;
+        const wrate = parseFloat(document.getElementById("entryWrate").value) || 0;
+        const rateC = parseFloat(document.getElementById("entryRateC").value) || 0;
+        const mrp = parseFloat(document.getElementById("entryMrp").value) || 0;
+
+        document.getElementById("modalPurRateDisp").textContent = prate.toFixed(2);
+        document.getElementById("modalDiscBadge").textContent = `Disc: ${disc.toFixed(2)}%`;
+        document.getElementById("modalDealDisp").textContent = `${qty} + ${free}`;
+
+        const totalQty = qty + free;
+        const dealBonus = totalQty > 0 && free > 0 ? ((free / totalQty) * 100).toFixed(1) : "0.0";
+        document.getElementById("modalDealBonusBadge").textContent = `Deal Bonus: ${dealBonus}% Free`;
+
+        // Effective Cost calculation
+        const netCostAfterDisc = prate * (1 - (disc / 100));
+        const effectiveCost = totalQty > 0 ? ((qty * netCostAfterDisc) / totalQty) : netCostAfterDisc;
+        document.getElementById("modalEffectiveCostDisp").textContent = effectiveCost.toFixed(2);
+
+        // Pre-fill rate inputs
+        document.getElementById("modalRateA").value = srate > 0 ? srate.toFixed(2) : (effectiveCost > 0 ? (effectiveCost * 1.15).toFixed(2) : (prate * 1.15).toFixed(2));
+        document.getElementById("modalRateB").value = wrate > 0 ? wrate.toFixed(2) : (effectiveCost > 0 ? (effectiveCost * 1.05).toFixed(2) : (prate * 1.05).toFixed(2));
+        document.getElementById("modalRateC").value = rateC > 0 ? rateC.toFixed(2) : (effectiveCost > 0 ? (effectiveCost * 1.10).toFixed(2) : (prate * 1.10).toFixed(2));
+        document.getElementById("modalMrp").value = mrp > 0 ? mrp.toFixed(2) : '';
+
+        // Benchmark fetch
+        document.getElementById("modalLastPurText").textContent = "Fetching historical purchase benchmark...";
+        document.getElementById("btnApplyLastRates").style.display = "none";
+        modalHistoryRates = null;
+
+        fetch(`/api/product/${prodId}/last-purchase/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.last_purchase_rate > 0) {
+                    modalHistoryRates = data;
+                    document.getElementById("modalLastPurText").innerHTML = `
+                        Last Pur. Rate: <strong>₹${parseFloat(data.last_purchase_rate).toFixed(2)}</strong> | 
+                        Past S.Rate: <strong>₹${parseFloat(data.last_sale_rate || 0).toFixed(2)}</strong> | 
+                        Past W.Rate: <strong>₹${parseFloat(data.last_wholesale_rate || 0).toFixed(2)}</strong>
+                    `;
+                    document.getElementById("btnApplyLastRates").style.display = "inline-block";
+                } else {
+                    document.getElementById("modalLastPurText").textContent = "No previous purchase entries found for this medicine.";
+                }
+            })
+            .catch(() => {
+                document.getElementById("modalLastPurText").textContent = "Previous purchase data unavailable.";
+            });
+
+        calcModalMargins();
+        const bsModal = getBSModal('batchPricingModal');
+        if (bsModal) bsModal.show();
+        setTimeout(() => {
+            const rA = document.getElementById("modalRateA");
+            if (rA) { rA.focus(); rA.select(); }
+        }, 300);
+    }
+
+    function calcModalMargins() {
+        const effCost = parseFloat(document.getElementById("modalEffectiveCostDisp").textContent) || 0;
+        const rateA = parseFloat(document.getElementById("modalRateA").value) || 0;
+        const rateB = parseFloat(document.getElementById("modalRateB").value) || 0;
+        const rateC = parseFloat(document.getElementById("modalRateC").value) || 0;
+        const mrp = parseFloat(document.getElementById("modalMrp").value) || 0;
+
+        const updateBadge = (elId, rateVal) => {
+            const badge = document.getElementById(elId);
+            if (!badge) return;
+            if (rateVal > 0 && effCost > 0) {
+                const margin = (((rateVal - effCost) / rateVal) * 100).toFixed(1);
+                badge.textContent = `${margin >= 0 ? '+' : ''}${margin}%`;
+                badge.className = margin >= 0 ? 'badge bg-success-subtle text-success fw-bold' : 'badge bg-danger-subtle text-danger fw-bold';
+            } else {
+                badge.textContent = '0.0%';
+                badge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+            }
+        };
+
+        updateBadge('marginRateA', rateA);
+        updateBadge('marginRateB', rateB);
+        updateBadge('marginRateC', rateC);
+
+        // Retailer margin on MRP
+        const retBadge = document.getElementById('marginRetailer');
+        if (retBadge) {
+            if (mrp > 0 && rateA > 0) {
+                const retMargin = (((mrp - rateA) / mrp) * 100).toFixed(1);
+                retBadge.textContent = `${retMargin >= 0 ? '+' : ''}${retMargin}%`;
+                retBadge.className = retMargin >= 0 ? 'badge bg-dark-subtle text-dark fw-bold' : 'badge bg-danger-subtle text-danger fw-bold';
+            } else {
+                retBadge.textContent = '0.0%';
+                retBadge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+            }
+        }
+    }
+
+    function applyLastRatesToModal() {
+        if (!modalHistoryRates) return;
+        if (modalHistoryRates.last_sale_rate > 0) {
+            document.getElementById("modalRateA").value = parseFloat(modalHistoryRates.last_sale_rate).toFixed(2);
+        }
+        if (modalHistoryRates.last_wholesale_rate > 0) {
+            document.getElementById("modalRateB").value = parseFloat(modalHistoryRates.last_wholesale_rate).toFixed(2);
+        }
+        if (modalHistoryRates.last_rate_c > 0) {
+            document.getElementById("modalRateC").value = parseFloat(modalHistoryRates.last_rate_c).toFixed(2);
+        }
+        calcModalMargins();
+        showToast("Copied historical rates to pricing setup!", "info");
+    }
+
+    function applyBatchPricingToEntry() {
+        const rateA = parseFloat(document.getElementById("modalRateA").value) || 0;
+        const rateB = parseFloat(document.getElementById("modalRateB").value) || 0;
+        const rateC = parseFloat(document.getElementById("modalRateC").value) || 0;
+        const mrp = parseFloat(document.getElementById("modalMrp").value) || 0;
+
+        if (rateA > 0) document.getElementById("entrySrate").value = rateA.toFixed(2);
+        if (rateB > 0) document.getElementById("entryWrate").value = rateB.toFixed(2);
+        if (rateC > 0) document.getElementById("entryRateC").value = rateC.toFixed(2);
+        if (mrp > 0) document.getElementById("entryMrp").value = mrp.toFixed(2);
+
+        const bsModal = getBSModal('batchPricingModal');
+        if (bsModal) bsModal.hide();
+
+        showToast("Batch selling rates configured!", "success");
+        setTimeout(() => {
+            addEntryBarToTable();
+        }, 150);
+    }
+
+    function setupModalEnterKeyNavigation() {
+        const modalInputs = [
+            { id: "modalRateA", next: "modalRateB" },
+            { id: "modalRateB", next: "modalRateC" },
+            { id: "modalRateC", next: "modalMrp" },
+            { id: "modalMrp", action: () => applyBatchPricingToEntry() }
+        ];
+
+        modalInputs.forEach(step => {
+            const el = document.getElementById(step.id);
+            if (!el) return;
+            el.addEventListener("focus", function() {
+                if (typeof this.select === "function") this.select();
+            });
+            el.addEventListener("keydown", function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (step.action) {
+                        step.action();
+                    } else if (step.next) {
+                        const nextEl = document.getElementById(step.next);
+                        if (nextEl) {
+                            nextEl.focus();
+                            if (typeof nextEl.select === "function") nextEl.select();
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    document.addEventListener("keydown", function(e) {
+        if (e.key === "F2") {
+            e.preventDefault();
+            document.getElementById("entryProdSearch").focus();
+        }
+        if (e.key === "F3") {
+            e.preventDefault();
+            openBatchPricingModal();
+        }
+        if (e.key === "F4") {
+            e.preventDefault();
+            if (document.activeElement && document.activeElement.id === "supplierSearch") {
+                openSupplierModal();
+            } else {
+                openProductModal();
+            }
+        }
+    });
+
     function initEnterKeyNavigation() {
+        setupModalEnterKeyNavigation();
+
         const fieldChain = [
             { id: "supplierSearch", next: "invoiceNumber" },
             { id: "invoiceNumber", next: "invoiceDate" },
@@ -1018,13 +1621,14 @@
             { id: "entryQty", next: "entryFree" },
             { id: "entryFree", next: "entryPrate" },
             { id: "entryPrate", next: "entryDiscPct" },
-            { id: "entryDiscPct", next: "entryWrate" },
-            { id: "entryWrate", next: "entrySrate" },
-            { id: "entrySrate", next: "entryMrp" },
+            { id: "entryDiscPct", action: () => openBatchPricingModal() },
+            { id: "entrySrate", next: "entryWrate" },
+            { id: "entryWrate", next: "entryRateC" },
+            { id: "entryRateC", next: "entryMrp" },
             { id: "entryMrp", action: () => addEntryBarToTable() },
             { id: "billDiscountPct", next: "billDiscountAmt" },
             { id: "billDiscountAmt", next: "paymentType" },
-            { id: "paymentType", next: "submitBtn" }
+            { id: "paymentType", action: () => openSaveConfirmModal() }
         ];
 
         fieldChain.forEach(step => {

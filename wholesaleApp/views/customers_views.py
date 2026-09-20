@@ -2,19 +2,53 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from wholesaleApp.models.customers import CustomerMaster, AreaMaster, SubareaMaster
+from wholesaleApp.models.customers import CustomerMaster, AreaMaster, SubareaMaster, CustomerManageDetail
 
 # ==================== CUSTOMER MASTER VIEWS ====================
 @login_required
 def customer_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
+    from wholesaleApp.utils.list_helpers import paginate_queryset, invalidate_list_cache
+    from django.db.models import Q
+
     if not has_feature_access(request.user, 'customer_view'):
         messages.error(request, "Access Denied: You do not have permission to view Customers.")
         return redirect('home')
-        
+
+    q = request.GET.get('q', '').strip()
+    customer_type = request.GET.get('customer_type', '').strip()
+    area_id = request.GET.get('area', '').strip()
+
     customers = CustomerMaster.objects.filter(is_deleted=False).select_related('area')
+
+    if q:
+        customers = customers.filter(
+            Q(name__icontains=q) |
+            Q(mobile__icontains=q) |
+            Q(city__icontains=q) |
+            Q(gstin__icontains=q)
+        )
+
+    if customer_type:
+        customers = customers.filter(customer_type=customer_type)
+
+    if area_id and area_id.isdigit():
+        customers = customers.filter(area_id=int(area_id))
+
+    customers = customers.order_by('name')
+    page_data = paginate_queryset(request, customers, default_per_page=25)
+    filter_areas = AreaMaster.objects.filter(is_active=True).order_by('city')
+
     context = {
-        'customers': customers,
+        'page_obj': page_data['page_obj'],
+        'paginator': page_data['paginator'],
+        'extra_query': page_data['extra_query'],
+        'per_page': page_data['per_page'],
+        'total_count': page_data['total_count'],
+        'filter_areas': filter_areas,
+        'q': q,
+        'customer_type': customer_type,
+        'area_id': area_id,
         'page_title': 'Customer Master',
         'user_perms': get_user_permissions_context(request.user)
     }
@@ -51,6 +85,8 @@ def customer_create(request):
             created_by=request.user if request.user.is_authenticated else None
         )
         customer.save()
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('customers')
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
             return JsonResponse({
@@ -100,6 +136,8 @@ def customer_edit(request, pk):
         customer.credit_limit = request.POST.get('credit_limit', 0)
         customer.credit_days = request.POST.get('credit_days', 0)
         customer.save()
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('customers')
         messages.success(request, 'Customer updated successfully!')
         return redirect('customer_list')
     
@@ -121,6 +159,8 @@ def customer_delete(request, pk):
     customer = get_object_or_404(CustomerMaster, pk=pk)
     customer.is_deleted = True
     customer.save()
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('customers')
     messages.success(request, 'Customer deleted successfully!')
     return redirect('customer_list')
 
@@ -585,3 +625,172 @@ def customer_payment_create(request):
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'customers/payment_form.html', context)
+
+
+# ==================== CUSTOMER MANAGE VIEW (MARG STYLE) ====================
+@login_required
+def customer_manage(request, pk):
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context, log_activity
+    from wholesaleApp.models import SalesInvoice, CustomerPayment
+    from django.db.models import Sum
+    from decimal import Decimal
+    from django.utils import timezone
+    from datetime import timedelta
+
+    if not has_feature_access(request.user, 'customer_view'):
+        messages.error(request, "Access Denied: You do not have permission to view or manage Customers.")
+        return redirect('customer_list')
+
+    customer = get_object_or_404(CustomerMaster, pk=pk, is_deleted=False)
+    manage_detail, _ = CustomerManageDetail.objects.get_or_create(customer=customer)
+
+    if request.method == 'POST':
+        if not has_feature_access(request.user, 'customer_edit'):
+            messages.error(request, "Access Denied: You do not have permission to update customer settings.")
+            return redirect('customer_manage', pk=pk)
+
+        # 1. Discounts & Schemes
+        manage_detail.item_discount_a = Decimal(request.POST.get('item_discount_a') or '0.00')
+        manage_detail.item_discount_b = Decimal(request.POST.get('item_discount_b') or '0.00')
+        manage_detail.item_discount_c = Decimal(request.POST.get('item_discount_c') or '0.00')
+        manage_detail.collection_disc = Decimal(request.POST.get('collection_disc') or '0.00')
+        manage_detail.min_margin = Decimal(request.POST.get('min_margin') or '0.00')
+        manage_detail.volume_disc = Decimal(request.POST.get('volume_disc') or '0.00')
+        manage_detail.breakage_expiry_disc = Decimal(request.POST.get('breakage_expiry_disc') or '0.00')
+        manage_detail.product_scheme_notes = request.POST.get('product_scheme_notes', '').strip()
+
+        # 2. Billing & Rates Preferences
+        manage_detail.sales_rate_type = request.POST.get('sales_rate_type', 'wholesale')
+        manage_detail.near_expiry_action = request.POST.get('near_expiry_action', 'allowed')
+        manage_detail.new_item_billing = request.POST.get('new_item_billing') in ['on', 'true', '1']
+        manage_detail.print_batch = request.POST.get('print_batch') in ['on', 'true', '1']
+        manage_detail.invoice_format = request.POST.get('invoice_format', 'DEFAULT')
+
+        # 3. Credit Limits & Payment Terms
+        credit_limit_amount = Decimal(request.POST.get('credit_limit_amount') or '0.00')
+        credit_days = int(request.POST.get('credit_days') or '0')
+        manage_detail.credit_limit_amount = credit_limit_amount
+        manage_detail.credit_limit_bills = int(request.POST.get('credit_limit_bills') or '0')
+        manage_detail.credit_days = credit_days
+        manage_detail.interest_percentage = Decimal(request.POST.get('interest_percentage') or '0.00')
+        manage_detail.credit_limit_action = request.POST.get('credit_limit_action', 'indicate')
+        manage_detail.bank_rebate_percent = Decimal(request.POST.get('bank_rebate_percent') or '0.00')
+        manage_detail.bank_rebate_days = int(request.POST.get('bank_rebate_days') or '0')
+        
+        # Collection days checklist
+        selected_days = request.POST.getlist('collection_days')
+        manage_detail.collection_days = ','.join(selected_days) if selected_days else ''
+
+        # 4. Transport & Banking
+        manage_detail.transport_name = request.POST.get('transport_name', '').strip()
+        manage_detail.delivery_by = request.POST.get('delivery_by', '').strip()
+        manage_detail.bank_name = request.POST.get('bank_name', '').strip()
+        manage_detail.bank_account_no = request.POST.get('bank_account_no', '').strip()
+        manage_detail.bank_ifsc = request.POST.get('bank_ifsc', '').strip()
+        manage_detail.bank_branch = request.POST.get('bank_branch', '').strip()
+
+        # 5. Operator Note
+        manage_detail.operator_note = request.POST.get('operator_note', '').strip()
+
+        if request.user.is_authenticated and not manage_detail.created_by:
+            manage_detail.created_by = request.user
+
+        manage_detail.save()
+
+        # Keep CustomerMaster sync'd
+        customer.credit_limit = credit_limit_amount
+        customer.credit_days = credit_days
+        customer.save(update_fields=['credit_limit', 'credit_days'])
+
+        log_activity(
+            request,
+            action='UPDATE',
+            model_name='CustomerManageDetail',
+            object_id=manage_detail.id,
+            object_repr=f"Manage Detail: {customer.name}",
+            description=f"Updated billing, discount, and credit management settings for {customer.name}"
+        )
+
+        messages.success(request, f"Management settings for '{customer.name}' updated successfully.")
+        return redirect('customer_manage', pk=pk)
+
+    # Calculate 360 Financials & Statistics
+    invoices = SalesInvoice.objects.filter(customer=customer)
+    total_sales = invoices.aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
+    total_invoices_count = invoices.count()
+
+    payments = CustomerPayment.objects.filter(customer=customer)
+    total_payments = payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+    outstanding_balance = (customer.opening_balance or Decimal('0.00')) + total_sales - total_payments
+
+    # Aging calculations
+    today = timezone.now().date()
+    aging_30_days = today - timedelta(days=30)
+    aging_60_days = today - timedelta(days=60)
+
+    sales_0_30 = invoices.filter(invoice_date__gte=aging_30_days).aggregate(tot=Sum('net_amount'))['tot'] or Decimal('0.00')
+    sales_31_60 = invoices.filter(invoice_date__lt=aging_30_days, invoice_date__gte=aging_60_days).aggregate(tot=Sum('net_amount'))['tot'] or Decimal('0.00')
+    sales_60_plus = invoices.filter(invoice_date__lt=aging_60_days).aggregate(tot=Sum('net_amount'))['tot'] or Decimal('0.00')
+
+    # Credit limit usage percentage
+    credit_limit = manage_detail.credit_limit_amount or customer.credit_limit or Decimal('0.00')
+    credit_used_pct = 0
+    if credit_limit > 0:
+        credit_used_pct = min(100, int((max(Decimal('0.00'), outstanding_balance) / credit_limit) * 100))
+
+    # Active collection days set
+    saved_days = [d.strip() for d in (manage_detail.collection_days or '').split(',') if d.strip()]
+
+    context = {
+        'customer': customer,
+        'manage_detail': manage_detail,
+        'page_title': f"Manage Customer: {customer.name}",
+        'user_perms': get_user_permissions_context(request.user),
+        'total_sales': total_sales,
+        'total_invoices_count': total_invoices_count,
+        'total_payments': total_payments,
+        'outstanding_balance': outstanding_balance,
+        'sales_0_30': sales_0_30,
+        'sales_31_60': sales_31_60,
+        'sales_60_plus': sales_60_plus,
+        'credit_limit': credit_limit,
+        'credit_used_pct': credit_used_pct,
+        'saved_days': saved_days,
+        'recent_invoices': invoices.order_by('-invoice_date', '-id')[:5],
+    }
+    return render(request, 'customers/customer_manage.html', context)
+
+
+@login_required
+def get_customer_manage_details(request, customer_id):
+    """API endpoint to get customer manage preferences for billing autocomplete & alerts."""
+    try:
+        detail = CustomerManageDetail.objects.get(customer_id=customer_id)
+        return JsonResponse({
+            'success': True,
+            'item_discount_a': float(detail.item_discount_a),
+            'item_discount_b': float(detail.item_discount_b),
+            'item_discount_c': float(detail.item_discount_c),
+            'collection_disc': float(detail.collection_disc),
+            'volume_disc': float(detail.volume_disc),
+            'sales_rate_type': detail.sales_rate_type,
+            'credit_limit_amount': float(detail.credit_limit_amount),
+            'credit_limit_action': detail.credit_limit_action,
+            'operator_note': detail.operator_note or '',
+            'near_expiry_action': detail.near_expiry_action,
+        })
+    except CustomerManageDetail.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'item_discount_a': 0.0,
+            'item_discount_b': 0.0,
+            'item_discount_c': 0.0,
+            'collection_disc': 0.0,
+            'volume_disc': 0.0,
+            'sales_rate_type': 'wholesale',
+            'credit_limit_amount': 0.0,
+            'credit_limit_action': 'indicate',
+            'operator_note': '',
+            'near_expiry_action': 'allowed',
+        })

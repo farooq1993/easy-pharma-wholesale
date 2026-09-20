@@ -277,9 +277,19 @@
                                     <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">MRP (₹)</label>
                                     <input type="text" id="entryMrp" class="form-control billing-input text-end bg-light font-monospace" placeholder="0.00" readonly tabindex="-1">
                                 </div>
-                                <div class="col-md-2" style="width: 13%;">
-                                    <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">RATE (₹) <span class="text-danger">*</span></label>
-                                    <input type="number" id="entrySrate" class="form-control billing-input text-end fw-bold text-primary" placeholder="0.00" step="0.01" min="0" oninput="recalcEntryBarTotals()">
+                                <div class="col-md-2" style="width: 14%;">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <label class="form-label text-muted small fw-bold mb-0" style="font-size: 0.72rem;">RATE (₹) <span class="text-danger">*</span></label>
+                                        <span id="entryRateBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle d-none" style="font-size: 0.68rem; cursor: pointer;" title="Click to switch rate or press F3" onclick="toggleOrCycleEntryBarRate()">Rate A (F3)</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <input type="number" id="entrySrate" class="form-control billing-input text-end fw-bold text-primary" placeholder="0.00" step="0.01" min="0" oninput="recalcEntryBarTotals()">
+                                        <button type="button" id="entryRatePickerBtn" class="btn btn-sm btn-primary dropdown-toggle d-none px-2 fw-semibold d-flex align-items-center gap-1 shadow-sm" data-bs-toggle="dropdown" aria-expanded="false" title="Switch Rate (Rate A / Rate B / Rate C / MRP) - Press F3">
+                                            <span id="entryRatePickerLabel" style="font-size: 0.76rem;">Rate A</span>
+                                        </button>
+                                        <ul id="entryRatePickerMenu" class="dropdown-menu dropdown-menu-end shadow-lg py-1" style="font-size: 0.82rem; min-width: 220px; z-index: 1050;">
+                                        </ul>
+                                    </div>
                                 </div>
                                 <div class="col-md-1" style="width: 9%;">
                                     <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">QTY <span class="text-danger">*</span></label>
@@ -559,12 +569,14 @@
                     <table class="table table-hover align-middle border mb-0" id="fefoBatchTable">
                         <thead class="table-light text-center sticky-top">
                             <tr>
-                                <th style="width: 26%;">Batch No</th>
-                                <th style="width: 18%;">Expiry</th>
-                                <th style="width: 15%;">MRP (₹)</th>
-                                <th style="width: 17%;">Sale Rate (₹)</th>
-                                <th style="width: 14%;">Stock</th>
-                                <th style="width: 10%;">Action</th>
+                                <th style="width: 20%;">Batch No</th>
+                                <th style="width: 13%;">Expiry</th>
+                                <th style="width: 12%;">MRP (₹)</th>
+                                <th style="width: 14%;">Rate A (Sale)</th>
+                                <th style="width: 14%;">Rate B (Wholesale)</th>
+                                <th style="width: 13%;">Rate C</th>
+                                <th style="width: 7%;">Stock</th>
+                                <th style="width: 7%;">Action</th>
                             </tr>
                         </thead>
                         <tbody id="fefoBatchTableBody" class="text-center">
@@ -778,7 +790,14 @@
                     <input type="text" class="form-control billing-input text-end bg-light mrp-display" placeholder="0.00" readonly>
                 </td>
                 <td>
-                    <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" placeholder="0.00" required oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <div class="input-group input-group-sm rate-input-group">
+                        <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" placeholder="0.00" required oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                        <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split rate-picker-btn d-none px-1" data-bs-toggle="dropdown" aria-expanded="false" title="Switch Rate (Rate A / Rate B / Rate C / MRP)">
+                            <span class="visually-hidden">Toggle Rate</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm rate-picker-menu" style="font-size: 0.8rem; min-width: 185px; z-index: 1050;">
+                        </ul>
+                    </div>
                 </td>
                 <td>
                     <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="1" required oninput="autoSplitMultiBatchFefo(${rowId}); calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
@@ -837,7 +856,7 @@
                 </td>
                 <td>
                     <select name="batch[]" class="form-select billing-input select-batch" onchange="onBatchSelect(${rowId})" required>
-                        <option value="${item.batchId}" data-mrp="${item.mrpReal}" data-srate="${item.saleRate}" data-exp="${item.expiryMask}" selected>${item.batchNumber} (Exp: ${item.expiryMask})</option>
+                        <option value="${item.batchId}" data-mrp="${item.mrpReal}" data-srate="${item.batchSaleRate || item.saleRate}" data-wholesalerate="${item.batchWholesaleRate || 0}" data-ratec="${item.batchRateC || 0}" data-exp="${item.expiryMask}" selected>${item.batchNumber} (Exp: ${item.expiryMask})</option>
                     </select>
                 </td>
                 <td>
@@ -847,7 +866,14 @@
                     <input type="text" class="form-control billing-input text-end bg-light mrp-display" placeholder="0.00" readonly value="${parseFloat(item.mrpReal).toFixed(2)}">
                 </td>
                 <td>
-                    <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" placeholder="0.00" required value="${parseFloat(item.saleRate).toFixed(2)}" oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <div class="input-group input-group-sm rate-input-group">
+                        <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" placeholder="0.00" required value="${parseFloat(item.saleRate).toFixed(2)}" oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                        <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split rate-picker-btn d-none px-1" data-bs-toggle="dropdown" aria-expanded="false" title="Switch Rate (Rate A / Rate B / Rate C / MRP)">
+                            <span class="visually-hidden">Toggle Rate</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm rate-picker-menu" style="font-size: 0.8rem; min-width: 185px; z-index: 1050;">
+                        </ul>
+                    </div>
                 </td>
                 <td>
                     <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="${item.quantity}" required oninput="calculateRowTotals(${rowId}); applyProductScheme(${rowId}); updateLiveMarginInspect(${rowId});">
@@ -888,6 +914,7 @@
         );
 
         bindRowFocusAndNavigation(rowId);
+        setupRowRatePicker(rowId, parseFloat(item.batchSaleRate || item.saleRate) || 0, parseFloat(item.batchWholesaleRate) || 0, parseFloat(item.batchRateC) || 0, parseFloat(item.mrpReal) || 0, parseFloat(item.saleRate) || 0);
 
         // Fetch batches via AJAX for this product to populate options
         fetchProductBatches(item.productId, (batches) => {
@@ -897,11 +924,15 @@
             batches.forEach(b => {
                 unitsPerStrip = b.units_per_strip || 1;
                 const isSelected = b.id == item.batchId ? 'selected' : '';
-                options += `<option value="${b.id}" data-mrp="${b.mrp}" data-srate="${b.sale_rate}" data-wholesalerate="${b.wholesale_rate}" data-exp="${b.expiry_mask}" data-stock="${b.quantity}" data-unitsperstrip="${b.units_per_strip}" ${isSelected}>${b.batch_number} (Exp: ${b.expiry_mask}) [Stock: ${b.quantity}]</option>`;
+                options += `<option value="${b.id}" data-mrp="${b.mrp}" data-srate="${b.sale_rate}" data-wholesalerate="${b.wholesale_rate}" data-ratec="${b.rate_c || 0}" data-exp="${b.expiry_mask}" data-stock="${b.quantity}" data-unitsperstrip="${b.units_per_strip}" ${isSelected}>${b.batch_number} (Exp: ${b.expiry_mask}) [Stock: ${b.quantity}]</option>`;
             });
             batchSelect.innerHTML = options;
             row.dataset.unitsPerStrip = unitsPerStrip;
             updateRowQuantityPlaceholder(rowId);
+            const selectedBatch = batches.find(b => b.id == item.batchId);
+            if (selectedBatch) {
+                setupRowRatePicker(rowId, parseFloat(selectedBatch.sale_rate) || 0, parseFloat(selectedBatch.wholesale_rate) || 0, parseFloat(selectedBatch.rate_c) || 0, parseFloat(selectedBatch.mrp) || 0, parseFloat(item.saleRate) || 0);
+            }
             calculateRowTotals(rowId);
         });
     }
@@ -1055,7 +1086,7 @@
                         ${stockBadge}
                     </div>
                     <div class="d-flex justify-content-between align-items-center text-muted small" style="font-size: 0.8rem;">
-                        <span class="${isSelected ? 'text-white-50' : ''}">MRP: ₹${b.mrp.toFixed(2)} | Sale: ₹${b.sale_rate.toFixed(2)}</span>
+                        <span class="${isSelected ? 'text-white-50' : ''}">MRP: ₹${parseFloat(b.mrp).toFixed(2)} | A: ₹${parseFloat(b.sale_rate).toFixed(2)} | B: ₹${parseFloat(b.wholesale_rate).toFixed(2)}${b.rate_c > 0 ? ' | C: ₹' + parseFloat(b.rate_c).toFixed(2) : ''}</span>
                         ${expiryBadge}
                     </div>
                 `;
@@ -1116,7 +1147,7 @@
         tbody.innerHTML = "";
         
         if (!batches || batches.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-muted py-4"><i class="bi bi-exclamation-circle text-warning me-2 fs-5"></i>No active stock batches found for this product.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="text-muted py-4"><i class="bi bi-exclamation-circle text-warning me-2 fs-5"></i>No active stock batches found for this product.</td></tr>`;
         } else {
             batches.forEach((b, index) => {
                 const isRecommended = (index === 0);
@@ -1125,8 +1156,10 @@
                 tr.setAttribute("tabindex", "0");
                 tr.style.cursor = "pointer";
                 
-                const customerType = document.getElementById("customerSelect").dataset.type || 'Retailer';
-                const rate = customerType === 'Wholesaler' ? (parseFloat(b.wholesale_rate) || 0) : (parseFloat(b.sale_rate) || 0);
+                const sRate = parseFloat(b.sale_rate) || 0;
+                const wRate = parseFloat(b.wholesale_rate) || 0;
+                const rRateC = parseFloat(b.rate_c) || 0;
+                const mrpVal = parseFloat(b.mrp) || 0;
                 
                 tr.innerHTML = `
                     <td>
@@ -1136,10 +1169,12 @@
                     <td>
                         <span class="badge bg-light text-dark border font-monospace px-2 py-1 fs-6">${b.expiry_mask}</span>
                     </td>
-                    <td>₹${parseFloat(b.mrp).toFixed(2)}</td>
-                    <td class="fw-bold text-primary">₹${rate.toFixed(2)}</td>
+                    <td>₹${mrpVal.toFixed(2)}</td>
+                    <td class="fw-bold text-primary">₹${sRate.toFixed(2)}</td>
+                    <td class="fw-bold text-info">₹${wRate.toFixed(2)}</td>
+                    <td class="fw-bold text-success">${rRateC > 0 ? '₹' + rRateC.toFixed(2) : '-'}</td>
                     <td>
-                        <span class="badge ${b.quantity > 5 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning border border-warning-subtle'} rounded-pill px-3 py-1 font-monospace fs-6">
+                        <span class="badge ${b.quantity > 5 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning border border-warning-subtle'} rounded-pill px-2 py-1 font-monospace fs-6">
                             ${b.quantity}
                         </span>
                     </td>
@@ -1251,7 +1286,7 @@
             let unitsPerStrip = 1;
             batches.forEach(b => {
                 unitsPerStrip = b.units_per_strip || 1;
-                options += `<option value="${b.id}" data-mrp="${b.mrp}" data-srate="${b.sale_rate}" data-wholesalerate="${b.wholesale_rate}" data-exp="${b.expiry_mask}" data-stock="${b.quantity}" data-unitsperstrip="${b.units_per_strip}">${b.batch_number} (Exp: ${b.expiry_mask}) [Stock: ${b.quantity}]</option>`;
+                options += `<option value="${b.id}" data-mrp="${b.mrp}" data-srate="${b.sale_rate}" data-wholesalerate="${b.wholesale_rate}" data-ratec="${b.rate_c || 0}" data-exp="${b.expiry_mask}" data-stock="${b.quantity}" data-unitsperstrip="${b.units_per_strip}">${b.batch_number} (Exp: ${b.expiry_mask}) [Stock: ${b.quantity}]</option>`;
             });
             batchSelect.innerHTML = options;
             row.dataset.unitsPerStrip = unitsPerStrip;
@@ -1335,23 +1370,98 @@
         return autoSplitMultiBatchFefo(id);
     }
 
+    function setupRowRatePicker(id, srate, wrate, ratec, mrp, selectedRate) {
+        const row = document.getElementById(`item-row-${id}`);
+        if (!row) return;
+        const pickerBtn = row.querySelector(".rate-picker-btn");
+        const pickerMenu = row.querySelector(".rate-picker-menu");
+        if (!pickerBtn || !pickerMenu) return;
+
+        const rateOptions = [];
+        if (srate > 0) rateOptions.push({ key: 'A', name: 'Rate A (S. Rate)', value: srate, badge: 'bg-primary' });
+        if (wrate > 0) rateOptions.push({ key: 'B', name: 'Rate B (W. Rate)', value: wrate, badge: 'bg-info text-dark' });
+        if (ratec > 0) rateOptions.push({ key: 'C', name: 'Rate C (Spl Rate)', value: ratec, badge: 'bg-success' });
+        if (mrp > 0) rateOptions.push({ key: 'MRP', name: 'MRP', value: mrp, badge: 'bg-secondary' });
+
+        const distinctValues = new Set(rateOptions.map(r => r.value.toFixed(2)));
+        if (distinctValues.size > 1) {
+            pickerBtn.classList.remove("d-none");
+            let menuHtml = `<li class="dropdown-header py-1 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.5px;">Choose Selling Rate</li>`;
+            rateOptions.forEach(r => {
+                const isActive = Math.abs(r.value - selectedRate) < 0.001;
+                menuHtml += `
+                    <li>
+                        <a class="dropdown-item d-flex justify-content-between align-items-center py-1.5 px-2.5 ${isActive ? 'active fw-bold' : ''}" 
+                           href="javascript:void(0)" 
+                           data-rate-key="${r.key}"
+                           onclick="setRowRate(${id}, ${r.value}, '${r.key}')">
+                            <span><span class="badge ${r.badge} me-1.5" style="font-size: 0.68rem;">${r.key}</span> ${r.name}</span>
+                            <span class="fw-bold ms-2">₹${r.value.toFixed(2)}</span>
+                        </a>
+                    </li>
+                `;
+            });
+            pickerMenu.innerHTML = menuHtml;
+        } else {
+            pickerBtn.classList.add("d-none");
+            pickerMenu.innerHTML = "";
+        }
+    }
+
+    function setRowRate(id, rateVal, rateKey) {
+        const row = document.getElementById(`item-row-${id}`);
+        if (!row) return;
+        const input = row.querySelector(".srate-input");
+        if (input) {
+            input.value = parseFloat(rateVal).toFixed(2);
+            input.classList.add("bg-warning-subtle");
+            setTimeout(() => input.classList.remove("bg-warning-subtle"), 800);
+        }
+        const menu = row.querySelector(".rate-picker-menu");
+        if (menu) {
+            menu.querySelectorAll(".dropdown-item").forEach(item => {
+                if (item.getAttribute("data-rate-key") === rateKey) {
+                    item.classList.add("active", "fw-bold");
+                } else {
+                    item.classList.remove("active", "fw-bold");
+                }
+            });
+        }
+        calculateRowTotals(id);
+        updateLiveMarginInspect(id);
+    }
+
     function onBatchSelect(id) {
         const row = document.getElementById(`item-row-${id}`);
         const batchSelect = row.querySelector(".select-batch");
         const selectedOption = batchSelect.options[batchSelect.selectedIndex];
         
-        if (selectedOption.value) {
-            row.querySelector(".expiry-display").value = selectedOption.dataset.exp;
-            row.querySelector(".mrp-display").value = parseFloat(selectedOption.dataset.mrp).toFixed(2);
+        if (selectedOption && selectedOption.value) {
+            row.querySelector(".expiry-display").value = selectedOption.dataset.exp || "";
+            const mrpVal = parseFloat(selectedOption.dataset.mrp) || 0;
+            row.querySelector(".mrp-display").value = mrpVal.toFixed(2);
             
             const customerType = document.getElementById("customerSelect").dataset.type || 'Retailer';
+            const srateVal = parseFloat(selectedOption.dataset.srate) || 0;
+            const wrateVal = parseFloat(selectedOption.dataset.wholesalerate) || 0;
+            const ratecVal = parseFloat(selectedOption.dataset.ratec) || 0;
+            
+            // Default to S. Rate (Rate A) as per specification, or Wholesale Rate if Wholesaler
             let rate = 0;
-            if (customerType === 'Wholesaler') {
-                rate = parseFloat(selectedOption.dataset.wholesalerate) || 0;
-            } else {
-                rate = parseFloat(selectedOption.dataset.srate) || 0;
+            if (customerType === 'Wholesaler' && wrateVal > 0) {
+                rate = wrateVal;
+            } else if (srateVal > 0) {
+                rate = srateVal;
+            } else if (mrpVal > 0) {
+                rate = mrpVal;
             }
             row.querySelector(".srate-input").value = rate.toFixed(2);
+            
+            // Set up rate switcher dropdown if multiple rates exist
+            setupRowRatePicker(id, srateVal, wrateVal, ratecVal, mrpVal, rate);
+        } else {
+            const pickerBtn = row.querySelector(".rate-picker-btn");
+            if (pickerBtn) pickerBtn.classList.add("d-none");
         }
         validateQuantityStock(id);
         calculateRowTotals(id);
@@ -1651,6 +1761,10 @@
                 addNewInvoiceRow();
             }
         }
+        if (e.key === "F3" || (e.altKey && (e.key === "r" || e.key === "R"))) {
+            e.preventDefault();
+            toggleOrCycleEntryBarRate();
+        }
     });
 
     // ==================== FAST PRODUCT SEARCH & ENTRY BAR ENGINE ====================
@@ -1787,6 +1901,111 @@
         });
     }
 
+    function setupEntryBarRatePicker(srate, wrate, ratec, mrp, selectedRate, activeKey) {
+        const pickerBtn = document.getElementById("entryRatePickerBtn");
+        const pickerMenu = document.getElementById("entryRatePickerMenu");
+        const pickerLabel = document.getElementById("entryRatePickerLabel");
+        const badge = document.getElementById("entryRateBadge");
+        if (!pickerBtn || !pickerMenu) return;
+
+        const rateOptions = [];
+        if (srate > 0) rateOptions.push({ key: 'A', name: 'Rate A (S. Rate)', value: srate, badgeClass: 'bg-primary text-white', btnClass: 'btn-primary' });
+        if (wrate > 0) rateOptions.push({ key: 'B', name: 'Rate B (W. Rate)', value: wrate, badgeClass: 'bg-info text-dark', btnClass: 'btn-info text-dark' });
+        if (ratec > 0) rateOptions.push({ key: 'C', name: 'Rate C (Spl Rate)', value: ratec, badgeClass: 'bg-success text-white', btnClass: 'btn-success text-white' });
+        if (mrp > 0) rateOptions.push({ key: 'MRP', name: 'MRP', value: mrp, badgeClass: 'bg-secondary text-white', btnClass: 'btn-secondary text-white' });
+
+        const distinctValues = new Set(rateOptions.map(r => r.value.toFixed(2)));
+        if (distinctValues.size > 1) {
+            pickerBtn.classList.remove("d-none");
+            if (badge) {
+                badge.classList.remove("d-none");
+                badge.textContent = `Rate ${activeKey} (F3)`;
+            }
+            if (pickerLabel) {
+                pickerLabel.textContent = `Rate ${activeKey}`;
+            }
+
+            const activeOpt = rateOptions.find(r => r.key === activeKey) || rateOptions[0];
+            pickerBtn.className = `btn btn-sm ${activeOpt.btnClass} dropdown-toggle px-2 fw-semibold d-flex align-items-center gap-1 shadow-sm`;
+
+            let menuHtml = `
+                <li class="dropdown-header py-1 text-uppercase fw-bold text-muted border-bottom mb-1" style="font-size: 0.68rem; letter-spacing: 0.5px;">
+                    Select Selling Rate <span class="badge bg-light text-muted border float-end">F3 / Alt+R</span>
+                </li>
+            `;
+            rateOptions.forEach(r => {
+                const isActive = Math.abs(r.value - selectedRate) < 0.001 || r.key === activeKey;
+                menuHtml += `
+                    <li>
+                        <a class="dropdown-item d-flex justify-content-between align-items-center py-2 px-3 ${isActive ? 'active fw-bold' : ''}" 
+                           href="javascript:void(0)" 
+                           data-rate-key="${r.key}"
+                           data-rate-value="${r.value}"
+                           data-btn-class="${r.btnClass}"
+                           onclick="setEntryBarRate(${r.value}, '${r.key}', '${r.btnClass}')">
+                            <span><span class="badge ${r.badgeClass} me-2 px-2 py-1" style="font-size: 0.72rem;">${r.key}</span> ${r.name}</span>
+                            <span class="fw-bold ms-3 fs-6">₹${r.value.toFixed(2)}</span>
+                        </a>
+                    </li>
+                `;
+            });
+            pickerMenu.innerHTML = menuHtml;
+        } else {
+            pickerBtn.classList.add("d-none");
+            if (badge) badge.classList.add("d-none");
+            pickerMenu.innerHTML = "";
+        }
+    }
+
+    function setEntryBarRate(rateVal, rateKey, btnClass) {
+        const input = document.getElementById("entrySrate");
+        if (input) {
+            input.value = parseFloat(rateVal).toFixed(2);
+            input.classList.add("bg-warning-subtle");
+            setTimeout(() => input.classList.remove("bg-warning-subtle"), 800);
+        }
+        const badge = document.getElementById("entryRateBadge");
+        if (badge) {
+            badge.classList.remove("d-none");
+            badge.textContent = `Rate ${rateKey} (F3)`;
+        }
+        const pickerLabel = document.getElementById("entryRatePickerLabel");
+        if (pickerLabel) {
+            pickerLabel.textContent = `Rate ${rateKey}`;
+        }
+        const pickerBtn = document.getElementById("entryRatePickerBtn");
+        if (pickerBtn && btnClass) {
+            pickerBtn.className = `btn btn-sm ${btnClass} dropdown-toggle px-2 fw-semibold d-flex align-items-center gap-1 shadow-sm`;
+        }
+        const menu = document.getElementById("entryRatePickerMenu");
+        if (menu) {
+            menu.querySelectorAll(".dropdown-item").forEach(item => {
+                if (item.getAttribute("data-rate-key") === rateKey) {
+                    item.classList.add("active", "fw-bold");
+                } else {
+                    item.classList.remove("active", "fw-bold");
+                }
+            });
+        }
+        recalcEntryBarTotals();
+        showToast(`Switched to Rate ${rateKey}: ₹${parseFloat(rateVal).toFixed(2)}`, "info");
+    }
+
+    function toggleOrCycleEntryBarRate() {
+        const pickerMenu = document.getElementById("entryRatePickerMenu");
+        if (!pickerMenu) return;
+        const items = pickerMenu.querySelectorAll(".dropdown-item");
+        if (items.length <= 1) return;
+
+        let currentIndex = -1;
+        items.forEach((item, idx) => {
+            if (item.classList.contains("active")) currentIndex = idx;
+        });
+
+        const nextIndex = (currentIndex + 1) % items.length;
+        items[nextIndex].click();
+    }
+
     function onEntryBarBatchChange() {
         const batchSelect = document.getElementById("entryBatchSelect");
         const batchId = batchSelect.value;
@@ -1798,17 +2017,29 @@
         if (!batchObj) return;
 
         document.getElementById("entryExpiry").value = batchObj.expiry_mask || "";
-        document.getElementById("entryMrp").value = parseFloat(batchObj.mrp || 0).toFixed(2);
+        const mrpVal = parseFloat(batchObj.mrp || 0);
+        document.getElementById("entryMrp").value = mrpVal.toFixed(2);
 
         const customerType = document.getElementById("customerSelect").dataset.type || 'Retailer';
+        const srateVal = parseFloat(batchObj.sale_rate) || 0;
+        const wrateVal = parseFloat(batchObj.wholesale_rate) || 0;
+        const ratecVal = parseFloat(batchObj.rate_c) || 0;
+
         let rate = 0;
-        if (customerType === 'Wholesaler' && batchObj.wholesale_rate > 0) {
-            rate = parseFloat(batchObj.wholesale_rate);
-        } else {
-            rate = parseFloat(batchObj.sale_rate || batchObj.mrp || 0);
+        let activeKey = 'A';
+        if (customerType === 'Wholesaler' && wrateVal > 0) {
+            rate = wrateVal;
+            activeKey = 'B';
+        } else if (srateVal > 0) {
+            rate = srateVal;
+            activeKey = 'A';
+        } else if (mrpVal > 0) {
+            rate = mrpVal;
+            activeKey = 'MRP';
         }
 
         document.getElementById("entrySrate").value = rate.toFixed(2);
+        setupEntryBarRatePicker(srateVal, wrateVal, ratecVal, mrpVal, rate, activeKey);
         recalcEntryBarTotals();
     }
 
@@ -1853,6 +2084,12 @@
         document.getElementById("entryTotalAmt").value = "";
         const badgeBar = document.getElementById("entryProdBadgeBar");
         if (badgeBar) badgeBar.classList.add("d-none");
+        const pickerBtn = document.getElementById("entryRatePickerBtn");
+        if (pickerBtn) pickerBtn.classList.add("d-none");
+        const badge = document.getElementById("entryRateBadge");
+        if (badge) badge.classList.add("d-none");
+        const pickerMenu = document.getElementById("entryRatePickerMenu");
+        if (pickerMenu) pickerMenu.innerHTML = "";
     }
 
     function addEntryBarItemToTable() {
@@ -1932,7 +2169,14 @@
                     <input type="text" class="form-control billing-input text-end bg-light mrp-display" value="${batchObj ? parseFloat(batchObj.mrp).toFixed(2) : '0.00'}" readonly>
                 </td>
                 <td>
-                    <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" value="${srate.toFixed(2)}" required oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                    <div class="input-group input-group-sm rate-input-group">
+                        <input type="number" name="sale_rate[]" class="form-control billing-input text-end srate-input" step="0.01" min="0" value="${srate.toFixed(2)}" required oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
+                        <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split rate-picker-btn d-none px-1" data-bs-toggle="dropdown" aria-expanded="false" title="Switch Rate (Rate A / Rate B / Rate C / MRP)">
+                            <span class="visually-hidden">Toggle Rate</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm rate-picker-menu" style="font-size: 0.8rem; min-width: 185px; z-index: 1050;">
+                        </ul>
+                    </div>
                 </td>
                 <td>
                     <input type="number" name="quantity[]" class="form-control billing-input text-center qty-input" step="any" min="0.0001" value="${qty}" required oninput="calculateRowTotals(${rowId}); updateLiveMarginInspect(${rowId});">
@@ -1972,8 +2216,13 @@
                 const opt = document.createElement("option");
                 opt.value = b.id;
                 opt.dataset.stock = b.quantity;
+                opt.dataset.mrp = b.mrp;
+                opt.dataset.srate = b.sale_rate;
+                opt.dataset.wholesalerate = b.wholesale_rate;
+                opt.dataset.ratec = b.rate_c || 0;
+                opt.dataset.exp = b.expiry_mask;
                 if (b.id == batchId) opt.selected = true;
-                opt.textContent = `${b.batch_number} (Stock: ${b.quantity})`;
+                opt.textContent = `${b.batch_number} (Exp: ${b.expiry_mask}) [Stock: ${b.quantity}]`;
                 rowBatchSelect.appendChild(opt);
             });
         }
@@ -1987,6 +2236,9 @@
         );
 
         bindRowFocusAndNavigation(rowId);
+        if (batchObj) {
+            setupRowRatePicker(rowId, parseFloat(batchObj.sale_rate) || 0, parseFloat(batchObj.wholesale_rate) || 0, parseFloat(batchObj.rate_c) || 0, parseFloat(batchObj.mrp) || 0, srate);
+        }
         calculateRowTotals(rowId);
         updateProductInspector(rowId);
         resetEntryBarFields();

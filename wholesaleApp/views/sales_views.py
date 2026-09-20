@@ -42,6 +42,7 @@ def get_product_batches(request, pk):
                 'purchase_rate': float(b.purchase_rate),
                 'sale_rate': float(b.sale_rate),
                 'wholesale_rate': float(b.wholesale_rate),
+                'rate_c': float(getattr(b, 'rate_c', 0.0) or 0.0),
                 'quantity': float(b.quantity),
                 'units_per_strip': b.product.units_per_strip
             })
@@ -100,14 +101,86 @@ def get_customer_credit_notes(request, customer_id):
 @login_required
 def invoice_list(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
+    from wholesaleApp.utils.list_helpers import paginate_queryset, invalidate_list_cache
+    from django.db.models import Q, Sum
+
     if not (has_feature_access(request.user, 'sales_view') or has_feature_access(request.user, 'sales_reprint')):
         messages.error(request, "Access Denied: You do not have permission to view Sales Invoices.")
         return redirect('home')
-        
-    invoices = SalesInvoice.objects.all().select_related('customer').order_by('-invoice_date', '-id')
+
+    # Query Parameters
+    q = request.GET.get('q', '').strip()
+    from_date = request.GET.get('from_date', '').strip()
+    to_date = request.GET.get('to_date', '').strip()
+    payment_type = request.GET.get('payment_type', '').strip()
+    bill_type = request.GET.get('bill_type', '').strip()
+    customer_id = request.GET.get('customer', '').strip()
+
+    # Base Queryset
+    invoices = SalesInvoice.objects.all().select_related('customer', 'created_by')
+
+    # Search filter
+    if q:
+        invoices = invoices.filter(
+            Q(invoice_number__icontains=q) |
+            Q(customer__name__icontains=q) |
+            Q(patient_name__icontains=q) |
+            Q(doctor_name__icontains=q) |
+            Q(patient_mobile__icontains=q)
+        )
+
+    # Date Range filter
+    if from_date:
+        invoices = invoices.filter(invoice_date__gte=from_date)
+    if to_date:
+        invoices = invoices.filter(invoice_date__lte=to_date)
+
+    # Payment Type filter
+    if payment_type in ['Cash', 'Credit']:
+        invoices = invoices.filter(payment_type=payment_type)
+
+    # Bill Type (Retail vs Wholesale)
+    if bill_type == 'Retail':
+        invoices = invoices.filter(is_retail=True)
+    elif bill_type == 'Wholesale':
+        invoices = invoices.filter(is_retail=False)
+
+    # Customer filter
+    if customer_id and customer_id.isdigit():
+        invoices = invoices.filter(customer_id=int(customer_id))
+
+    # Aggregates across filtered dataset
+    summary = invoices.aggregate(
+        total_gross=Sum('gross_amount'),
+        total_discount=Sum('discount_amount'),
+        total_gst=Sum('gst_amount'),
+        total_net=Sum('net_amount'),
+    )
+
+    # Sorting
+    invoices = invoices.order_by('-invoice_date', '-id')
+
+    # Pagination
+    page_data = paginate_queryset(request, invoices, default_per_page=25)
+
+    # Filter Customers dropdown list
+    filter_customers = CustomerMaster.objects.filter(is_deleted=False).only('id', 'name').order_by('name')
+
     print_invoice_id = request.session.pop('print_invoice_id', None)
     context = {
-        'invoices': invoices,
+        'page_obj': page_data['page_obj'],
+        'paginator': page_data['paginator'],
+        'extra_query': page_data['extra_query'],
+        'per_page': page_data['per_page'],
+        'total_count': page_data['total_count'],
+        'summary': summary,
+        'filter_customers': filter_customers,
+        'q': q,
+        'from_date': from_date,
+        'to_date': to_date,
+        'payment_type': payment_type,
+        'bill_type': bill_type,
+        'customer_id': customer_id,
         'page_title': 'Sales Invoices (Retail Bills)',
         'user_perms': get_user_permissions_context(request.user),
         'print_invoice_id': print_invoice_id
@@ -279,6 +352,10 @@ def invoice_create(request):
         # 5. Trigger email notification to the customer (retailer)
         from wholesaleApp.utils.email_utils import send_invoice_email_async
         send_invoice_email_async(invoice)
+
+        # Invalidate Sales Invoices list cache
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('sales_invoices')
         
         messages.success(request, f"Sales Invoice {invoice_number} saved successfully.")
         request.session['print_invoice_id'] = invoice.id
@@ -311,9 +388,15 @@ def get_product_last_purchase_rate(request, pk):
     
     history = []
     last_rate = 0.00
+    last_sale_rate = 0.00
+    last_wholesale_rate = 0.00
+    last_rate_c = 0.00
 
     if items.exists():
         last_rate = float(items[0].purchase_rate)
+        last_sale_rate = float(items[0].sale_rate) if items[0].sale_rate else 0.00
+        last_wholesale_rate = float(items[0].wholesale_rate) if items[0].wholesale_rate else 0.00
+        last_rate_c = float(items[0].rate_c) if items[0].rate_c else 0.00
         for item in items:
             exp_str = item.expiry_date.strftime('%m/%y') if item.expiry_date else '-'
             date_str = item.purchase_entry.invoice_date.strftime('%d-%m-%Y') if (item.purchase_entry and item.purchase_entry.invoice_date) else '-'
@@ -329,6 +412,9 @@ def get_product_last_purchase_rate(request, pk):
                 'quantity': item.quantity,
                 'free_quantity': item.free_quantity,
                 'purchase_rate': float(item.purchase_rate),
+                'sale_rate': float(item.sale_rate) if item.sale_rate else 0.00,
+                'wholesale_rate': float(item.wholesale_rate) if item.wholesale_rate else 0.00,
+                'rate_c': float(item.rate_c) if item.rate_c else 0.00,
                 'mrp': float(item.mrp),
                 'total_amount': float(item.total_amount)
             })
@@ -336,6 +422,9 @@ def get_product_last_purchase_rate(request, pk):
         batches = ProductBatch.objects.filter(product_id=pk).order_by('-id')[:5]
         if batches.exists():
             last_rate = float(batches[0].purchase_rate)
+            last_sale_rate = float(batches[0].sale_rate) if batches[0].sale_rate else 0.00
+            last_wholesale_rate = float(batches[0].wholesale_rate) if batches[0].wholesale_rate else 0.00
+            last_rate_c = float(batches[0].rate_c) if batches[0].rate_c else 0.00
             for batch in batches:
                 exp_str = batch.expiry_date.strftime('%m/%y') if batch.expiry_date else '-'
                 history.append({
@@ -347,6 +436,9 @@ def get_product_last_purchase_rate(request, pk):
                     'quantity': batch.quantity,
                     'free_quantity': 0,
                     'purchase_rate': float(batch.purchase_rate),
+                    'sale_rate': float(batch.sale_rate) if batch.sale_rate else 0.00,
+                    'wholesale_rate': float(batch.wholesale_rate) if batch.wholesale_rate else 0.00,
+                    'rate_c': float(batch.rate_c) if batch.rate_c else 0.00,
                     'mrp': float(batch.mrp) if batch.mrp else 0.00,
                     'total_amount': float(batch.purchase_rate * batch.quantity)
                 })
@@ -354,6 +446,9 @@ def get_product_last_purchase_rate(request, pk):
     return JsonResponse({
         'product_id': pk,
         'last_purchase_rate': last_rate,
+        'last_sale_rate': last_sale_rate,
+        'last_wholesale_rate': last_wholesale_rate,
+        'last_rate_c': last_rate_c,
         'history': history
     })
 
@@ -687,6 +782,10 @@ def invoice_edit(request, pk):
         # 8. Trigger email notification to the customer (retailer)
         from wholesaleApp.utils.email_utils import send_invoice_email_async
         send_invoice_email_async(invoice)
+
+        # Invalidate Sales Invoices list cache
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('sales_invoices')
         
         messages.success(request, f"Invoice {invoice.invoice_number} updated successfully!")
         request.session['print_invoice_id'] = invoice.id
@@ -704,6 +803,9 @@ def invoice_edit(request, pk):
             'expiryMask': item.batch.expiry_date.strftime('%m/%y') if item.batch.expiry_date else 'N/A',
             'mrpReal': float(item.batch.mrp),
             'saleRate': float(item.sale_rate),
+            'batchSaleRate': float(item.batch.sale_rate),
+            'batchWholesaleRate': float(item.batch.wholesale_rate),
+            'batchRateC': float(getattr(item.batch, 'rate_c', 0.0) or 0.0),
             'quantity': float(item.quantity),
             'freeQuantity': float(item.free_quantity),
             'gstRate': float(item.product.gst_rate),
@@ -753,6 +855,10 @@ def invoice_delete(request, pk):
     # 3. Delete the invoice
     invoice_number = invoice.invoice_number
     invoice.delete()
+
+    # Invalidate Sales Invoices list cache
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('sales_invoices')
     
     messages.success(request, f"Invoice {invoice_number} has been deleted successfully, stock restored and customer balance reverted.")
     return redirect('invoice_list')

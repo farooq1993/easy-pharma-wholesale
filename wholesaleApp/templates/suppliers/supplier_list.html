@@ -5,66 +5,114 @@
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h4>All Suppliers ({{ suppliers.count }})</h4>
-    <a href="{% url 'supplier_create' %}" class="btn btn-primary">
-        <i class="bi bi-plus-circle"></i> Add New Supplier
-    </a>
+<!-- Header & Quick Actions -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-4">
+    <div>
+        <h4 class="fw-bold mb-1 text-dark">
+            <i class="bi bi-truck text-primary me-2"></i> Supplier Master
+        </h4>
+        <span class="text-muted small">Total <strong>{{ total_count }}</strong> registered supplier(s)</span>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'supplier_create' %}" class="btn btn-primary rounded-pill px-4 shadow-sm fw-semibold">
+            <i class="bi bi-plus-circle-fill me-1"></i> Add New Supplier
+        </a>
+    </div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body p-0">
-        <table class="table table-hover mb-0">
-            <thead class="table-light">
+<!-- Search & Filtering Bar -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+    <div class="card-body p-3 p-md-4">
+        <form method="GET" action="{% url 'supplier_list' %}" class="row g-2 align-items-end" id="supplierFilterForm">
+            <input type="hidden" name="per_page" value="{{ per_page }}">
+
+            <!-- Live Search -->
+            <div class="col-12 col-md-9">
+                <label class="form-label text-muted small fw-bold mb-1">SEARCH SUPPLIERS</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" name="q" value="{{ q }}" class="form-control billing-input border-start-0" placeholder="Search by Supplier Name, Contact Person, Mobile, City, or GSTIN...">
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="col-12 col-md-3 d-flex gap-2 justify-content-end">
+                <button type="submit" class="btn btn-sm btn-primary rounded-pill px-4 fw-bold flex-grow-1">
+                    <i class="bi bi-funnel-fill me-1"></i> Filter
+                </button>
+                {% if q %}
+                <a href="{% url 'supplier_list' %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3" title="Reset Filter">
+                    <i class="bi bi-x-circle me-1"></i> Reset
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table Card -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size: 0.88rem;">
+            <thead class="table-light border-bottom text-uppercase text-muted" style="font-size: 0.76rem; letter-spacing: 0.5px;">
                 <tr>
-                    <th>Supplier Name</th>
+                    <th class="ps-3 py-3">Supplier Name</th>
                     <th>Mobile</th>
                     <th>GSTIN</th>
                     <th>City / State</th>
-                    <th>Opening Balance</th>
-                    <th>Credit Limit</th>
+                    <th class="text-end">Balance (₹)</th>
+                    <th class="text-end">Credit Limit</th>
                     <th>Credit Days</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th class="text-center" style="width: 130px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                {% for supplier in suppliers %}
+                {% for supplier in page_obj %}
                 <tr>
-                    <td><strong>{{ supplier.name }}</strong></td>
-                    <td>{{ supplier.mobile }}</td>
-                    <td><code class="text-dark">{{ supplier.gstin|default:"-" }}</code></td>
-                    <td>{{ supplier.city }}{% if supplier.state %}, {{ supplier.state }}{% endif %}</td>
-                    <td class="fw-bold">₹{{ supplier.opening_balance|floatformat:2 }}</td>
-                    <td>₹{{ supplier.credit_limit|floatformat:2 }}</td>
+                    <td class="ps-3">
+                        <strong class="text-dark">{{ supplier.name }}</strong>
+                    </td>
+                    <td>{{ supplier.mobile|default:"-" }}</td>
+                    <td><span class="font-monospace text-muted small">{{ supplier.gstin|default:"-" }}</span></td>
+                    <td>
+                        <div>{{ supplier.city|default:"-" }}</div>
+                        {% if supplier.state %}<small class="text-muted">{{ supplier.state }}</small>{% endif %}
+                    </td>
+                    <td class="text-end fw-bold text-primary">₹{{ supplier.opening_balance|floatformat:2 }}</td>
+                    <td class="text-end">₹{{ supplier.credit_limit|floatformat:2 }}</td>
                     <td>{{ supplier.credit_days }} days</td>
                     <td>
                         {% if supplier.status %}
-                            <span class="badge bg-success">Active</span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">Active</span>
                         {% else %}
-                            <span class="badge bg-secondary">Inactive</span>
+                            <span class="badge bg-secondary-subtle text-secondary px-2 py-1">Inactive</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <a href="{% url 'supplier_edit' supplier.pk %}" class="btn btn-sm btn-outline-primary me-1">
+                    <td class="text-center text-nowrap">
+                        <a href="{% url 'supplier_edit' supplier.pk %}" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-1 me-1" title="Edit Supplier">
                             <i class="bi bi-pencil"></i>
                         </a>
-                        <a href="{% url 'supplier_delete' supplier.pk %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this supplier?')">
+                        <a href="{% url 'supplier_delete' supplier.pk %}" class="btn btn-sm btn-outline-danger rounded-pill px-2.5 py-1" onclick="return confirm('Are you sure you want to delete supplier {{ supplier.name }}?')" title="Delete Supplier">
                             <i class="bi bi-trash"></i>
                         </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" class="text-center py-4 text-muted">
-                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                        No suppliers found. Click "Add New Supplier" to get started.
+                    <td colspan="9" class="text-center py-5 text-muted">
+                        <i class="bi bi-truck fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                        <h6 class="fw-bold mb-1">No suppliers found matching your criteria.</h6>
+                        <small>Try adjusting your search terms.</small>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    <!-- Pagination -->
+    {% include 'includes/pagination.html' %}
 </div>
 
 {% endblock %}

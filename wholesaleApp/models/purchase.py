@@ -13,6 +13,7 @@ class ProductBatch(TenantModel):
     purchase_rate = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Purchase Rate (₹)")
     sale_rate = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Sale Rate (₹)")
     wholesale_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Wholesale Rate (₹)")
+    rate_c = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Rate C / Special Rate (₹)")
     quantity = models.DecimalField(max_digits=12, decimal_places=4, default=0.0000, verbose_name="Available Stock (Packs)")
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -91,6 +92,7 @@ class PurchaseEntry(TenantModel):
         verbose_name = "Purchase Entry"
         verbose_name_plural = "Purchase Entries"
         ordering = ['-invoice_date', '-id']
+        unique_together = ('tenant', 'invoice_number')
 
     def __str__(self):
         return f"Inv: {self.invoice_number} - {self.supplier.name}"
@@ -106,6 +108,7 @@ class PurchaseEntryItem(TenantModel):
     purchase_rate = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Purchase Rate (₹)")
     sale_rate = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Sale Rate (₹)")
     wholesale_rate = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Wholesale Rate (₹)")
+    rate_c = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Rate C / Special Rate (₹)")
     
     quantity = models.IntegerField(verbose_name="Billed Qty (Packs)")
     free_quantity = models.IntegerField(default=0, verbose_name="Free Qty")

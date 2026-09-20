@@ -16,11 +16,15 @@ from wholesaleApp.views.customers_views import (
     customer_payment_delete,
     customer_payment_list,
     customer_payment_create,
-    get_customer_outstanding_invoices
+    get_customer_outstanding_invoices,
+    customer_manage,
+    get_customer_manage_details
 )
 
 urlpatterns = [
     path("customer/list/", customer_list, name='customer_list'),
+    path("customer/manage/<int:pk>/", customer_manage, name='customer_manage'),
+    path("api/customer/<int:customer_id>/manage-details/", get_customer_manage_details, name='api_customer_manage_details'),
     path("customer/payment/list/", customer_payment_list, name='customer_payment_list'),
     path("customer/payment/create/", customer_payment_create, name='customer_payment_create'),
     path("api/customer/<int:customer_id>/outstanding-invoices/", get_customer_outstanding_invoices, name='api_customer_outstanding_invoices'),

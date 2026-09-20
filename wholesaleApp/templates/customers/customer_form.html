@@ -8,8 +8,11 @@
 <div class="row justify-content-center">
     <div class="col-lg-10">
         <div class="card shadow-sm">
-            <div class="card-header bg-white">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                 <h5 class="mb-0">{{ page_title }}</h5>
+                <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left"></i> Back to List
+                </a>
             </div>
             <div class="card-body">
                 <form method="POST">
@@ -48,15 +51,15 @@
                             <input type="text" name="gstin" class="form-control" value="{{ customer.gstin|default:'' }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">DL Number 1</label>
+                            <label class="form-label">DL Number 20</label>
                             <input type="text" name="dl_number_1" class="form-control" value="{{ customer.dl_number_1|default:'' }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">DL Number 2</label>
+                            <label class="form-label">DL Number 21</label>
                             <input type="text" name="dl_number_2" class="form-control" value="{{ customer.dl_number_2|default:'' }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">DL Number 3</label>
+                            <label class="form-label">DL Number 20C</label>
                             <input type="text" name="dl_number_3" class="form-control" value="{{ customer.dl_number_3|default:'' }}">
                         </div>
 

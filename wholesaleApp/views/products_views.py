@@ -11,12 +11,33 @@ logger = logging.getLogger(__name__)
 # ==================== COMPANY MASTER VIEWS ====================
 @login_required
 def company_list(request):
+    from wholesaleApp.views.security_helpers import has_feature_access
+    from wholesaleApp.utils.list_helpers import paginate_queryset, invalidate_list_cache
+    from django.db.models import Q
+
     if not has_feature_access(request.user, 'product_view'):
         messages.error(request, "Access Denied: You do not have permission to view Company Master.")
         return redirect('home')
+
+    q = request.GET.get('q', '').strip()
     companies = CompanyMaster.objects.filter(is_deleted=False)
+
+    if q:
+        companies = companies.filter(
+            Q(name__icontains=q) |
+            Q(code__icontains=q)
+        )
+
+    companies = companies.order_by('name')
+    page_data = paginate_queryset(request, companies, default_per_page=25)
+
     context = {
-        'companies': companies,
+        'page_obj': page_data['page_obj'],
+        'paginator': page_data['paginator'],
+        'extra_query': page_data['extra_query'],
+        'per_page': page_data['per_page'],
+        'total_count': page_data['total_count'],
+        'q': q,
         'page_title': 'Company Master'
     }
     return render(request, 'companies/company_list.html', context)
@@ -40,6 +61,8 @@ def company_create(request):
             )
             company.save()
             log_activity(request, "CREATE", "CompanyMaster", company.name, object_id=company.id, description=f"Company '{name}' created.")
+            from wholesaleApp.utils.list_helpers import invalidate_list_cache
+            invalidate_list_cache('companies')
             messages.success(request, 'Company created successfully!')
             return redirect('company_list')
             
@@ -63,6 +86,8 @@ def company_edit(request, pk):
             company.code = code
             company.save()
             log_activity(request, "UPDATE", "CompanyMaster", company.name, object_id=company.id, description=f"Company '{name}' updated.")
+            from wholesaleApp.utils.list_helpers import invalidate_list_cache
+            invalidate_list_cache('companies')
             messages.success(request, 'Company updated successfully!')
             return redirect('company_list')
             
@@ -78,6 +103,8 @@ def company_delete(request, pk):
     company.is_deleted = True
     company.save()
     log_activity(request, "DELETE", "CompanyMaster", company.name, object_id=company.id, description=f"Company '{company.name}' soft deleted.")
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('companies')
     messages.success(request, 'Company deleted successfully!')
     return redirect('company_list')
 
@@ -221,12 +248,50 @@ def type_delete(request, pk):
 # ==================== PRODUCT MASTER (ITEM MASTER) VIEWS ====================
 @login_required
 def product_list(request):
+    from wholesaleApp.views.security_helpers import has_feature_access
+    from wholesaleApp.utils.list_helpers import paginate_queryset, invalidate_list_cache
+    from django.db.models import Q
+
     if not has_feature_access(request.user, 'product_view'):
         messages.error(request, "Access Denied: You do not have permission to view Products.")
         return redirect('home')
+
+    q = request.GET.get('q', '').strip()
+    company_id = request.GET.get('company', '').strip()
+    type_id = request.GET.get('type', '').strip()
+
     products = ProductMaster.objects.filter(is_deleted=False).select_related('company', 'drug_composition', 'product_type')
+
+    if q:
+        products = products.filter(
+            Q(name__icontains=q) |
+            Q(hsn_code__icontains=q) |
+            Q(pack_size__icontains=q)
+        )
+
+    if company_id and company_id.isdigit():
+        products = products.filter(company_id=int(company_id))
+
+    if type_id and type_id.isdigit():
+        products = products.filter(product_type_id=int(type_id))
+
+    products = products.order_by('name')
+    page_data = paginate_queryset(request, products, default_per_page=25)
+
+    filter_companies = CompanyMaster.objects.filter(is_deleted=False).order_by('name')
+    filter_types = ProductTypeMaster.objects.filter(is_deleted=False).order_by('name')
+
     context = {
-        'products': products,
+        'page_obj': page_data['page_obj'],
+        'paginator': page_data['paginator'],
+        'extra_query': page_data['extra_query'],
+        'per_page': page_data['per_page'],
+        'total_count': page_data['total_count'],
+        'filter_companies': filter_companies,
+        'filter_types': filter_types,
+        'q': q,
+        'company_id': company_id,
+        'type_id': type_id,
         'page_title': 'Product Master (Item Catalog)'
     }
     return render(request, 'products/product_list.html', context)
@@ -267,6 +332,8 @@ def product_create(request):
         )
         product.save()
         log_activity(request, "CREATE", "ProductMaster", product.name, object_id=product.id, description=f"Product '{name}' (Pack: {pack_size}, HSN: {hsn_code}) created.")
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('products')
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
             return JsonResponse({
@@ -324,6 +391,8 @@ def product_edit(request, pk):
             product.min_stock = request.POST.get('min_stock')
         product.save()
         log_activity(request, "UPDATE", "ProductMaster", product.name, object_id=product.id, description=f"Product '{product.name}' updated.")
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('products')
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
             return JsonResponse({
@@ -371,6 +440,8 @@ def product_delete(request, pk):
     product.is_deleted = True
     product.save()
     log_activity(request, "DELETE", "ProductMaster", product.name, object_id=product.id, description=f"Product '{product.name}' soft deleted.")
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('products')
     messages.success(request, 'Product deleted successfully!')
     return redirect('product_list')
 

@@ -104,3 +104,75 @@ class CustomerPayment(TenantModel):
 
     def __str__(self):
         return f"Payment {self.id} - {self.customer.name} - ₹{self.amount}"
+
+# ==================== CUSTOMER MANAGE DETAIL (MARG STYLE) ====================
+class CustomerManageDetail(TenantModel):
+    customer = models.OneToOneField(CustomerMaster, on_delete=models.CASCADE, related_name='manage_detail', verbose_name="Customer")
+    
+    # 1. Discounts & Schemes
+    item_discount_a = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Item Discount % (Rate A)")
+    item_discount_b = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Item Discount % (Rate B)")
+    item_discount_c = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Item Discount % (Rate C)")
+    collection_disc = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Collection Disc. %")
+    min_margin = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Min. Margin %")
+    volume_disc = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Volume Disc. %")
+    breakage_expiry_disc = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Breakage/Expiry Disc. % [MRP]")
+    product_scheme_notes = models.TextField(blank=True, null=True, verbose_name="Product Scheme & Special Deals Notes")
+    
+    # 2. Billing & Rates Preferences
+    SALES_RATE_CHOICES = (
+        ('wholesale', 'Wholesale Rate'),
+        ('mrp', 'MRP'),
+        ('purchase', 'Purchase Rate'),
+        ('rate_a', 'Rate A'),
+        ('rate_b', 'Rate B'),
+    )
+    sales_rate_type = models.CharField(max_length=30, choices=SALES_RATE_CHOICES, default='wholesale', verbose_name="Sales Rate")
+    
+    NEAR_EXP_CHOICES = (
+        ('allowed', 'Allowed'),
+        ('warn', 'Warn Only'),
+        ('not_allowed', 'Not Allowed'),
+    )
+    near_expiry_action = models.CharField(max_length=20, choices=NEAR_EXP_CHOICES, default='allowed', verbose_name="Near Expiry in Bill")
+    new_item_billing = models.BooleanField(default=True, verbose_name="New Item Billing Allowed")
+    print_batch = models.BooleanField(default=True, verbose_name="Print Batch on Bill")
+    invoice_format = models.CharField(max_length=50, default='DEFAULT', blank=True, null=True, verbose_name="Invoice Format")
+    
+    # 3. Credit Limits & Payment Terms
+    credit_limit_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Credit Limit (₹)")
+    credit_limit_bills = models.IntegerField(default=0, verbose_name="Credit Limit (Bills)")
+    credit_days = models.IntegerField(default=0, verbose_name="Credit Days")
+    interest_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Overdue Interest %")
+    
+    LIMIT_ACTION_CHOICES = (
+        ('indicate', 'Only Indicate / Warn'),
+        ('stop', 'Stop / Block Billing'),
+        ('none', 'No Restriction'),
+    )
+    credit_limit_action = models.CharField(max_length=20, choices=LIMIT_ACTION_CHOICES, default='indicate', verbose_name="Credit Limit Action")
+    bank_rebate_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Bank Rebate %")
+    bank_rebate_days = models.IntegerField(default=0, verbose_name="Bank Rebate Upto (Days)")
+    collection_days = models.CharField(max_length=100, default='Mon,Tue,Wed,Thu,Fri,Sat', blank=True, null=True, verbose_name="Collection Days")
+    
+    # 4. Transport & Banking
+    transport_name = models.CharField(max_length=150, blank=True, null=True, verbose_name="Transport")
+    delivery_by = models.CharField(max_length=150, blank=True, null=True, verbose_name="Delivery By / Agent")
+    bank_name = models.CharField(max_length=150, blank=True, null=True, verbose_name="Bank Name")
+    bank_account_no = models.CharField(max_length=50, blank=True, null=True, verbose_name="Bank Account No")
+    bank_ifsc = models.CharField(max_length=20, blank=True, null=True, verbose_name="IFSC Code")
+    bank_branch = models.CharField(max_length=150, blank=True, null=True, verbose_name="Branch Name")
+    
+    # 5. Operator Note (prominently alert billing operator)
+    operator_note = models.TextField(blank=True, null=True, verbose_name="Operator Note / Billing Alert")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Customer Manage Detail"
+        verbose_name_plural = "Customer Manage Details"
+
+    def __str__(self):
+        return f"Manage Details: {self.customer.name}"
