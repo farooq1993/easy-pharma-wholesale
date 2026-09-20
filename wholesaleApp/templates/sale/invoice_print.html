@@ -130,7 +130,7 @@
         /* Print-specific layout styling */
         @media print {
             @page {
-                size: A5 landscape;
+                size: A4 portrait;
                 margin: 8mm 10mm;
             }
             body {
@@ -139,12 +139,23 @@
                 margin: 0;
             }
             .invoice-card {
-                border: none;
+                border: 1px solid #495057;
                 box-shadow: none;
-                padding: 0;
+                padding: 4mm;
                 max-width: 100%;
-                min-height: auto;
+                height: 138mm;
+                min-height: 0;
                 border-radius: 0;
+                box-sizing: border-box;
+                margin: 0 0 3mm;
+                background: #fff;
+                page-break-inside: avoid;
+            }
+            .invoice-card + .invoice-card {
+                border-top: 1px solid #495057;
+            }
+            .invoice-card > div {
+                page-break-inside: avoid;
             }
             .no-print {
                 display: none !important;
@@ -208,7 +219,7 @@
                     
                     <!-- Invoice Details -->
                     <div>
-                        <span class="badge {% if invoice.is_retail %}bg-success{% else %}bg-danger{% endif %} text-uppercase fw-bold px-3 py-1.5 mb-2" style="font-size: 10px; letter-spacing: 0.5px;">{% if invoice.is_retail %}Retail Bill{% else %}Tax Invoice{% endif %}</span>
+                        <span class="badge invoice-type-badge {% if invoice.is_retail %}bg-success{% else %}bg-danger{% endif %} text-uppercase fw-bold px-3 py-1.5 mb-2" style="font-size: 10px; letter-spacing: 0.5px;">{% if invoice.is_retail %}Retail Bill{% else %}Tax Invoice{% endif %} - <span class="copy-label">ORIGINAL</span></span>
                         <div class="small">
                             <strong>Invoice No:</strong> <span class="font-monospace fw-bold">{{ invoice.invoice_number }}</span><br>
                             <strong>Date:</strong> {{ invoice.invoice_date|date:"d-m-Y" }}<br>
@@ -287,9 +298,9 @@
             <thead>
                 <tr>
                     <th style="width: 4%;">#</th>
-                    <th class="text-start" style="width: 25%;">Product Name (Brand)</th>
-                    <th style="width: 7%;">Pack</th>
                     <th style="width: 9%;">HSN</th>
+                    <th class="text-start" style="width: 25%;">Product Name</th>
+                    <th style="width: 7%;">Pack</th>
                     <th style="width: 10%;">Batch No</th>
                     <th style="width: 8%;">Expiry</th>
                     <th style="width: 6%;">{% if invoice.is_retail %}Qty (Units){% else %}Qty (Strips){% endif %}</th>
@@ -305,9 +316,9 @@
                 {% for det in item_details %}
                     <tr>
                         <td>{{ det.idx }}</td>
+                        <td class="font-monospace small">{{ det.hsn_code|default:"—" }}</td>
                         <td class="text-start"><strong>{{ det.product_name }}</strong></td>
                         <td>{{ det.pack_size }}</td>
-                        <td class="font-monospace small">{{ det.hsn_code|default:"—" }}</td>
                         <td class="font-monospace fw-semibold">{{ det.batch_number }}</td>
                         <td class="font-monospace">{{ det.expiry_mask }}</td>
                         <td>{{ det.qty|floatformat:"-4" }}</td>
@@ -350,6 +361,11 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <div class="small fw-semibold text-dark mb-1">
+                    Total Items: <span class="text-primary">{{ total_item_count }}</span>
+                    <span class="ms-3">Total Qty: <span class="text-primary">{{ total_quantity|floatformat:"-4" }}</span></span>
                 </div>
 
                 <div class="small fw-semibold text-dark mb-1">
@@ -437,6 +453,18 @@
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.M
             });
+        }
+
+        // Print an original and a copy in the two halves of one A4 sheet.
+        var originalInvoice = document.querySelector('.invoice-card');
+        if (originalInvoice && !document.querySelector('.invoice-copy')) {
+            var invoiceCopy = originalInvoice.cloneNode(true);
+            invoiceCopy.classList.add('invoice-copy');
+            var copyLabel = invoiceCopy.querySelector('.copy-label');
+            if (copyLabel) {
+                copyLabel.textContent = 'COPY';
+            }
+            originalInvoice.parentNode.appendChild(invoiceCopy);
         }
         
         // Automatically trigger print dialog on page load

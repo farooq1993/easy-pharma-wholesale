@@ -6,7 +6,7 @@ from wholesaleApp.models.purchase import ProductBatch
 from wholesaleApp.models.tenant import TenantModel
 
 class SalesInvoice(TenantModel):
-    invoice_number = models.CharField(max_length=50, verbose_name="Invoice Number")
+    invoice_number = models.CharField(max_length=50, unique=True, verbose_name="Invoice Number")
     customer = models.ForeignKey(CustomerMaster, on_delete=models.PROTECT, related_name='sales_invoices', verbose_name="Customer", null=True, blank=True)
     patient_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Patient Name")
     patient_mobile = models.CharField(max_length=20, blank=True, null=True, verbose_name="Patient Mobile")
@@ -28,7 +28,7 @@ class SalesInvoice(TenantModel):
     payment_type = models.CharField(
         max_length=10,
         choices=(('Cash', 'Cash'), ('Credit', 'Credit')),
-        default='Credit',
+        default='Cash',
         verbose_name="Payment Type"
     )
     
@@ -41,7 +41,6 @@ class SalesInvoice(TenantModel):
         verbose_name = "Sales Invoice"
         verbose_name_plural = "Sales Invoices"
         ordering = ['-invoice_date', '-id']
-        unique_together = ('tenant', 'invoice_number')
 
     def __str__(self):
         cust_name = self.customer.name if self.customer else (self.patient_name or "Walk-in Customer")

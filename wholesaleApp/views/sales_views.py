@@ -212,7 +212,7 @@ def invoice_create(request):
         if is_date_in_closed_fy(invoice_date):
             messages.error(request, "Action Denied: The selected invoice date falls within a closed Financial Year.")
             return redirect('invoice_create')
-        payment_type = request.POST.get('payment_type', 'Credit')
+        payment_type = request.POST.get('payment_type', 'Cash')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))
@@ -278,8 +278,8 @@ def invoice_create(request):
         
         while True:
             invoice_number = f"{prefix}{next_id:04d}"
-            # Check unique_together collision across this tenant
-            if not SalesInvoice.objects.filter(tenant=tenant, invoice_number=invoice_number).exists():
+            # Invoice numbers must be unique across all SaaS tenants.
+            if not SalesInvoice.unfiltered_objects.filter(invoice_number=invoice_number).exists():
                 break
             next_id += 1
         
@@ -458,7 +458,7 @@ def number_to_words(number):
     try:
         number = int(round(number))
         if number == 0:
-            return "Rupees Zero Only"
+            return "Zero Only"
         
         words = []
         units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
@@ -490,7 +490,7 @@ def number_to_words(number):
         if number:
             words.append(helper(number))
             
-        return "Rupees " + " ".join(words) + " Only"
+        return " ".join(words) + " Only"
     except Exception:
         return ""
 
@@ -556,6 +556,8 @@ def invoice_print(request, pk):
         })
         
     net_amount_words = number_to_words(invoice.net_amount)
+    total_item_count = len(item_details)
+    total_quantity = sum((det['qty'] for det in item_details), Decimal('0.0000'))
     
     # ===== OUTSTANDING BALANCE WITH AGING =====
     outstanding_balance = Decimal('0.00')
@@ -640,6 +642,8 @@ def invoice_print(request, pk):
         'cgst_total': total_gst_calculated / 2,
         'sgst_total': total_gst_calculated / 2,
         'net_amount_words': net_amount_words,
+        'total_item_count': total_item_count,
+        'total_quantity': total_quantity,
         # Outstanding balance & aging
         'outstanding_balance': outstanding_balance,
         'aging_0_30': aging_0_30,
@@ -682,7 +686,7 @@ def invoice_edit(request, pk):
         if is_date_in_closed_fy(invoice_date):
             messages.error(request, "Action Denied: The selected invoice date falls within a closed Financial Year.")
             return redirect('invoice_list')
-        payment_type = request.POST.get('payment_type', 'Credit')
+        payment_type = request.POST.get('payment_type', 'Cash')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))

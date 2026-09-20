@@ -365,8 +365,8 @@
                                     <td class="text-muted">Bill Discount (Discount on Total Bill):</td>
                                     <td class="text-end text-danger fw-semibold">
                                         <div class="d-flex justify-content-end align-items-center gap-2">
-                                            <input type="number" id="billDiscountPct" class="form-control form-control-sm text-end" style="width: 85px;" step="0.01" min="0" placeholder="0.0%" oninput="onBillDiscountPctChange()">
-                                            <input type="number" id="billDiscountAmt" class="form-control form-control-sm text-end" style="width: 110px;" step="0.01" min="0" placeholder="₹0.00" oninput="onBillDiscountAmtChange()">
+                                            <input type="number" id="billDiscountPct" class="form-control form-control-sm text-end" style="width: 85px;" step="0.01" min="0" max="100" placeholder="0.0%" aria-label="Bill discount percentage" oninput="onBillDiscountPctChange()">
+                                            <input type="number" id="billDiscountAmt" class="form-control form-control-sm text-end" style="width: 110px;" step="0.01" min="0" placeholder="₹0.00" aria-label="Bill discount amount" oninput="onBillDiscountAmtChange()">
                                         </div>
                                     </td>
                                 </tr>
@@ -1632,31 +1632,39 @@
     }
 
     function onBillDiscountPctChange() {
-        const pct = parseFloat(document.getElementById("billDiscountPct").value) || 0;
-        let totalVal = 0;
-        document.querySelectorAll("#invoiceTable tbody tr").forEach(row => {
-            totalVal += parseFloat(row.dataset.total) || 0;
-        });
+        const pctInput = document.getElementById("billDiscountPct");
+        const pct = Math.min(100, Math.max(0, parseFloat(pctInput.value) || 0));
+        if (pct !== (parseFloat(pctInput.value) || 0)) {
+            pctInput.value = pct;
+        }
+        const totalVal = getInvoiceTotalBeforeBillDiscount();
         const amt = totalVal * (pct / 100);
         document.getElementById("billDiscountAmt").value = amt.toFixed(2);
-        recalculateInvoiceSummary();
+        recalculateInvoiceSummary("percentage");
     }
 
     function onBillDiscountAmtChange() {
-        const amt = parseFloat(document.getElementById("billDiscountAmt").value) || 0;
+        const amountInput = document.getElementById("billDiscountAmt");
+        const totalVal = getInvoiceTotalBeforeBillDiscount();
+        const enteredAmount = Math.max(0, parseFloat(amountInput.value) || 0);
+        const amt = Math.min(totalVal, enteredAmount);
+        if (enteredAmount !== amt) {
+            amountInput.value = amt.toFixed(2);
+        }
+        const pct = totalVal > 0 ? (amt / totalVal) * 100 : 0;
+        document.getElementById("billDiscountPct").value = pct.toFixed(2);
+        recalculateInvoiceSummary("amount");
+    }
+
+    function getInvoiceTotalBeforeBillDiscount() {
         let totalVal = 0;
         document.querySelectorAll("#invoiceTable tbody tr").forEach(row => {
             totalVal += parseFloat(row.dataset.total) || 0;
         });
-        let pct = 0;
-        if (totalVal > 0) {
-            pct = (amt / totalVal) * 100;
-        }
-        document.getElementById("billDiscountPct").value = pct.toFixed(1);
-        recalculateInvoiceSummary();
+        return totalVal;
     }
 
-    function recalculateInvoiceSummary() {
+    function recalculateInvoiceSummary(discountSource = "") {
         let grossTaxableTotal = 0;
         let discountTotal = 0;
         let gstTotal = 0;
@@ -1671,24 +1679,27 @@
 
         // Bill Discount (Discount on Total Bill)
         const pct = parseFloat(document.getElementById("billDiscountPct").value) || 0;
-        if (pct > 0) {
+        if (pct > 0 && discountSource !== "amount") {
             const amt = netPayable * (pct / 100);
             document.getElementById("billDiscountAmt").value = amt.toFixed(2);
         }
         const billDiscountAmt = parseFloat(document.getElementById("billDiscountAmt").value) || 0;
         const cnAdjustAmt = parseFloat(document.getElementById("cnAdjustInput") ? document.getElementById("cnAdjustInput").value : 0) || 0;
 
-        const finalNetPayable = Math.max(0, netPayable - billDiscountAmt - cnAdjustAmt);
-        const totalCombinedDiscount = discountTotal + billDiscountAmt;
+        const appliedBillDiscount = Math.min(Math.max(0, billDiscountAmt), netPayable);
+        const billDiscountRatio = netPayable > 0 ? appliedBillDiscount / netPayable : 0;
+        const gstAfterBillDiscount = gstTotal * (1 - billDiscountRatio);
+        const finalNetPayable = Math.max(0, netPayable - appliedBillDiscount - cnAdjustAmt);
+        const totalCombinedDiscount = discountTotal + appliedBillDiscount;
         
         document.getElementById("summaryGross").textContent = grossTaxableTotal.toFixed(2);
         document.getElementById("summaryDiscount").textContent = discountTotal.toFixed(2);
-        document.getElementById("summaryGst").textContent = gstTotal.toFixed(2);
+        document.getElementById("summaryGst").textContent = gstAfterBillDiscount.toFixed(2);
         document.getElementById("summaryNet").textContent = finalNetPayable.toFixed(2);
         
         document.getElementById("inputGross").value = grossTaxableTotal.toFixed(2);
         document.getElementById("inputDiscount").value = totalCombinedDiscount.toFixed(2);
-        document.getElementById("inputGst").value = gstTotal.toFixed(2);
+        document.getElementById("inputGst").value = gstAfterBillDiscount.toFixed(2);
         document.getElementById("inputNet").value = finalNetPayable.toFixed(2);
     }
 

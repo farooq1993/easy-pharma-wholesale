@@ -221,6 +221,7 @@ class SalesModuleTests(TestCase):
         response = self.client.post(reverse('invoice_create'), {
             'customer': self.customer.id,
             'invoice_date': '2026-07-13',
+            'payment_type': 'Credit',
             'gross_amount': '2400.00',
             'discount_amount': '0.00',
             'gst_amount': '288.00',
@@ -250,6 +251,28 @@ class SalesModuleTests(TestCase):
         # Verify customer outstanding updated
         self.customer.refresh_from_db()
         self.assertEqual(float(self.customer.opening_balance), 2688.00)
+
+    def test_sales_invoice_defaults_to_cash_payment(self):
+        response = self.client.post(reverse('invoice_create'), {
+            'customer': self.customer.id,
+            'invoice_date': '2026-07-13',
+            'gross_amount': '120.00',
+            'discount_amount': '0.00',
+            'gst_amount': '14.40',
+            'net_amount': '134.40',
+            'product[]': [self.product.id],
+            'batch[]': [self.batch.id],
+            'sale_rate[]': ['120.00'],
+            'quantity[]': [1],
+            'free_quantity[]': [0],
+            'discount_percentage[]': [0.00],
+            'total_amount[]': [134.40]
+        })
+
+        self.assertTrue(response.url.startswith(reverse('invoice_create')))
+        self.assertEqual(SalesInvoice.objects.get().payment_type, 'Cash')
+        self.customer.refresh_from_db()
+        self.assertEqual(float(self.customer.opening_balance), 0.00)
 
     def test_insufficient_stock_prevention(self):
         # Post invoice requesting 150 items (exceeding stock of 100)
@@ -637,6 +660,7 @@ class InvoiceCrudAndWholesalePricingTests(TestCase):
         post_data = {
             'customer': self.wholesaler.id,
             'invoice_date': '2026-07-15',
+            'payment_type': 'Credit',
             'gross_amount': '80.00',
             'discount_amount': '0.00',
             'gst_amount': '9.60',
@@ -673,6 +697,7 @@ class InvoiceCrudAndWholesalePricingTests(TestCase):
         invoice = SalesInvoice.objects.create(
             customer=self.retailer,
             invoice_date="2026-07-15",
+            payment_type='Credit',
             gross_amount=90,
             discount_amount=0,
             gst_amount=10.8,
@@ -700,6 +725,7 @@ class InvoiceCrudAndWholesalePricingTests(TestCase):
         post_data = {
             'customer': self.retailer.id,
             'invoice_date': '2026-07-15',
+            'payment_type': 'Credit',
             'gross_amount': '225.00',
             'discount_amount': '0.00',
             'gst_amount': '27.00',
@@ -736,6 +762,7 @@ class InvoiceCrudAndWholesalePricingTests(TestCase):
         invoice = SalesInvoice.objects.create(
             customer=self.retailer,
             invoice_date="2026-07-15",
+            payment_type='Credit',
             gross_amount=90,
             discount_amount=0,
             gst_amount=10.8,
