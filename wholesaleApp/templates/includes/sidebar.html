@@ -235,12 +235,11 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Auto-close other accordion menus when one is clicked/expanded
-        document.querySelectorAll('.sidebar [data-bs-toggle="collapse"]').forEach(toggleBtn => {
-            toggleBtn.addEventListener('click', function () {
-                const targetId = this.getAttribute('href') || this.getAttribute('data-bs-target');
-                document.querySelectorAll('.sidebar .collapse').forEach(other => {
-                    if (targetId && `#${other.id}` !== targetId && other.classList.contains('show')) {
+        // Auto-close other accordion menus when any menu is opened (strict single-open accordion)
+        document.querySelectorAll('.sidebar .collapse').forEach(collapseEl => {
+            collapseEl.addEventListener('show.bs.collapse', function () {
+                document.querySelectorAll('.sidebar .collapse.show').forEach(other => {
+                    if (other !== collapseEl) {
                         if (typeof bootstrap !== "undefined" && bootstrap.Collapse) {
                             const bsCollapse = bootstrap.Collapse.getInstance(other) || new bootstrap.Collapse(other, { toggle: false });
                             bsCollapse.hide();
@@ -291,16 +290,16 @@
         font-size: 0.92rem;
     }
     .sidebar .nav-link:hover {
-        background-color: rgba(255, 255, 255, 0.15);
+        background-color: rgba(20, 184, 166, 0.22);
         color: #ffffff !important;
         transform: translateX(3px);
     }
     .sidebar .nav-link.active {
-        background-color: rgba(255, 255, 255, 0.22);
+        background-color: rgba(20, 184, 166, 0.32);
         color: #ffffff !important;
         font-weight: 700;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        border-left: 4px solid #ffffff;
+        border-left: 4px solid #5eead4;
     }
     .sidebar .collapse .nav-link {
         padding-left: 16px;

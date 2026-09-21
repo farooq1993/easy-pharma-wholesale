@@ -21,8 +21,12 @@ from django.http import HttpResponse
 def service_worker(request):
     return HttpResponse("// Service Worker disabled\n", content_type="application/javascript")
 
+def favicon(request):
+    return HttpResponse(status=204)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('sw.js', service_worker, name='service_worker'),
+    path('favicon.ico', favicon, name='favicon'),
     path("", include('wholesaleApp.urls'))
 ]

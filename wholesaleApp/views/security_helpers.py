@@ -160,6 +160,10 @@ def seed_default_tenant():
 
 def seed_default_permissions():
     """Seed the database with default Modules, Features, and Role Presets."""
+    from django.core.cache import cache
+    if cache.get('permissions_seeded_v1') and AppFeature.objects.filter(is_active=True).exists():
+        return
+
     default_tenant = seed_default_tenant()
 
     DEFAULT_PERMISSIONS = {
@@ -260,6 +264,8 @@ def seed_default_permissions():
     # Sync default permissions for all users
     for user in User.objects.all():
         apply_role_default_permissions(user)
+
+    cache.set('permissions_seeded_v1', True, timeout=86400)
 
 
 def user_perms_context_processor(request):

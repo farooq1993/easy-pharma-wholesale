@@ -27,11 +27,15 @@
                     {% endfor %}
                 </select>
             </div>
+            <div class="col-md-3">
+                <label class="form-label text-muted small fw-bold">Search Customer</label>
+                <input type="search" name="q" class="form-control" value="{{ search_query|default:'' }}" placeholder="Name or mobile">
+            </div>
             <div class="col-md-3 d-flex gap-2">
                 <button type="submit" class="btn btn-primary px-4 rounded-pill flex-grow-1">
                     <i class="bi bi-funnel-fill"></i> Filter Dues
                 </button>
-                {% if from_date or to_date or selected_area %}
+                {% if from_date or to_date or selected_area or search_query %}
                 <a href="{% url 'report_outstanding' %}" class="btn btn-outline-secondary px-4 rounded-pill">
                     <i class="bi bi-x-circle"></i> Clear
                 </a>
@@ -56,23 +60,17 @@
 <div id="reportContent" class="bg-transparent">
     <!-- Total Dues Row -->
     <div class="row g-3 mb-4 text-center mt-2">
-        <div class="col-md-6">
+        <div class="col-12">
             <div class="card shadow-sm border-0 rounded-4 bg-white p-3 border-start border-primary border-4">
                 <span class="text-muted small">Total Accounts Receivable (Customer Dues)</span>
                 <h3 class="fw-bold text-primary mb-0 mt-1">₹{{ total_receivable|floatformat:2 }}</h3>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card shadow-sm border-0 rounded-4 bg-white p-3 border-start border-danger border-4">
-                <span class="text-muted small">Total Accounts Payable (Supplier Dues)</span>
-                <h3 class="fw-bold text-danger mb-0 mt-1">₹{{ total_payable|floatformat:2 }}</h3>
             </div>
         </div>
     </div>
 
     <div class="row g-4">
         <!-- Customer Receivables Column -->
-        <div class="col-lg-6">
+        <div class="col-12">
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-header bg-white py-3 border-bottom-0">
                     <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-person-fill-down text-primary"></i> Customer Outstanding Ledger</h5>
@@ -89,7 +87,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for c in customers %}
+                                {% for c in customer_page %}
                                     <tr>
                                         <td class="ps-4">
                                             <strong>{{ c.name }}</strong>
@@ -119,47 +117,19 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Supplier Payables Column -->
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 rounded-4">
-                <div class="card-header bg-white py-3 border-bottom-0">
-                    <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-person-fill-up text-danger"></i> Supplier Outstanding Ledger</h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="ps-4">Supplier Name</th>
-                                    <th>Mobile</th>
-                                    <th class="text-end pe-4">Balance Payable</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for s in suppliers %}
-                                    <tr>
-                                        <td class="ps-4">
-                                            <strong>{{ s.name }}</strong>
-                                            <div class="text-muted small">{{ s.city }}</div>
-                                        </td>
-                                        <td>{{ s.mobile }}</td>
-                                        <td class="text-end fw-bold pe-4 text-danger">₹{{ s.opening_balance|floatformat:2 }}</td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="3" class="text-center py-5 text-muted">
-                                            <i class="bi bi-journal-check display-4 text-success d-block mb-3"></i>
-                                            No outstanding supplier balances.
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    {% if customer_page.paginator.num_pages > 1 %}
+                    <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top">
+                        <span class="text-muted small">Page {{ customer_page.number }} of {{ customer_page.paginator.num_pages }}</span>
+                        <div class="d-flex gap-2">
+                            {% if customer_page.has_previous %}
+                            <a class="btn btn-sm btn-outline-primary rounded-pill px-3" href="?q={{ search_query|urlencode }}&from_date={{ from_date|urlencode }}&to_date={{ to_date|urlencode }}&area={{ selected_area|default:'' }}&page={{ customer_page.previous_page_number }}">Previous</a>
+                            {% endif %}
+                            {% if customer_page.has_next %}
+                            <a class="btn btn-sm btn-primary rounded-pill px-3" href="?q={{ search_query|urlencode }}&from_date={{ from_date|urlencode }}&to_date={{ to_date|urlencode }}&area={{ selected_area|default:'' }}&page={{ customer_page.next_page_number }}">Next</a>
+                            {% endif %}
+                        </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

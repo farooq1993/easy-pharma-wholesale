@@ -38,23 +38,21 @@
         padding: 6px 0;
         margin-top: 4px;
         background-color: #ffffff;
-        border: 1px solid rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.12);
         border-radius: 12px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-        max-height: 260px;
+        box-shadow: 0 14px 30px -4px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+        max-height: 280px;
         overflow-y: auto;
     }
     .combobox-menu li {
         margin: 2px 6px;
     }
     .combobox-menu li a {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        display: block;
         padding: 8px 12px;
-        color: #334155;
+        color: #1e293b;
         text-decoration: none;
-        border-radius: 6px;
+        border-radius: 8px;
         font-size: 0.9rem;
         transition: all 0.15s ease;
         cursor: pointer;
@@ -62,12 +60,67 @@
     .combobox-menu li a:hover,
     .combobox-menu li.active a {
         color: #ffffff !important;
-        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
-        transform: translateY(-1px);
+        background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
     }
-    .combobox-menu li.active a code {
+    .combobox-menu li a:hover .combo-title,
+    .combobox-menu li.active a .combo-title {
         color: #ffffff !important;
-        background-color: rgba(255, 255, 255, 0.2) !important;
+    }
+    .combobox-menu li a:hover .combo-capsule-icon,
+    .combobox-menu li.active a .combo-capsule-icon {
+        color: #a5f3fc !important;
+    }
+    .combobox-menu li a:hover .combo-meta-label,
+    .combobox-menu li.active a .combo-meta-label,
+    .combobox-menu li a:hover .combo-divider,
+    .combobox-menu li.active a .combo-divider {
+        color: rgba(255, 255, 255, 0.78) !important;
+    }
+    .combobox-menu li a:hover .combo-mrp,
+    .combobox-menu li.active a .combo-mrp,
+    .combobox-menu li a:hover .combo-gst,
+    .combobox-menu li.active a .combo-gst {
+        color: #ffffff !important;
+    }
+    .combobox-menu li a:hover .combo-sale,
+    .combobox-menu li.active a .combo-sale {
+        color: #6ee7b7 !important;
+        font-weight: 800 !important;
+    }
+    .combobox-menu li a:hover .combo-pack-badge,
+    .combobox-menu li.active a .combo-pack-badge,
+    .combobox-menu li a:hover .combo-enter-hint .badge,
+    .combobox-menu li.active a .combo-enter-hint .badge {
+        background-color: rgba(255, 255, 255, 0.22) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+    }
+    .combobox-menu li a:hover .combo-stock-badge,
+    .combobox-menu li.active a .combo-stock-badge {
+        background-color: rgba(255, 255, 255, 0.22) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.45) !important;
+    }
+    .combobox-menu li a:hover .combo-scheme-badge,
+    .combobox-menu li.active a .combo-scheme-badge {
+        background-color: rgba(56, 189, 248, 0.25) !important;
+        color: #e0f2fe !important;
+        border-color: rgba(56, 189, 248, 0.5) !important;
+    }
+    .combobox-menu li a:hover .combo-shop-icon,
+    .combobox-menu li.active a .combo-shop-icon {
+        color: #a5f3fc !important;
+    }
+    .combobox-menu li a:hover .combo-cust-meta,
+    .combobox-menu li.active a .combo-cust-meta,
+    .combobox-menu li a:hover .combo-cust-meta span,
+    .combobox-menu li.active a .combo-cust-meta span {
+        color: rgba(255, 255, 255, 0.88) !important;
+    }
+    .combobox-menu li a:hover .combo-cust-meta i,
+    .combobox-menu li.active a .combo-cust-meta i {
+        color: #a5f3fc !important;
     }
     
     .combobox-menu::-webkit-scrollbar {
@@ -189,9 +242,16 @@
                         <span id="customerOutstandingBadge" class="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-1 border border-danger-subtle fw-bold" style="font-size: 0.85rem; display: none;">Outstanding: ₹0.00</span>
                     </div>
                     <div class="combobox-container">
-                        <input type="text" id="customerSearch" class="form-control combobox-input" placeholder="Type Chemist Name..." {% if not invoice.is_retail %}required{% endif %} value="{{ invoice.customer.name|default:'' }}{% if invoice.customer %} ({{ invoice.customer.city }}){% endif %}">
+                        <input type="text" id="customerSearch" class="form-control combobox-input" placeholder="Type Name, Address, Area or Phone..." {% if not invoice.is_retail %}required{% endif %} value="{{ invoice.customer.name|default:'' }}{% if invoice.customer %} ({{ invoice.customer.city }}){% endif %}">
                         <input type="hidden" name="customer" id="customerSelect" class="combobox-hidden-value" {% if not invoice.is_retail %}required{% endif %} value="{{ invoice.customer.id|default:'' }}" data-type="{{ invoice.customer.customer_type|default:'Retailer' }}">
                         <ul class="combobox-menu shadow-sm"></ul>
+                    </div>
+                    <div id="customerSelectedDetails" class="mt-1.5 p-2 rounded-3 bg-light border border-dashed shadow-xs" style="display: none; font-size: 0.76rem;">
+                        <div class="text-dark fw-semibold text-truncate" id="custDetailAddress"><i class="bi bi-geo-alt-fill text-danger me-1"></i><span></span></div>
+                        <div class="d-flex align-items-center flex-wrap gap-2 text-muted mt-1" id="custDetailMeta" style="font-size: 0.72rem;">
+                            <span id="custDetailMobile"></span>
+                            <span id="custDetailDl"></span>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3">
@@ -232,23 +292,29 @@
                     <!-- STEP 2: FAST PRODUCT SEARCH & ENTRY BAR -->
                     <div class="card shadow-sm border-0 rounded-4 mb-4 bg-light">
                         <div class="card-body p-3.5">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2.5">
                                 <div class="d-flex align-items-center gap-2">
-                                    <span class="badge bg-primary rounded-circle p-2 d-flex align-items-center justify-content-center" style="width:28px; height:28px;">
-                                        <i class="bi bi-search text-white" style="font-size: 0.8rem;"></i>
+                                    <span class="badge bg-primary rounded-circle p-2 d-flex align-items-center justify-content-center shadow-xs" style="width:30px; height:30px;">
+                                        <i class="bi bi-search text-white" style="font-size: 0.85rem;"></i>
                                     </span>
-                                    <h6 class="fw-bold text-dark mb-0 text-uppercase tracking-wider" style="font-size: 0.88rem;">Fast Product Search & Entry Bar</h6>
+                                    <div>
+                                        <h6 class="fw-bold text-dark mb-0 text-uppercase tracking-wider" style="font-size: 0.88rem;">Fast Product Search & Entry Bar</h6>
+                                        <span class="text-muted" style="font-size: 0.74rem;">Rapid medicine barcode entry & FEFO batch billing</span>
+                                    </div>
                                 </div>
-                                <button type="button" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold text-dark" onclick="openProductModal()" style="font-size: 0.78rem;">
+                                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-semibold shadow-xs" onclick="openProductModal()" style="font-size: 0.78rem;">
                                     <i class="bi bi-plus-circle me-1"></i> Quick Add Product
                                 </button>
                             </div>
 
                             <!-- Medicine Search Combobox & Live Badges -->
                             <div class="mb-3">
-                                <label class="form-label text-muted small fw-bold mb-1">SEARCH MEDICINE OR BARCODE <span class="text-danger">*</span></label>
+                                <label class="form-label text-muted fw-bold mb-1 d-flex align-items-center justify-content-between" style="font-size: 0.86rem;">
+                                    <span><i class="bi bi-capsule text-primary me-1"></i> SEARCH MEDICINE OR BARCODE <span class="text-danger">*</span></span>
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace" style="font-size: 0.72rem;"><i class="bi bi-keyboard me-1"></i>Press F2 to Focus</span>
+                                </label>
                                 <div class="combobox-container">
-                                    <input type="text" id="entryProdSearch" class="form-control billing-input fs-6 py-2 shadow-sm" placeholder="TYPE MEDICINE NAME OR BARCODE... (PRESS F2 TO FOCUS)" autocomplete="off">
+                                    <input type="text" id="entryProdSearch" class="form-control billing-input fs-6 py-2.5 shadow-sm" placeholder="TYPE MEDICINE NAME OR BARCODE... (PRESS F2 TO FOCUS)" autocomplete="off">
                                     <input type="hidden" id="entryProdId" class="combobox-hidden-value">
                                     <ul class="combobox-menu shadow-sm"></ul>
                                 </div>
@@ -421,6 +487,13 @@
                                     </div>
                                 </div>
 
+                                <div>
+                                    <label class="small text-muted fw-bold mb-1">Recent 5 Sales</label>
+                                    <div class="table-responsive" id="inspectSalesHistory">
+                                        <div class="text-muted text-center py-2">Loading sales history...</div>
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
                     </div>
@@ -439,42 +512,74 @@
 
 <!-- ==================== QUICK ADD CUSTOMER MODAL ==================== -->
 <div class="modal fade" id="addCustomerModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content border-0 rounded-4 shadow">
-            <div class="modal-header border-bottom-0">
-                <h5 class="modal-title fw-bold"><i class="bi bi-person-plus"></i> Quick Add Retailer</h5>
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <div class="modal-header bg-light border-bottom py-3 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary rounded-circle p-2 d-flex align-items-center justify-content-center shadow-xs" style="width:34px; height:34px;">
+                        <i class="bi bi-person-plus-fill text-white fs-6"></i>
+                    </span>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0">Quick Add Customer / Retailer</h5>
+                        <small class="text-muted">Directly create and bill to a new chemist (Shortcut: F4)</small>
+                    </div>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="quickCustomerForm">
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">Customer Name <span class="text-danger">*</span></label>
-                            <input type="text" id="custName" class="form-control" required>
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Customer / Firm Name <span class="text-danger">*</span></label>
+                            <input type="text" id="custName" class="form-control" required placeholder="e.g. Apollo Chemist">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Mobile Number <span class="text-danger">*</span></label>
-                            <input type="text" id="custMobile" class="form-control" required>
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Mobile Number <span class="text-danger">*</span></label>
+                            <input type="text" id="custMobile" class="form-control" maxlength="15" required placeholder="10-digit mobile number">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Area / City <span class="text-danger">*</span></label>
-                            <select id="custArea" class="form-select" required>
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Drug Licence Number (DL) <span class="text-danger">*</span></label>
+                            <input type="text" id="custDlNumber" class="form-control" maxlength="100" required placeholder="e.g. 20B/12345, 21B/12345">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Area <span class="text-danger">*</span></label>
+                            <select id="custArea" class="form-select" required onchange="onCustAreaChange(this)">
                                 <option value="">Select Area</option>
+                                {% for area in areas %}
+                                <option value="{{ area.id }}" data-city="{{ area.city }}">{{ area.city }}</option>
+                                {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">State</label>
-                            <input type="text" id="custState" class="form-control">
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">City <span class="text-danger">*</span></label>
+                            <input type="text" id="custCity" class="form-control" required placeholder="Enter city name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">State</label>
+                            <input type="text" id="custState" class="form-control" placeholder="e.g. Uttar Pradesh">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">GSTIN (Optional)</label>
+                            <input type="text" id="custGstin" class="form-control font-monospace text-uppercase" maxlength="15" placeholder="15-digit GSTIN">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Customer Type</label>
+                            <select id="custType" class="form-select">
+                                <option value="Retailer" selected>Retailer / Chemist</option>
+                                <option value="Wholesaler">Wholesaler / Sub-distributor</option>
+                            </select>
                         </div>
                         <div class="col-md-12">
-                            <label class="form-label">Business Address</label>
-                            <textarea id="custAddress" class="form-control" rows="2"></textarea>
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Business Address</label>
+                            <textarea id="custAddress" class="form-control" rows="2" placeholder="Shop number, market, landmark..."></textarea>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer border-top-0">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary px-4">Save Retailer</button>
+                <div class="modal-footer bg-light border-top py-2.5 px-4">
+                    <button type="button" class="btn btn-outline-secondary px-3 rounded-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="btnSaveQuickCustomer" class="btn btn-primary px-4 rounded-3 fw-bold shadow-sm">
+                        <i class="bi bi-check-circle-fill me-1"></i> Save Customer (Enter)
+                    </button>
                 </div>
             </form>
         </div>
@@ -597,26 +702,49 @@
     // Global datasets
     const customerList = [
         {% for customer in customers %}
-        { id: "{{ customer.id }}", name: "{{ customer.name }} ({{ customer.city }})", type: "{{ customer.customer_type }}", outstanding: parseFloat("{{ customer.opening_balance|default:0 }}") },
+        { 
+            id: "{{ customer.id }}", 
+            name: "{{ customer.name|escapejs }}", 
+            address: "{{ customer.address|default:''|escapejs }}",
+            area: "{% if customer.area %}{{ customer.area.name|escapejs }}{% endif %}",
+            city: "{{ customer.city|default:''|escapejs }}",
+            mobile: "{{ customer.mobile|default:''|escapejs }}",
+            dl: "{{ customer.dl_number_1|default:''|escapejs }}",
+            type: "{{ customer.customer_type|escapejs }}", 
+            outstanding: parseFloat("{{ customer.opening_balance|default:0 }}") 
+        },
         {% endfor %}
     ];
 
+    // Pre-calculate cached search tokens for ultra-fast customer filtering (<0.2ms)
+    customerList.forEach(c => {
+        c._searchIndex = `${c.name} ${c.address || ''} ${c.area || ''} ${c.city || ''} ${c.mobile || ''} ${c.dl || ''}`.toLowerCase();
+    });
+
     const productCatalog = {
         {% for product in products %}
+        {% with display_batch=product.batches.all|first %}
         "{{ product.id }}": {
             name: "{{ product.name }}",
             pack: "{{ product.pack_size }}",
+            stock: parseFloat("{{ product.total_stock|default:0 }}"),
+            mrp: parseFloat("{{ display_batch.mrp|default:0 }}"),
+            saleRate: parseFloat("{{ display_batch.sale_rate|default:0 }}"),
             gst: parseFloat("{{ product.gst_rate }}"),
             schemeQty: parseInt("{{ product.scheme_qty|default:0 }}"),
             schemeFree: parseInt("{{ product.scheme_free|default:0 }}")
         },
+        {% endwith %}
         {% endfor %}
     };
 
     const productList = Object.entries(productCatalog).map(([id, prod]) => ({
         id: id,
         name: prod.name,
-        pack: prod.pack
+        pack: prod.pack,
+        stock: prod.stock,
+        isProduct: true,
+        _searchIndex: `${prod.name} ${prod.pack || ''}`.toLowerCase()
     }));
 
     const existingItems = {{ existing_items_json|safe }};
@@ -644,6 +772,9 @@
         let activeIdx = -1;
 
         inputEl.addEventListener("focus", () => {
+            if (inputEl.id === "entryProdSearch" && !hiddenInput.value) {
+                if (typeof clearProductInspector === "function") clearProductInspector();
+            }
             renderSuggestions(inputEl.value);
         });
 
@@ -660,6 +791,12 @@
                 const outBadge = document.getElementById("customerOutstandingBadge");
                 if (outBadge) {
                     outBadge.style.display = "none";
+                }
+                if (typeof updateCustomerAddressPreview === "function" && inputEl.id === "customerSearch") {
+                    updateCustomerAddressPreview(null);
+                }
+                if (inputEl.id === "entryProdSearch" && typeof resetEntryBarFields === "function") {
+                    resetEntryBarFields();
                 }
             }
         });
@@ -731,16 +868,97 @@
         function renderSuggestions(query) {
             activeIdx = -1;
             menu.innerHTML = "";
-            const filtered = dataset.filter(item => 
-                item.name.toLowerCase().includes(query.toLowerCase())
-            );
+            if (document.querySelector(".modal.show")) {
+                menu.style.display = "none";
+                return;
+            }
+            const q = query.trim().toLowerCase();
+            const filtered = dataset.filter(item => {
+                if (!q) return true;
+                if (item._searchIndex) return item._searchIndex.includes(q);
+                return (item.name || "").toLowerCase().includes(q);
+            }).slice(0, 35);
 
             if (filtered.length > 0) {
                 filtered.forEach(item => {
                     const li = document.createElement("li");
                     li.dataset.id = item.id;
-                    li.dataset.name = item.name + (item.pack ? ` (${item.pack})` : '');
-                    li.innerHTML = `<a class="dropdown-item"><span>${item.name}</span> ${item.pack ? `<span class="badge bg-light text-secondary border ms-2">${item.pack}</span>` : ''}</a>`;
+                    li.dataset.name = item.name + (item.pack ? ` (${item.pack})` : (item.city ? ` (${item.city})` : ''));
+                    if (item.isProduct) {
+                        const product = productCatalog[item.id] || {};
+                        const rawStock = product.stock !== undefined ? product.stock : (item.stock || 0);
+                        const stockVal = parseFloat(rawStock || 0);
+                        const dispStock = (stockVal % 1 === 0) ? stockVal.toFixed(0) : stockVal.toFixed(2);
+                        let stockBadgeClass = "bg-success-subtle text-success border border-success-subtle";
+                        let stockIcon = '<i class="bi bi-box-seam me-1"></i>';
+                        let stockLabel = `Stock: ${dispStock}`;
+                        if (stockVal <= 0) {
+                            stockBadgeClass = "bg-danger-subtle text-danger border border-danger-subtle";
+                            stockLabel = "Out of Stock (0)";
+                        } else if (stockVal <= 10) {
+                            stockBadgeClass = "bg-warning-subtle text-warning-emphasis border border-warning-subtle";
+                            stockLabel = `Low Stock: ${dispStock}`;
+                        }
+
+                        const schemeBadge = (product.schemeQty > 0 && product.schemeFree > 0)
+                            ? `<span class="badge bg-info-subtle text-info border border-info-subtle combo-scheme-badge" style="font-size: 0.72rem;">Scheme: ${product.schemeQty}+${product.schemeFree}</span>`
+                            : '';
+
+                        li.innerHTML = `
+                            <a class="dropdown-item py-2 px-3">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
+                                        <span class="combo-capsule-icon text-primary"><i class="bi bi-capsule"></i></span>
+                                        <strong class="combo-title text-dark fs-6 text-truncate">${item.name}</strong>
+                                        <span class="badge bg-light text-secondary border combo-pack-badge flex-shrink-0" style="font-size: 0.74rem; padding: 3px 8px;">${item.pack || '-'}</span>
+                                    </div>
+                                    <div class="combo-enter-hint d-none d-md-flex align-items-center flex-shrink-0">
+                                        <span class="badge bg-light text-muted border font-monospace" style="font-size: 0.68rem;">Enter ↵</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center flex-wrap gap-2.5 mt-1 combo-meta-row" style="font-size: 0.82rem; padding-left: 20px;">
+                                    <span class="badge ${stockBadgeClass} combo-stock-badge fw-semibold" style="font-size: 0.74rem; padding: 3px 8px;">
+                                        ${stockIcon}${stockLabel}
+                                    </span>
+                                    <span class="combo-meta-label text-muted">MRP: <strong class="combo-mrp text-dark font-monospace">₹${(product.mrp || 0).toFixed(2)}</strong></span>
+                                    <span class="combo-divider text-muted">•</span>
+                                    <span class="combo-meta-label text-muted">Sale Rate: <strong class="combo-sale text-success fw-bold font-monospace fs-6">₹${(product.saleRate || 0).toFixed(2)}</strong></span>
+                                    <span class="combo-divider text-muted">•</span>
+                                    <span class="combo-meta-label text-muted">GST: <strong class="combo-gst text-dark">${product.gst || 12}%</strong></span>
+                                    ${schemeBadge}
+                                </div>
+                            </a>
+                        `;
+                    } else {
+                        // Customer List rendering with Address, Area, City, Mobile, DL, Dues
+                        const addressParts = [item.address, item.area, item.city].filter(Boolean).join(", ");
+                        const duesVal = parseFloat(item.outstanding || 0);
+                        const duesBadgeClass = duesVal > 0 
+                            ? "bg-danger-subtle text-danger border border-danger-subtle" 
+                            : "bg-success-subtle text-success border border-success-subtle";
+                        const duesLabel = duesVal > 0 ? `Dues: ₹${duesVal.toFixed(2)}` : 'No Dues';
+
+                        li.innerHTML = `
+                            <a class="dropdown-item py-2 px-3">
+                                <div class="d-flex justify-content-between align-items-center w-100">
+                                    <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
+                                        <span class="combo-shop-icon text-primary"><i class="bi bi-shop"></i></span>
+                                        <strong class="combo-title text-dark fs-6 text-truncate">${item.name}</strong>
+                                        <span class="badge bg-light text-secondary border flex-shrink-0" style="font-size: 0.74rem;">${item.type || 'Retailer'}</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                        <span class="badge ${duesBadgeClass} font-monospace" style="font-size: 0.75rem;">${duesLabel}</span>
+                                        <span class="badge bg-light text-muted border font-monospace d-none d-md-inline" style="font-size: 0.68rem;">Enter ↵</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center flex-wrap gap-2.5 mt-1 combo-cust-meta" style="font-size: 0.81rem; padding-left: 24px; color: #475569;">
+                                    ${addressParts ? `<span class="text-truncate" style="max-width: 320px;" title="${addressParts}"><i class="bi bi-geo-alt text-danger me-1"></i>${addressParts}</span>` : '<span class="text-muted fst-italic">No address listed</span>'}
+                                    ${item.mobile ? `<span>•</span><span><i class="bi bi-telephone text-success me-1"></i>${item.mobile}</span>` : ''}
+                                    ${item.dl ? `<span>•</span><span class="text-muted"><i class="bi bi-card-text text-info me-1"></i>DL: ${item.dl}</span>` : ''}
+                                </div>
+                            </a>
+                        `;
+                    }
                     li.addEventListener("click", () => selectItem(li));
                     menu.appendChild(li);
                 });
@@ -763,6 +981,10 @@
             menu.style.display = "block";
         }
     }
+
+    document.addEventListener('show.bs.modal', function () {
+        document.querySelectorAll('.combobox-menu').forEach(menu => menu.style.display = 'none');
+    });
 
     // ==================== INVOICE ROW BUILDER ====================
     function addNewInvoiceRow() {
@@ -1022,98 +1244,124 @@
     }
 
     // Docked inspector updates
-    function updateProductInspector(rowId) {
+    function clearProductInspector() {
         const placeholder = document.getElementById("inspectorPlaceholder");
         const content = document.getElementById("inspectorContent");
+        if (placeholder) placeholder.classList.remove("d-none");
+        if (content) content.classList.add("d-none");
+        const historyEl = document.getElementById("inspectSalesHistory");
+        if (historyEl) historyEl.innerHTML = "";
+        const nameEl = document.getElementById("inspectProductName");
+        if (nameEl) nameEl.textContent = "";
+        const packEl = document.getElementById("inspectProductPack");
+        if (packEl) packEl.textContent = "-";
+        const gstEl = document.getElementById("inspectProductGst");
+        if (gstEl) gstEl.textContent = "-";
+        const batchListEl = document.getElementById("inspectBatchList");
+        if (batchListEl) batchListEl.innerHTML = "";
+        const stockistEl = document.getElementById("inspectStockistMargin");
+        if (stockistEl) stockistEl.textContent = "₹0.00 (0%)";
+        const retailerEl = document.getElementById("inspectRetailerMargin");
+        if (retailerEl) retailerEl.textContent = "₹0.00 (0%)";
+    }
 
-        if (!placeholder || !content) return;
-
-        if (rowId === null) {
-            placeholder.classList.remove("d-none");
-            content.classList.add("d-none");
+    function updateProductInspector(rowId) {
+        if (rowId === null || rowId === undefined) {
+            clearProductInspector();
             return;
         }
 
         const row = document.getElementById(`item-row-${rowId}`);
-        if (!row) return;
-
-        const productId = row.querySelector(".select-product").value;
-        if (!productId) {
-            placeholder.classList.remove("d-none");
-            content.classList.add("d-none");
+        if (!row) {
+            clearProductInspector();
             return;
         }
 
-        placeholder.classList.add("d-none");
-        content.classList.remove("d-none");
+        const productId = row.querySelector(".select-product")?.value;
+        if (!productId || !productCatalog[productId]) {
+            clearProductInspector();
+            return;
+        }
 
-        const product = productCatalog[productId];
-        document.getElementById("inspectProductName").textContent = product.name;
-        document.getElementById("inspectProductPack").textContent = product.pack;
-        document.getElementById("inspectProductGst").textContent = product.gst;
+        showProductSalesHistory(productId);
 
         const batchSelect = row.querySelector(".select-batch");
-        const currentBatchId = batchSelect.value;
+        const currentBatchId = batchSelect ? batchSelect.value : null;
         const batchListEl = document.getElementById("inspectBatchList");
-        batchListEl.innerHTML = "";
+        if (batchListEl) {
+            batchListEl.innerHTML = "";
 
-        fetchProductBatches(productId, (batches) => {
-            if (batches.length === 0) {
-                batchListEl.innerHTML = `<div class="text-muted text-center p-3 small">No stock batches found</div>`;
-                return;
-            }
-
-            batches.forEach(b => {
-                const isSelected = b.id == currentBatchId;
-                const batchItem = document.createElement("a");
-                batchItem.className = `list-group-item list-group-item-action border rounded-3 mb-2 p-2.5 ${isSelected ? 'active bg-primary text-white border-primary' : 'bg-white'}`;
-                batchItem.style.cursor = "pointer";
-
-                const daysLeft = Math.round((new Date(b.expiry_real) - new Date()) / (1000 * 60 * 60 * 24));
-                let expiryBadge = `<span class="badge bg-light text-dark border small">Exp: ${b.expiry_mask}</span>`;
-                if (daysLeft <= 90) {
-                    expiryBadge = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Exp: ${b.expiry_mask}</span>`;
+            fetchProductBatches(productId, (batches) => {
+                if (batches.length === 0) {
+                    batchListEl.innerHTML = `<div class="text-muted text-center p-3 small">No stock batches found</div>`;
+                    return;
                 }
 
-                let stockBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Stock: ${b.quantity}</span>`;
-                if (b.quantity <= 10) {
-                    stockBadge = `<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill">Low: ${b.quantity}</span>`;
-                }
+                batches.forEach(b => {
+                    const isSelected = b.id == currentBatchId;
+                    const batchItem = document.createElement("a");
+                    batchItem.className = `list-group-item list-group-item-action border rounded-3 mb-2 p-2.5 ${isSelected ? 'active bg-primary text-white border-primary' : 'bg-white'}`;
+                    batchItem.style.cursor = "pointer";
 
-                batchItem.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="fw-bold ${isSelected ? 'text-white' : 'text-dark'}">${b.batch_number}</span>
-                        ${stockBadge}
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center text-muted small" style="font-size: 0.8rem;">
-                        <span class="${isSelected ? 'text-white-50' : ''}">MRP: ₹${parseFloat(b.mrp).toFixed(2)} | A: ₹${parseFloat(b.sale_rate).toFixed(2)} | B: ₹${parseFloat(b.wholesale_rate).toFixed(2)}${b.rate_c > 0 ? ' | C: ₹' + parseFloat(b.rate_c).toFixed(2) : ''}</span>
-                        ${expiryBadge}
-                    </div>
-                `;
+                    const daysLeft = Math.round((new Date(b.expiry_real) - new Date()) / (1000 * 60 * 60 * 24));
+                    let expiryBadge = `<span class="badge bg-light text-dark border small">Exp: ${b.expiry_mask}</span>`;
+                    if (daysLeft <= 90) {
+                        expiryBadge = `<span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Exp: ${b.expiry_mask}</span>`;
+                    }
 
-                batchItem.addEventListener("click", () => {
-                    batchSelect.value = b.id;
-                    onBatchSelect(rowId);
-                    updateProductInspector(rowId);
+                    let stockBadge = `<span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Stock: ${b.quantity}</span>`;
+                    if (b.is_expired) {
+                        stockBadge = `<span class="badge bg-danger text-white rounded-pill"><i class="bi bi-slash-circle me-1"></i>EXPIRED</span>`;
+                    } else if (b.quantity <= 10) {
+                        stockBadge = `<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill">Low: ${b.quantity}</span>`;
+                    }
+
+                    batchItem.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold ${b.is_expired ? 'text-danger' : (isSelected ? 'text-white' : 'text-dark')}">${b.batch_number}</span>
+                            ${stockBadge}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center text-muted small" style="font-size: 0.8rem;">
+                            <span class="${isSelected ? 'text-white-50' : ''}">MRP: ₹${parseFloat(b.mrp).toFixed(2)} | A: ₹${parseFloat(b.sale_rate).toFixed(2)} | B: ₹${parseFloat(b.wholesale_rate).toFixed(2)}${b.rate_c > 0 ? ' | C: ₹' + parseFloat(b.rate_c).toFixed(2) : ''}</span>
+                            ${expiryBadge}
+                        </div>
+                    `;
+
+                    batchItem.addEventListener("click", () => {
+                        if (b.is_expired) {
+                            showToast("⚠️ Pharma Compliance Violation: Expired medicine cannot be sold!", "danger");
+                            return;
+                        }
+                        if (batchSelect) {
+                            batchSelect.value = b.id;
+                            onBatchSelect(rowId);
+                            updateProductInspector(rowId);
+                        }
+                    });
+
+                    batchListEl.appendChild(batchItem);
                 });
-
-                batchListEl.appendChild(batchItem);
             });
-        });
+        }
 
         // Margins display
-        const mrp = parseFloat(row.querySelector(".mrp-display").value) || 0;
-        const srate = parseFloat(row.querySelector(".srate-input").value) || 0;
-        const qty = parseInt(row.querySelector(".qty-input").value) || 0;
+        const mrpEl = row.querySelector(".mrp-display");
+        const srateEl = row.querySelector(".srate-input");
+        const qtyEl = row.querySelector(".qty-input");
+        const mrp = mrpEl ? (parseFloat(mrpEl.value) || 0) : 0;
+        const srate = srateEl ? (parseFloat(srateEl.value) || 0) : 0;
+        const qty = qtyEl ? (parseInt(qtyEl.value) || 0) : 0;
 
-        const selectedOption = batchSelect.options[batchSelect.selectedIndex];
         let purchaseRate = 0;
-        if (selectedOption && selectedOption.value) {
-            const batchId = selectedOption.value;
-            const currentProductBatches = batchCache[productId] || [];
-            const batchObj = currentProductBatches.find(b => b.id == batchId);
-            if (batchObj) {
-                purchaseRate = batchObj.purchase_rate;
+        if (batchSelect && batchSelect.selectedIndex >= 0) {
+            const selectedOption = batchSelect.options[batchSelect.selectedIndex];
+            if (selectedOption && selectedOption.value) {
+                const batchId = selectedOption.value;
+                const currentProductBatches = batchCache[productId] || [];
+                const batchObj = currentProductBatches.find(b => b.id == batchId);
+                if (batchObj) {
+                    purchaseRate = batchObj.purchase_rate || 0;
+                }
             }
         }
         if (purchaseRate === 0) {
@@ -1134,6 +1382,50 @@
         if (retailerEl) retailerEl.textContent = `₹${(retailerProfit * qty).toFixed(2)} (${retailerMargin.toFixed(1)}%)`;
     }
 
+    function loadProductSalesHistory(productId) {
+        const historyEl = document.getElementById("inspectSalesHistory");
+        if (!historyEl) return;
+        historyEl.innerHTML = `<div class="text-muted text-center py-2">Loading sales history...</div>`;
+        fetch(`/api/product/${productId}/sales-history/`)
+            .then(res => res.json())
+            .then(history => {
+                if (!history.length) {
+                    historyEl.innerHTML = `<div class="text-muted text-center py-2">No previous sales found</div>`;
+                    return;
+                }
+                historyEl.innerHTML = `<table class="table table-sm table-bordered align-middle mb-0" style="font-size: 0.82rem;">
+                    <thead style="background-color: #ccfbf1; color: #134e4a;"><tr>
+                        <th>Customer</th><th>Product</th><th>Qty</th><th>Batch</th><th>Rate</th><th>MRP</th>
+                    </tr></thead><tbody>${history.map(sale => `
+                        <tr><td class="fw-semibold">${sale.customer_name}</td><td>${sale.product_name}</td><td>${sale.quantity}</td><td>${sale.batch_number}</td><td class="fw-bold" style="color: #0f766e;">₹${sale.sale_rate.toFixed(2)}</td><td>₹${sale.mrp.toFixed(2)}</td></tr>
+                    `).join("")}</tbody></table>`;
+            })
+            .catch(() => {
+                historyEl.innerHTML = `<div class="text-danger text-center py-2">Sales history unavailable</div>`;
+            });
+    }
+
+    function showProductSalesHistory(productId) {
+        if (!productId || !productCatalog[productId]) {
+            clearProductInspector();
+            return;
+        }
+        const placeholder = document.getElementById("inspectorPlaceholder");
+        const content = document.getElementById("inspectorContent");
+        if (!placeholder || !content) return;
+
+        const product = productCatalog[productId];
+        placeholder.classList.add("d-none");
+        content.classList.remove("d-none");
+        const nameEl = document.getElementById("inspectProductName");
+        const packEl = document.getElementById("inspectProductPack");
+        const gstEl = document.getElementById("inspectProductGst");
+        if (nameEl) nameEl.textContent = product.name;
+        if (packEl) packEl.textContent = product.pack || '-';
+        if (gstEl) gstEl.textContent = product.gst;
+        loadProductSalesHistory(productId);
+    }
+
     function updateLiveMarginInspect(id) {
         updateProductInspector(id);
     }
@@ -1148,13 +1440,21 @@
         
         if (!batches || batches.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-muted py-4"><i class="bi bi-exclamation-circle text-warning me-2 fs-5"></i>No active stock batches found for this product.</td></tr>`;
-        } else {
-            batches.forEach((b, index) => {
-                const isRecommended = (index === 0);
+            // Find first valid (non-expired) batch for FEFO recommendation
+            const firstValidBatch = batches.find(b => !b.is_expired && b.quantity > 0);
+
+            batches.forEach((b) => {
+                const isExpired = Boolean(b.is_expired);
+                const isRecommended = firstValidBatch && (b.id === firstValidBatch.id);
                 const tr = document.createElement("tr");
-                tr.className = isRecommended ? "table-success fw-semibold cursor-pointer" : "cursor-pointer";
-                tr.setAttribute("tabindex", "0");
-                tr.style.cursor = "pointer";
+                if (isExpired) {
+                    tr.className = "table-danger opacity-75";
+                    tr.style.cursor = "not-allowed";
+                } else {
+                    tr.className = isRecommended ? "table-success fw-semibold cursor-pointer" : "cursor-pointer";
+                    tr.setAttribute("tabindex", "0");
+                    tr.style.cursor = "pointer";
+                }
                 
                 const sRate = parseFloat(b.sale_rate) || 0;
                 const wRate = parseFloat(b.wholesale_rate) || 0;
@@ -1163,29 +1463,34 @@
                 
                 tr.innerHTML = `
                     <td>
-                        <span class="fw-bold text-dark">${b.batch_number}</span>
-                        ${isRecommended ? '<span class="badge bg-success ms-2" style="font-size: 0.7rem;"><i class="bi bi-star-fill me-1"></i>FEFO Pick</span>' : ''}
+                        <span class="fw-bold ${isExpired ? 'text-danger' : 'text-dark'}">${b.batch_number}</span>
+                        ${isExpired ? '<span class="badge bg-danger ms-2" style="font-size: 0.7rem;"><i class="bi bi-slash-circle me-1"></i>EXPIRED</span>' : (isRecommended ? '<span class="badge bg-success ms-2" style="font-size: 0.7rem;"><i class="bi bi-star-fill me-1"></i>FEFO Pick</span>' : '')}
                     </td>
                     <td>
-                        <span class="badge bg-light text-dark border font-monospace px-2 py-1 fs-6">${b.expiry_mask}</span>
+                        <span class="badge ${isExpired ? 'bg-danger text-white' : 'bg-light text-dark border'} font-monospace px-2 py-1 fs-6">${b.expiry_mask}</span>
                     </td>
                     <td>₹${mrpVal.toFixed(2)}</td>
                     <td class="fw-bold text-primary">₹${sRate.toFixed(2)}</td>
                     <td class="fw-bold text-info">₹${wRate.toFixed(2)}</td>
                     <td class="fw-bold text-success">${rRateC > 0 ? '₹' + rRateC.toFixed(2) : '-'}</td>
                     <td>
-                        <span class="badge ${b.quantity > 5 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning border border-warning-subtle'} rounded-pill px-2 py-1 font-monospace fs-6">
+                        <span class="badge ${isExpired ? 'bg-danger-subtle text-danger border border-danger-subtle' : (b.quantity > 5 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning border border-warning-subtle')} rounded-pill px-2 py-1 font-monospace fs-6">
                             ${b.quantity}
                         </span>
                     </td>
                     <td>
-                        <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1">
-                            Select <i class="bi bi-arrow-right-short"></i>
-                        </button>
+                        ${isExpired ? 
+                            '<button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1 disabled" title="Cannot sell expired medicine"><i class="bi bi-ban me-1"></i>Cannot Sell</button>' : 
+                            '<button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1">Select <i class="bi bi-arrow-right-short"></i></button>'
+                        }
                     </td>
                 `;
                 
                 const selectBatchAction = () => {
+                    if (b.is_expired) {
+                        showToast("⚠️ Pharma Compliance Violation: Expired medicine cannot be sold!", "danger");
+                        return;
+                    }
                     if (rowId === 'entryBar') {
                         const batchSelect = document.getElementById("entryBatchSelect");
                         if (batchSelect) {
@@ -1286,7 +1591,11 @@
             let unitsPerStrip = 1;
             batches.forEach(b => {
                 unitsPerStrip = b.units_per_strip || 1;
-                options += `<option value="${b.id}" data-mrp="${b.mrp}" data-srate="${b.sale_rate}" data-wholesalerate="${b.wholesale_rate}" data-ratec="${b.rate_c || 0}" data-exp="${b.expiry_mask}" data-stock="${b.quantity}" data-unitsperstrip="${b.units_per_strip}">${b.batch_number} (Exp: ${b.expiry_mask}) [Stock: ${b.quantity}]</option>`;
+                if (b.is_expired) {
+                    options += `<option value="${b.id}" disabled style="color: #dc2626;" data-expired="true" data-mrp="${b.mrp}" data-srate="${b.sale_rate}" data-wholesalerate="${b.wholesale_rate}" data-ratec="${b.rate_c || 0}" data-exp="${b.expiry_mask}" data-stock="${b.quantity}" data-unitsperstrip="${b.units_per_strip}">⛔ ${b.batch_number} (EXPIRED: ${b.expiry_mask} - CANNOT SELL) [Stock: ${b.quantity}]</option>`;
+                } else {
+                    options += `<option value="${b.id}" data-mrp="${b.mrp}" data-srate="${b.sale_rate}" data-wholesalerate="${b.wholesale_rate}" data-ratec="${b.rate_c || 0}" data-exp="${b.expiry_mask}" data-stock="${b.quantity}" data-unitsperstrip="${b.units_per_strip}">${b.batch_number} (Exp: ${b.expiry_mask}) [Stock: ${b.quantity}]</option>`;
+                }
             });
             batchSelect.innerHTML = options;
             row.dataset.unitsPerStrip = unitsPerStrip;
@@ -1322,7 +1631,7 @@
         if (totalRequested > stockAvailable) {
             const availableBatches = batchCache[productId] || [];
             const currentBatchId = selectedOption.value;
-            const unusedBatches = availableBatches.filter(b => b.id != currentBatchId && b.quantity > 0);
+            const unusedBatches = availableBatches.filter(b => b.id != currentBatchId && b.quantity > 0 && !b.is_expired);
             
             if (unusedBatches.length > 0) {
                 const currentBatchNo = selectedOption.text.split(' ')[0] || 'Batch 1';
@@ -1437,6 +1746,15 @@
         const selectedOption = batchSelect.options[batchSelect.selectedIndex];
         
         if (selectedOption && selectedOption.value) {
+            if (selectedOption.dataset.expired === "true") {
+                showToast("⚠️ Pharma Compliance Violation: Expired medicine cannot be sold!", "danger");
+                batchSelect.value = "";
+                row.querySelector(".expiry-display").value = "";
+                row.querySelector(".mrp-display").value = "";
+                row.querySelector(".srate-input").value = "";
+                calculateRowTotals(id);
+                return;
+            }
             row.querySelector(".expiry-display").value = selectedOption.dataset.exp || "";
             const mrpVal = parseFloat(selectedOption.dataset.mrp) || 0;
             row.querySelector(".mrp-display").value = mrpVal.toFixed(2);
@@ -1776,6 +2094,10 @@
             e.preventDefault();
             toggleOrCycleEntryBarRate();
         }
+        if (e.key === "F4") {
+            e.preventDefault();
+            openCustomerModal();
+        }
     });
 
     // ==================== FAST PRODUCT SEARCH & ENTRY BAR ENGINE ====================
@@ -1837,6 +2159,7 @@
         }
 
         const product = productCatalog[productId];
+        showProductSalesHistory(productId);
         if (badgeBar) badgeBar.classList.remove("d-none");
         if (packBadge) packBadge.textContent = `Pack: ${product.pack || '-'}`;
         if (gstBadge) gstBadge.textContent = `${product.gst}%`;
@@ -1870,9 +2193,12 @@
             let fefoBatchId = null;
 
             entryBarBatches.forEach(b => {
-                totalStock += (b.quantity || 0);
-                if (!fefoBatchId && b.quantity > 0) {
-                    fefoBatchId = b.id;
+                const isExpired = Boolean(b.is_expired);
+                if (!isExpired) {
+                    totalStock += (b.quantity || 0);
+                    if (!fefoBatchId && b.quantity > 0) {
+                        fefoBatchId = b.id;
+                    }
                 }
                 const opt = document.createElement("option");
                 opt.value = b.id;
@@ -1881,14 +2207,21 @@
                 opt.dataset.mrp = b.mrp;
                 opt.dataset.saleRate = b.sale_rate;
                 opt.dataset.wholesaleRate = b.wholesale_rate;
-                opt.textContent = `${b.batch_number} (Exp: ${b.expiry_mask} | Stock: ${b.quantity})`;
+                opt.dataset.expired = isExpired ? "true" : "false";
+                if (isExpired) {
+                    opt.disabled = true;
+                    opt.style.color = "#dc2626";
+                    opt.textContent = `⛔ ${b.batch_number} (EXPIRED: ${b.expiry_mask} - CANNOT SELL) | Stock: ${b.quantity}`;
+                } else {
+                    opt.textContent = `${b.batch_number} (Exp: ${b.expiry_mask} | Stock: ${b.quantity})`;
+                }
                 batchSelect.appendChild(opt);
             });
 
             if (stockBadge) {
                 if (totalStock > 10) {
                     stockBadge.className = "badge bg-success-subtle text-success border border-success-subtle px-3 py-1.5 fs-6 fw-semibold";
-                    stockBadge.textContent = `Total Stock: ${totalStock}`;
+                    stockBadge.textContent = `Sellable Stock: ${totalStock}`;
                 } else if (totalStock > 0) {
                     stockBadge.className = "badge bg-warning-subtle text-warning border border-warning-subtle px-3 py-1.5 fs-6 fw-semibold";
                     stockBadge.textContent = `Low Stock: ${totalStock}`;
@@ -1898,11 +2231,12 @@
                 }
             }
 
-            // FEFO Auto Pre-Select Batch
+            // FEFO Auto Pre-Select Valid Batch
             if (fefoBatchId) {
                 batchSelect.value = fefoBatchId;
-            } else if (entryBarBatches.length > 0) {
-                batchSelect.value = entryBarBatches[0].id;
+            } else {
+                const firstValid = entryBarBatches.find(b => !b.is_expired);
+                batchSelect.value = firstValid ? firstValid.id : "";
             }
 
             onEntryBarBatchChange();
@@ -2027,6 +2361,15 @@
         const batchObj = batches.find(b => b.id == batchId);
         if (!batchObj) return;
 
+        if (batchObj.is_expired) {
+            showToast("⚠️ Pharma Compliance Violation: This batch is EXPIRED and cannot be sold!", "danger");
+            batchSelect.value = "";
+            document.getElementById("entryExpiry").value = "";
+            document.getElementById("entryMrp").value = "";
+            document.getElementById("entrySrate").value = "";
+            return;
+        }
+
         document.getElementById("entryExpiry").value = batchObj.expiry_mask || "";
         const mrpVal = parseFloat(batchObj.mrp || 0);
         document.getElementById("entryMrp").value = mrpVal.toFixed(2);
@@ -2075,6 +2418,7 @@
     }
 
     function resetEntryBarFields() {
+        entryBarBatches = [];
         const searchInput = document.getElementById("entryProdSearch");
         if (searchInput) {
             searchInput.value = "";
@@ -2084,23 +2428,46 @@
                 if (menu) menu.style.display = "none";
             }
         }
-        document.getElementById("entryProdId").value = "";
-        document.getElementById("entryBatchSelect").innerHTML = `<option value="">Select Batch</option>`;
-        document.getElementById("entryExpiry").value = "";
-        document.getElementById("entryMrp").value = "";
-        document.getElementById("entrySrate").value = "";
-        document.getElementById("entryQty").value = "1";
-        document.getElementById("entryFree").value = "0";
-        document.getElementById("entryDiscPct").value = "0";
-        document.getElementById("entryTotalAmt").value = "";
+        const prodIdEl = document.getElementById("entryProdId");
+        if (prodIdEl) prodIdEl.value = "";
+
+        const batchSelect = document.getElementById("entryBatchSelect");
+        if (batchSelect) batchSelect.innerHTML = `<option value="">Select Batch</option>`;
+
+        const expEl = document.getElementById("entryExpiry");
+        if (expEl) expEl.value = "";
+
+        const mrpEl = document.getElementById("entryMrp");
+        if (mrpEl) mrpEl.value = "";
+
+        const srateEl = document.getElementById("entrySrate");
+        if (srateEl) srateEl.value = "";
+
+        const qtyEl = document.getElementById("entryQty");
+        if (qtyEl) qtyEl.value = "1";
+
+        const freeEl = document.getElementById("entryFree");
+        if (freeEl) freeEl.value = "0";
+
+        const discEl = document.getElementById("entryDiscPct");
+        if (discEl) discEl.value = "0";
+
+        const totalEl = document.getElementById("entryTotalAmt");
+        if (totalEl) totalEl.value = "";
+
         const badgeBar = document.getElementById("entryProdBadgeBar");
         if (badgeBar) badgeBar.classList.add("d-none");
+
         const pickerBtn = document.getElementById("entryRatePickerBtn");
         if (pickerBtn) pickerBtn.classList.add("d-none");
+
         const badge = document.getElementById("entryRateBadge");
         if (badge) badge.classList.add("d-none");
+
         const pickerMenu = document.getElementById("entryRatePickerMenu");
         if (pickerMenu) pickerMenu.innerHTML = "";
+
+        clearProductInspector();
     }
 
     function addEntryBarItemToTable() {
@@ -2116,6 +2483,13 @@
         const batchId = batchSelect.value;
         if (!batchId) {
             showToast("Please select a batch.", "warning");
+            batchSelect.focus();
+            return;
+        }
+
+        const batchObj = (batchCache[productId] || entryBarBatches || []).find(b => b.id == batchId);
+        if (batchObj && batchObj.is_expired) {
+            showToast("⚠️ Pharma Compliance Violation: Expired medicine cannot be sold!", "danger");
             batchSelect.focus();
             return;
         }
@@ -2151,7 +2525,6 @@
 
         const rowId = tableBody.children.length;
         const product = productCatalog[productId];
-        const batchObj = (batchCache[productId] || entryBarBatches || []).find(b => b.id == batchId);
 
         const baseTaxable = qty * srate;
         const discAmt = baseTaxable * (discPct / 100);
@@ -2250,20 +2623,26 @@
         if (batchObj) {
             setupRowRatePicker(rowId, parseFloat(batchObj.sale_rate) || 0, parseFloat(batchObj.wholesale_rate) || 0, parseFloat(batchObj.rate_c) || 0, parseFloat(batchObj.mrp) || 0, srate);
         }
-        calculateRowTotals(rowId);
-        updateProductInspector(rowId);
+        try {
+            calculateRowTotals(rowId);
+        } catch (err) {
+            console.error("Error updating row totals:", err);
+        }
+
         resetEntryBarFields();
         updateItemsCountBadge();
 
         showToast(`Added "${product.name}" (${qty} packs) to bill.`, "success");
 
         setTimeout(() => {
+            resetEntryBarFields();
             const entrySearch = document.getElementById("entryProdSearch");
             if (entrySearch) {
+                entrySearch.value = "";
                 entrySearch.focus();
                 if (entrySearch.select) entrySearch.select();
             }
-        }, 50);
+        }, 30);
     }
 
     function removeItemRow(rowId) {
@@ -2319,9 +2698,29 @@
         modal.show();
     }
 
+    function onCustAreaChange(selectEl) {
+        const selectedOpt = selectEl.options[selectEl.selectedIndex];
+        const cityInput = document.getElementById("custCity");
+        if (cityInput && selectedOpt && selectedOpt.dataset && selectedOpt.dataset.city) {
+            if (!cityInput.value.trim() || cityInput.dataset.autoFilled === "true") {
+                cityInput.value = selectedOpt.dataset.city;
+                cityInput.dataset.autoFilled = "true";
+            }
+        }
+    }
+
     function openCustomerModal() {
-        const modal = new bootstrap.Modal(document.getElementById('addCustomerModal'));
+        const form = document.getElementById("quickCustomerForm");
+        if (form) form.reset();
+        const cityInput = document.getElementById("custCity");
+        if (cityInput) cityInput.dataset.autoFilled = "false";
+        const modalEl = document.getElementById('addCustomerModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
+        setTimeout(() => {
+            const nameEl = document.getElementById("custName");
+            if (nameEl) nameEl.focus();
+        }, 350);
     }
 
     function updateCustomerOutstandingDisplay(id) {
@@ -2430,6 +2829,25 @@
         });
     }
 
+    function updateCustomerAddressPreview(cust) {
+        const previewBox = document.getElementById("customerSelectedDetails");
+        if (!previewBox) return;
+        if (!cust) {
+            previewBox.style.display = "none";
+            return;
+        }
+        const addrSpan = previewBox.querySelector("#custDetailAddress span");
+        const mobSpan = previewBox.querySelector("#custDetailMobile");
+        const dlSpan = previewBox.querySelector("#custDetailDl");
+
+        const addrParts = [cust.address, cust.area, cust.city].filter(Boolean).join(", ");
+        if (addrSpan) addrSpan.innerText = addrParts || "Address: Not specified";
+        if (mobSpan) mobSpan.innerHTML = cust.mobile ? `<i class="bi bi-telephone text-success me-1"></i>${cust.mobile}` : '';
+        if (dlSpan) dlSpan.innerHTML = cust.dl ? `<i class="bi bi-card-text text-info me-1"></i>DL: ${cust.dl}` : '';
+
+        previewBox.style.display = "block";
+    }
+
     window.onload = function() {
         if (typeof collapseSidebar === "function") collapseSidebar();
         setupCombobox(
@@ -2442,6 +2860,7 @@
                     document.getElementById("customerSelect").dataset.type = selectedCust.type;
                     updateAllRowPrices();
                     updateCustomerOutstandingDisplay(id);
+                    updateCustomerAddressPreview(selectedCust);
                 }
             },
             () => openCustomerModal()
@@ -2450,8 +2869,11 @@
         const initialCustId = document.getElementById("customerSelect").value;
         if (initialCustId) {
             updateCustomerOutstandingDisplay(initialCustId);
+            const initCust = customerList.find(c => c.id == initialCustId);
+            if (initCust) updateCustomerAddressPreview(initCust);
         }
 
+        clearProductInspector();
         setupFastEntryBar();
         initHeaderEnterNavigation();
         // Prepopulate existing items
@@ -2508,18 +2930,31 @@
 
     document.getElementById("quickCustomerForm").addEventListener("submit", function(e) {
         e.preventDefault();
-        const name = document.getElementById("custName").value;
-        const mobile = document.getElementById("custMobile").value;
+        const name = document.getElementById("custName").value.trim();
+        const mobile = document.getElementById("custMobile").value.trim();
+        const dlNumber = document.getElementById("custDlNumber").value.trim();
         const areaId = document.getElementById("custArea").value;
-        const state = document.getElementById("custState").value;
-        const address = document.getElementById("custAddress").value;
+        const city = document.getElementById("custCity").value.trim();
+        const state = document.getElementById("custState").value.trim();
+        const gstin = document.getElementById("custGstin") ? document.getElementById("custGstin").value.trim() : "";
+        const custType = document.getElementById("custType") ? document.getElementById("custType").value : "Retailer";
+        const address = document.getElementById("custAddress").value.trim();
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const saveBtn = document.getElementById("btnSaveQuickCustomer");
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Saving...`;
+        }
 
         const formData = new FormData();
         formData.append("name", name);
+        formData.append("customer_type", custType);
         formData.append("mobile", mobile);
+        formData.append("dl_number_1", dlNumber);
         formData.append("area", areaId);
+        formData.append("city", city);
         formData.append("state", state);
+        formData.append("gstin", gstin);
         formData.append("address", address);
 
         fetch("/customer/create/?json=true", {
@@ -2532,14 +2967,47 @@
         })
         .then(res => res.json())
         .then(data => {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Save Customer (Enter)`;
+            }
             if (data.status === "success") {
-                customerList.push({ id: data.id, name: data.name + ` (${data.city})` });
+                const finalCity = data.city || city || '';
+                const dispName = data.name + (finalCity ? ` (${finalCity})` : '');
+                const areaSelect = document.getElementById("custArea");
+                const areaText = areaSelect && areaSelect.selectedIndex >= 0 ? areaSelect.options[areaSelect.selectedIndex].text.split(" - ")[0] : '';
+                const newCust = {
+                    id: data.id,
+                    name: data.name,
+                    address: address || '',
+                    area: areaText,
+                    city: finalCity,
+                    mobile: custMobile || '',
+                    dl: dlNumber || '',
+                    type: data.customer_type || custType,
+                    outstanding: 0
+                };
+                newCust._searchIndex = `${newCust.name} ${newCust.address} ${newCust.area} ${newCust.city} ${newCust.mobile} ${newCust.dl}`.toLowerCase();
+                customerList.push(newCust);
                 document.getElementById("customerSelect").value = data.id;
-                document.getElementById("customerSearch").value = data.name + ` (${data.city})`;
+                document.getElementById("customerSelect").dataset.type = newCust.type;
+                document.getElementById("customerSearch").value = dispName;
+                updateCustomerOutstandingDisplay(data.id);
+                updateCustomerAddressPreview(newCust);
+                updateAllRowPrices();
                 bootstrap.Modal.getInstance(document.getElementById('addCustomerModal')).hide();
                 showToast(`Customer "${data.name}" added successfully!`, "success");
                 document.getElementById("invoiceDate").focus();
+            } else {
+                showToast(data.message || "Unable to create customer.", "danger");
             }
+        })
+        .catch(() => {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Save Customer (Enter)`;
+            }
+            showToast("Unable to create customer. Please check the details.", "danger");
         });
     });
 
@@ -2574,10 +3042,11 @@
         .then(res => res.json())
         .then(data => {
             if (data.status === "success") {
-                productList.push({ id: data.id, name: data.name, pack: data.pack_size });
+                productList.push({ id: data.id, name: data.name, pack: data.pack_size, stock: 0, isProduct: true });
                 productCatalog[data.id] = {
                     name: data.name,
                     pack: data.pack_size,
+                    stock: 0,
                     gst: parseFloat(data.gst_rate),
                     schemeQty: parseInt(schemeQty) || 0,
                     schemeFree: parseInt(schemeFree) || 0

@@ -4,7 +4,56 @@
 {% block page_title %}Delivery Management{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<style>
+    .delivery-page {
+        font-size: 17px !important;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif !important;
+    }
+    .delivery-page .form-label {
+        font-size: 15px !important;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: #334155 !important;
+    }
+    .delivery-page .card-header h5 {
+        font-size: 20px !important;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        letter-spacing: 0.01em;
+    }
+    .delivery-page .card-header small,
+    .delivery-page #selectedCount {
+        font-size: 15px !important;
+    }
+    .delivery-page table {
+        font-size: 16px !important;
+    }
+    .delivery-page table thead {
+        font-size: 14px !important;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }
+    .delivery-page table td,
+    .delivery-page table th {
+        padding-top: 0.88rem;
+        padding-bottom: 0.88rem;
+    }
+    .delivery-page table td .small,
+    .delivery-page table td [style*="font-size: 10px"],
+    .delivery-page table td [style*="font-size: 11px"] {
+        font-size: 14px !important;
+    }
+    .delivery-page table td .badge {
+        font-size: 13px !important;
+    }
+    .delivery-page .btn-sm,
+    .delivery-page .form-select-sm {
+        font-size: 15px !important;
+    }
+</style>
+
+<div class="container-fluid py-4 delivery-page">
     <!-- Filter Section Card -->
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-4">

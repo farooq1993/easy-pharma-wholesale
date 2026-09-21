@@ -90,5 +90,14 @@ class ProductMaster(TenantModel):
         verbose_name_plural = "Product Masters"
         ordering = ['name']
 
+    @property
+    def total_stock(self):
+        if hasattr(self, 'annotated_stock'):
+            return self.annotated_stock
+        if hasattr(self, '_prefetched_objects_cache') and 'batches' in self._prefetched_objects_cache:
+            return sum(b.quantity for b in self.batches.all() if b.quantity > 0)
+        from django.db.models import Sum
+        return self.batches.filter(quantity__gt=0).aggregate(total=Sum('quantity'))['total'] or 0
+
     def __str__(self):
         return f"{self.name} ({self.pack_size})"

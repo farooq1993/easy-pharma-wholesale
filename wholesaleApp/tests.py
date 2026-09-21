@@ -182,6 +182,7 @@ class SalesModuleTests(TestCase):
         self.customer = CustomerMaster.objects.create(
             name="Apex Chemist",
             mobile="9988776655",
+            dl_number_1="DL-APEX-001",
             area=self.area,
             city="Mumbai",
             state="Maharashtra"
@@ -614,6 +615,7 @@ class InvoiceCrudAndWholesalePricingTests(TestCase):
         self.retailer = CustomerMaster.objects.create(
             name="Retail Chemist",
             mobile="9876543200",
+            dl_number_1="DL-RETAIL-001",
             area=self.area,
             city="Mumbai",
             state="MH",
@@ -622,6 +624,7 @@ class InvoiceCrudAndWholesalePricingTests(TestCase):
         self.wholesaler = CustomerMaster.objects.create(
             name="Wholesale Distributor",
             mobile="9876543201",
+            dl_number_1="DL-WHOLE-001",
             area=self.area,
             city="Mumbai",
             state="MH",
@@ -1025,6 +1028,7 @@ class SalesPaymentAndLedgerTests(TestCase):
         self.retailer = CustomerMaster.objects.create(
             name="Test Retailer",
             mobile="9988776655",
+            dl_number_1="DL-TEST-001",
             area=self.area,
             city="Test City",
             state="Test State",

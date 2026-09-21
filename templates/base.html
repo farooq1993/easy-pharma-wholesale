@@ -10,10 +10,18 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     
     <style>
+        :root {
+            --bs-primary: #2563eb;
+            --bs-primary-rgb: 37, 99, 235;
+            --erp-navy: #172554;
+            --erp-teal: #0f766e;
+            --erp-amber: #d97706;
+            --erp-surface: #f8fafc;
+        }
         .sidebar {
             width: 260px;
             height: 100vh;
-            background: linear-gradient(180deg, #4f46e5 0%, #312e81 100%);
+            background: linear-gradient(180deg, #1e3a8a 0%, var(--erp-navy) 100%);
             position: fixed;
             top: 0;
             left: 0;
@@ -31,7 +39,7 @@
             margin-left: 260px;
             transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             min-height: 100vh;
-            background-color: #f8fafc;
+            background-color: var(--erp-surface);
         }
 
         /* Desktop Mini-Sidebar Mode (Collapsed) */

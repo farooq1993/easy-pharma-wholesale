@@ -9,6 +9,7 @@ from wholesaleApp.views.sales_views import (
     delivery_management,
     get_product_batches,
     get_product_last_purchase_rate,
+    get_product_sales_history,
     get_customer_product_sales_history,
     get_customer_credit_notes,
     sales_return_list,
@@ -35,6 +36,7 @@ urlpatterns = [
     # API batch/rate fetchers
     path('api/product/<int:pk>/batches/', get_product_batches, name='api_product_batches'),
     path('api/product/<int:pk>/last-purchase/', get_product_last_purchase_rate, name='api_product_last_purchase'),
+    path('api/product/<int:product_id>/sales-history/', get_product_sales_history, name='api_product_sales_history'),
     path('api/customer/<int:customer_id>/product/<int:product_id>/sales-history/', get_customer_product_sales_history, name='api_customer_product_sales_history'),
     path('api/customer/<int:customer_id>/credit-notes/', get_customer_credit_notes, name='api_customer_credit_notes'),
 ]

@@ -19,7 +19,7 @@ def customer_list(request):
     customer_type = request.GET.get('customer_type', '').strip()
     area_id = request.GET.get('area', '').strip()
 
-    customers = CustomerMaster.objects.filter(is_deleted=False).select_related('area')
+    customers = CustomerMaster.objects.filter(is_deleted=False).select_related('area', 'subarea')
 
     if q:
         customers = customers.filter(
@@ -64,20 +64,44 @@ def customer_create(request):
     areas = AreaMaster.objects.filter(is_active=True)
     if request.method == 'POST':
         # Form handling
+        mobile = request.POST.get('mobile', '').strip()
+        if CustomerMaster.objects.filter(mobile=mobile, is_deleted=False).exists():
+            error_message = 'A customer with this mobile number already exists.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
+                return JsonResponse({'status': 'error', 'message': error_message}, status=400)
+            messages.error(request, error_message)
+            return redirect('createcustomer')
+        dl_number_1 = request.POST.get('dl_number_1', '').strip()
+        if not dl_number_1:
+            error_message = 'Drug Licence Number is required to create a customer.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
+                return JsonResponse({'status': 'error', 'message': error_message}, status=400)
+            messages.error(request, error_message)
+            return redirect('createcustomer')
+        area_id = request.POST.get('area')
+        city = request.POST.get('city', '').strip()
+        state = request.POST.get('state', '').strip()
+        if not city and area_id:
+            try:
+                area_obj = AreaMaster.objects.get(id=area_id)
+                city = area_obj.city
+            except Exception:
+                pass
+
         customer = CustomerMaster(
-            name=request.POST['name'],
+            name=request.POST['name'].strip(),
             customer_type=request.POST.get('customer_type', 'Retailer'),
-            mobile=request.POST['mobile'],
+            mobile=mobile,
             alternate_mobile=request.POST.get('alternate_mobile', ''),
             email=request.POST.get('email', ''),
             gstin=request.POST.get('gstin', ''),
-            dl_number_1=request.POST.get('dl_number_1', ''),
+            dl_number_1=dl_number_1,
             dl_number_2=request.POST.get('dl_number_2', ''),
             dl_number_3=request.POST.get('dl_number_3', ''),
-            area_id=request.POST['area'],
+            area_id=area_id,
             address=request.POST.get('address', ''),
-            city=request.POST.get('city', ''),
-            state=request.POST.get('state', ''),
+            city=city,
+            state=state,
             pincode=request.POST.get('pincode', ''),
             opening_balance=request.POST.get('opening_balance', 0),
             credit_limit=request.POST.get('credit_limit', 0),
@@ -118,18 +142,31 @@ def customer_edit(request, pk):
     areas = AreaMaster.objects.filter(is_active=True)
     
     if request.method == 'POST':
+        dl_number_1 = request.POST.get('dl_number_1', '').strip()
+        if not dl_number_1:
+            messages.error(request, 'Drug Licence Number is required for every customer.')
+            return redirect('customer_edit', pk=customer.pk)
         customer.name = request.POST['name']
         customer.customer_type = request.POST.get('customer_type', 'Retailer')
         customer.mobile = request.POST['mobile']
         customer.alternate_mobile = request.POST.get('alternate_mobile', '')
         customer.email = request.POST.get('email', '')
         customer.gstin = request.POST.get('gstin', '')
-        customer.dl_number_1 = request.POST.get('dl_number_1', '')
+        customer.dl_number_1 = dl_number_1
         customer.dl_number_2 = request.POST.get('dl_number_2', '')
         customer.dl_number_3 = request.POST.get('dl_number_3', '')
-        customer.area_id = request.POST['area']
+        area_id = request.POST.get('area')
+        city = request.POST.get('city', '').strip()
+        if not city and area_id:
+            try:
+                area_obj = AreaMaster.objects.get(id=area_id)
+                city = area_obj.city
+            except Exception:
+                pass
+
+        customer.area_id = area_id
         customer.address = request.POST.get('address', '')
-        customer.city = request.POST.get('city', '')
+        customer.city = city
         customer.state = request.POST.get('state', '')
         customer.pincode = request.POST.get('pincode', '')
         customer.opening_balance = request.POST.get('opening_balance', 0)
@@ -510,7 +547,7 @@ def customer_payment_delete(request, pk):
 
 
 def customer_payment_list(request):
-    """View to list all customer payments (collections)."""
+    """View to list all customer payments (collections) with analytical metrics."""
     from wholesaleApp.views.security_helpers import has_feature_access
     if not has_feature_access(request.user, 'payment_collection_view'):
         messages.error(request, "Access Denied: You do not have permission to view Payments Collection.")
@@ -518,10 +555,24 @@ def customer_payment_list(request):
         
     from wholesaleApp.models import CustomerPayment
     from wholesaleApp.views.security_helpers import get_user_permissions_context
+    from django.db.models import Sum
+    from django.utils import timezone
+    today = timezone.now().date()
     
-    payments = CustomerPayment.objects.all().select_related('customer')
+    payments = CustomerPayment.objects.all().select_related('customer', 'invoice').order_by('-payment_date', '-id')
+    
+    total_collections = payments.aggregate(total=Sum('amount'))['total'] or 0
+    today_collections = payments.filter(payment_date=today).aggregate(total=Sum('amount'))['total'] or 0
+    cash_collections = payments.filter(payment_mode='Cash').aggregate(total=Sum('amount'))['total'] or 0
+    digital_collections = payments.filter(payment_mode__in=['UPI', 'Bank', 'Cheque']).aggregate(total=Sum('amount'))['total'] or 0
+    
     context = {
         'payments': payments,
+        'total_collections': float(total_collections),
+        'today_collections': float(today_collections),
+        'cash_collections': float(cash_collections),
+        'digital_collections': float(digital_collections),
+        'total_count': payments.count(),
         'page_title': 'Customer Payments (Collection)',
         'user_perms': get_user_permissions_context(request.user)
     }
@@ -530,8 +581,16 @@ def customer_payment_list(request):
 
 def get_customer_outstanding_invoices(request, customer_id):
     """API endpoint to get outstanding credit invoices for a customer."""
+    from django.core.cache import cache
+    exclude_payment_id = request.GET.get('exclude_payment_id', '')
+    current_inv_id = request.GET.get('current_inv_id', '')
+    cache_key = f"cust_outstanding_inv_{customer_id}_{exclude_payment_id}_{current_inv_id}"
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return JsonResponse(cached_data, safe=False)
+
     from wholesaleApp.models.sales import SalesInvoice
-    from django.db.models import Sum
+    from django.db.models import Sum, Q
     from django.db.models.functions import Coalesce
     from decimal import Decimal
     
@@ -539,23 +598,32 @@ def get_customer_outstanding_invoices(request, customer_id):
         customer_id=customer_id,
         payment_type='Credit',
         status__in=['Pending', 'Delivered']
-    ).annotate(
-        paid_amount=Coalesce(Sum('payments__amount'), Decimal('0.00'))
     )
+    
+    if exclude_payment_id and exclude_payment_id.isdigit():
+        invoices = invoices.annotate(
+            paid_amount=Coalesce(Sum('payments__amount', filter=~Q(payments__id=int(exclude_payment_id))), Decimal('0.00'))
+        )
+    else:
+        invoices = invoices.annotate(
+            paid_amount=Coalesce(Sum('payments__amount'), Decimal('0.00'))
+        )
     
     data = []
     for inv in invoices:
         outstanding = inv.net_amount - inv.paid_amount
-        if outstanding > 0:
+        is_current = bool(current_inv_id and str(inv.id) == str(current_inv_id))
+        if outstanding > 0 or is_current:
             data.append({
                 'id': inv.id,
                 'invoice_number': inv.invoice_number,
                 'invoice_date': inv.invoice_date.strftime('%Y-%m-%d'),
                 'net_amount': float(inv.net_amount),
                 'paid_amount': float(inv.paid_amount),
-                'outstanding_amount': float(outstanding)
+                'outstanding_amount': float(max(Decimal('0.00'), outstanding))
             })
             
+    cache.set(cache_key, data, timeout=60)
     return JsonResponse(data, safe=False)
 
 
@@ -571,7 +639,7 @@ def customer_payment_create(request):
     from wholesaleApp.views.security_helpers import get_user_permissions_context, log_activity
     from decimal import Decimal
     
-    customers = CustomerMaster.objects.filter(status=True, is_deleted=False)
+    customers = CustomerMaster.objects.filter(status=True, is_deleted=False).select_related('area', 'subarea').order_by('name')
     
     if request.method == 'POST':
         customer_id = request.POST.get('customer')
@@ -581,10 +649,19 @@ def customer_payment_create(request):
         if is_date_in_closed_fy(payment_date):
             messages.error(request, "Action Denied: The selected payment date falls within a closed Financial Year.")
             return redirect('customer_payment_list')
+            
+        if not customer_id:
+            messages.error(request, "Validation Error: Please select a customer.")
+            return redirect('customer_payment_create')
+            
         amount = Decimal(request.POST.get('amount', 0))
+        if amount <= 0:
+            messages.error(request, "Validation Error: Amount received must be greater than ₹0.00.")
+            return redirect('customer_payment_create')
+            
         payment_mode = request.POST.get('payment_mode', 'Cash')
-        reference_no = request.POST.get('reference_no', '')
-        remarks = request.POST.get('remarks', '')
+        reference_no = request.POST.get('reference_no', '').strip()
+        remarks = request.POST.get('remarks', '').strip()
         
         customer = get_object_or_404(CustomerMaster, id=customer_id)
         
@@ -622,6 +699,88 @@ def customer_payment_create(request):
     context = {
         'customers': customers,
         'page_title': 'Record Customer Payment (Collection)',
+        'is_edit': False,
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'customers/payment_form.html', context)
+
+
+@transaction.atomic
+def customer_payment_edit(request, pk):
+    """View to edit an existing customer payment collection and balance adjustment."""
+    from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context, log_activity
+    if not has_feature_access(request.user, 'payment_collection_create'):
+        messages.error(request, "Access Denied: You do not have permission to edit payments.")
+        return redirect('customer_payment_list')
+        
+    from wholesaleApp.models import CustomerMaster, CustomerPayment
+    from decimal import Decimal
+    
+    payment = get_object_or_404(CustomerPayment.objects.select_related('customer', 'invoice'), pk=pk)
+    customers = CustomerMaster.objects.filter(status=True, is_deleted=False).select_related('area', 'subarea').order_by('name')
+    
+    if request.method == 'POST':
+        customer_id = request.POST.get('customer')
+        invoice_id = request.POST.get('invoice')
+        payment_date = request.POST.get('payment_date')
+        from wholesaleApp.models.financial_year import is_date_in_closed_fy
+        if is_date_in_closed_fy(payment_date):
+            messages.error(request, "Action Denied: The selected payment date falls within a closed Financial Year.")
+            return redirect('customer_payment_list')
+            
+        if not customer_id:
+            messages.error(request, "Validation Error: Please select a customer.")
+            return redirect('customer_payment_edit', pk=payment.id)
+            
+        new_amount = Decimal(request.POST.get('amount', 0))
+        if new_amount <= 0:
+            messages.error(request, "Validation Error: Amount received must be greater than ₹0.00.")
+            return redirect('customer_payment_edit', pk=payment.id)
+            
+        payment_mode = request.POST.get('payment_mode', 'Cash')
+        reference_no = request.POST.get('reference_no', '').strip()
+        remarks = request.POST.get('remarks', '').strip()
+        
+        new_customer = get_object_or_404(CustomerMaster, id=customer_id)
+        old_customer = payment.customer
+        old_amount = payment.amount
+        
+        # Adjust customer balances accurately
+        if old_customer.id == new_customer.id:
+            diff = new_amount - old_amount
+            new_customer.opening_balance -= diff
+            new_customer.save()
+        else:
+            old_customer.opening_balance += old_amount
+            old_customer.save()
+            new_customer.opening_balance -= new_amount
+            new_customer.save()
+            
+        payment.customer = new_customer
+        payment.invoice_id = invoice_id if invoice_id else None
+        payment.payment_date = payment_date
+        payment.amount = new_amount
+        payment.payment_mode = payment_mode
+        payment.reference_no = reference_no
+        payment.remarks = remarks
+        payment.save()
+        
+        log_activity(
+            request,
+            action='UPDATE',
+            model_name='CustomerPayment',
+            object_id=payment.id,
+            object_repr=f"Payment from {new_customer.name}",
+            description=f"Updated payment #{payment.id}: ₹{new_amount} via {payment_mode}"
+        )
+        messages.success(request, f"Payment #{payment.id} for {new_customer.name} updated successfully.")
+        return redirect('customer_payment_list')
+        
+    context = {
+        'payment': payment,
+        'customers': customers,
+        'page_title': f"Edit Payment #{payment.id} - {payment.customer.name}",
+        'is_edit': True,
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'customers/payment_form.html', context)

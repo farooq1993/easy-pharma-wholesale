@@ -52,15 +52,15 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">DL Number 20</label>
-                            <input type="text" name="dl_number_1" class="form-control" value="{{ customer.dl_number_1|default:'' }}">
+                            <input type="text" name="dl_number_1" class="form-control" value="{{ customer.dl_number_1|default:'' }}" required maxlength="100" placeholder="e.g. 20B/12345">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">DL Number 21</label>
-                            <input type="text" name="dl_number_2" class="form-control" value="{{ customer.dl_number_2|default:'' }}">
+                            <input type="text" name="dl_number_2" class="form-control" value="{{ customer.dl_number_2|default:'' }}" maxlength="100" placeholder="e.g. 21B/12345">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">DL Number 20C</label>
-                            <input type="text" name="dl_number_3" class="form-control" value="{{ customer.dl_number_3|default:'' }}">
+                            <input type="text" name="dl_number_3" class="form-control" value="{{ customer.dl_number_3|default:'' }}" maxlength="100" placeholder="e.g. 20C/12345">
                         </div>
 
                         <!-- Area & Address -->

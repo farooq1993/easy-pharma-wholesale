@@ -4,69 +4,355 @@
 {% block page_title %}{{ page_title }}{% endblock %}
 
 {% block content %}
+<style>
+    .kpi-stat-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.04);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px -4px rgba(0, 0, 0, 0.08);
+    }
+    .kpi-accent-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    .kpi-bar-emerald { background: linear-gradient(90deg, #10b981, #059669); }
+    .kpi-bar-sky { background: linear-gradient(90deg, #0ea5e9, #0284c7); }
+    .kpi-bar-indigo { background: linear-gradient(90deg, #6366f1, #4f46e5); }
+    .kpi-bar-purple { background: linear-gradient(90deg, #a855f7, #7c3aed); }
+
+    .kpi-icon-bubble {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    .bubble-emerald { background-color: #ecfdf5; color: #059669; }
+    .bubble-sky { background-color: #f0f9ff; color: #0284c7; }
+    .bubble-indigo { background-color: #eef2ff; color: #4f46e5; }
+    .bubble-purple { background-color: #faf5ff; color: #7c3aed; }
+
+    .filter-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.04);
+    }
+    .table-payments thead th {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+        color: #475569;
+        background-color: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table-payments tbody tr:hover {
+        background-color: #f8fafc;
+    }
+    .quick-date-btn.active {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        border-color: #2563eb !important;
+    }
+</style>
+
 <div class="row g-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-wallet2 text-primary me-2"></i>Customer Payments (Collections / Inflow)</h5>
-        <a href="{% url 'customer_payment_create' %}" class="btn btn-primary rounded-pill px-4 shadow-sm">
-            <i class="bi bi-plus-lg me-1"></i> Record New Payment
-        </a>
+    <!-- PAGE HEADER -->
+    <div class="col-12">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <h4 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-wallet2 text-primary me-2"></i>Customer Payments (Collections / Inflow)
+                </h4>
+                <p class="text-muted small mb-0">Track receipt vouchers, credit invoice allocations, and daily payment collections.</p>
+            </div>
+            <a href="{% url 'customer_payment_create' %}" class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-bold">
+                <i class="bi bi-plus-lg me-1"></i> Record New Payment
+            </a>
+        </div>
     </div>
 
+    <!-- 4 KPI SUMMARY CARDS -->
+    <div class="col-xl-3 col-md-6 col-12">
+        <div class="kpi-stat-card p-3 h-100 d-flex flex-column justify-content-between">
+            <div class="kpi-accent-bar kpi-bar-emerald"></div>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="text-muted small fw-bold text-uppercase" style="font-size: 0.74rem;">Total Inflow</span>
+                    <h3 class="fw-bold text-dark mb-0 mt-1 font-monospace">₹{{ total_collections|floatformat:2 }}</h3>
+                </div>
+                <div class="kpi-icon-bubble bubble-emerald">
+                    <i class="bi bi-currency-rupee"></i>
+                </div>
+            </div>
+            <span class="text-muted small" style="font-size: 0.75rem;">
+                <i class="bi bi-receipt me-1 text-success"></i>All-time recorded receipts
+            </span>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 col-12">
+        <div class="kpi-stat-card p-3 h-100 d-flex flex-column justify-content-between">
+            <div class="kpi-accent-bar kpi-bar-sky"></div>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="text-muted small fw-bold text-uppercase" style="font-size: 0.74rem;">Today's Inflow</span>
+                    <h3 class="fw-bold text-primary mb-0 mt-1 font-monospace">₹{{ today_collections|floatformat:2 }}</h3>
+                </div>
+                <div class="kpi-icon-bubble bubble-sky">
+                    <i class="bi bi-calendar-check"></i>
+                </div>
+            </div>
+            <span class="text-muted small" style="font-size: 0.75rem;">
+                <i class="bi bi-clock-history me-1 text-primary"></i>Collected today
+            </span>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 col-12">
+        <div class="kpi-stat-card p-3 h-100 d-flex flex-column justify-content-between">
+            <div class="kpi-accent-bar kpi-bar-indigo"></div>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="text-muted small fw-bold text-uppercase" style="font-size: 0.74rem;">Cash Collections</span>
+                    <h3 class="fw-bold text-dark mb-0 mt-1 font-monospace">₹{{ cash_collections|floatformat:2 }}</h3>
+                </div>
+                <div class="kpi-icon-bubble bubble-indigo">
+                    <i class="bi bi-cash-stack"></i>
+                </div>
+            </div>
+            <span class="text-muted small" style="font-size: 0.75rem;">
+                <i class="bi bi-shield-check me-1 text-info"></i>Cash in drawer / hand
+            </span>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 col-12">
+        <div class="kpi-stat-card p-3 h-100 d-flex flex-column justify-content-between">
+            <div class="kpi-accent-bar kpi-bar-purple"></div>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <span class="text-muted small fw-bold text-uppercase" style="font-size: 0.74rem;">Digital &amp; Bank</span>
+                    <h3 class="fw-bold text-dark mb-0 mt-1 font-monospace">₹{{ digital_collections|floatformat:2 }}</h3>
+                </div>
+                <div class="kpi-icon-bubble bubble-purple">
+                    <i class="bi bi-bank"></i>
+                </div>
+            </div>
+            <span class="text-muted small" style="font-size: 0.75rem;">
+                <i class="bi bi-qr-code-scan me-1 text-purple"></i>UPI, Bank Transfer &amp; Cheque
+            </span>
+        </div>
+    </div>
+
+    <!-- SEARCH & FILTER CONTROLS -->
+    <div class="col-12">
+        <div class="card filter-card border-0">
+            <div class="card-body p-3.5">
+                <div class="row g-3 align-items-center">
+                    <!-- Search Input -->
+                    <div class="col-lg-4 col-md-6 col-12">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted border-end-0 rounded-start-3">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" id="paymentSearchInput" class="form-control border-start-0 rounded-end-3" placeholder="Search customer, invoice no, trans ID, remarks..." autocomplete="off">
+                        </div>
+                    </div>
+
+                    <!-- Payment Mode Filter -->
+                    <div class="col-lg-2 col-md-3 col-6">
+                        <select id="paymentModeFilter" class="form-select rounded-3">
+                            <option value="">All Payment Modes</option>
+                            <option value="Cash">Cash</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Bank">Bank Transfer</option>
+                            <option value="Cheque">Cheque</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Range: From Date -->
+                    <div class="col-lg-2 col-md-3 col-6">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted border-end-0 py-1.5 px-2 small">From</span>
+                            <input type="date" id="fromDateFilter" class="form-control form-control-sm rounded-end-3">
+                        </div>
+                    </div>
+
+                    <!-- Date Range: To Date -->
+                    <div class="col-lg-2 col-md-4 col-6">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted border-end-0 py-1.5 px-2 small">To</span>
+                            <input type="date" id="toDateFilter" class="form-control form-control-sm rounded-end-3">
+                        </div>
+                    </div>
+
+                    <!-- Filter Action Buttons -->
+                    <div class="col-lg-2 col-md-4 col-6 d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-3 flex-grow-1" onclick="resetAllPaymentFilters()">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                        </button>
+                    </div>
+
+                    <!-- Quick Date Pills & Dynamic Match Counter -->
+                    <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2 pt-2 border-top">
+                        <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                            <span class="text-muted small me-1">Quick Filter:</span>
+                            <button type="button" class="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 small quick-date-btn active" data-range="all" onclick="applyQuickDate('all', this)">All Time</button>
+                            <button type="button" class="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 small quick-date-btn" data-range="today" onclick="applyQuickDate('today', this)">Today</button>
+                            <button type="button" class="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 small quick-date-btn" data-range="week" onclick="applyQuickDate('week', this)">This Week</button>
+                            <button type="button" class="btn btn-sm btn-light border rounded-pill px-2.5 py-0.5 small quick-date-btn" data-range="month" onclick="applyQuickDate('month', this)">This Month</button>
+                        </div>
+
+                        <div>
+                            <span class="badge bg-light text-dark border px-3 py-1.5 rounded-pill font-monospace" id="filterStatusBadge">
+                                Showing <strong id="visibleCount">{{ payments|length }}</strong> payments (Total: <strong id="visibleSum" class="text-success">₹{{ total_collections|floatformat:2 }}</strong>)
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAYMENTS TABLE CARD -->
     <div class="col-12">
         <div class="card shadow-sm border-0 rounded-4">
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table align-middle mb-0 table-hover">
-                        <thead class="table-light">
+                    <table class="table table-payments align-middle mb-0" id="paymentsMasterTable">
+                        <thead>
                             <tr>
-                                <th class="ps-4">Date</th>
-                                <th>Chemist / Customer</th>
-                                <th>Payment Mode</th>
-                                <th>Adjusted Invoice</th>
-                                <th>Reference / Trans No.</th>
-                                <th>Remarks</th>
-                                <th class="text-end">Amount Received</th>
-                                <th class="text-center pe-4" style="width: 100px;">Actions</th>
+                                <th class="ps-4" style="width: 10%;">Date</th>
+                                <th style="width: 24%;">Chemist / Customer</th>
+                                <th style="width: 12%;">Payment Mode</th>
+                                <th style="width: 15%;">Adjusted Invoice</th>
+                                <th style="width: 12%;">Reference No.</th>
+                                <th style="width: 13%;">Remarks</th>
+                                <th class="text-end" style="width: 14%;">Amount Received</th>
+                                <th class="text-center pe-4" style="width: 10%;">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="paymentsTableBody">
                             {% for pay in payments %}
-                                <tr>
-                                    <td class="ps-4 font-monospace small">{{ pay.payment_date|date:"Y-m-d" }}</td>
-                                    <td>
-                                        <strong class="text-dark">{{ pay.customer.name }}</strong>
-                                        <br>
-                                        <small class="text-muted">{{ pay.customer.city }}</small>
+                                <tr class="payment-row"
+                                    data-customer="{{ pay.customer.name|lower }} {{ pay.customer.city|default:''|lower }}"
+                                    data-invoice="{{ pay.invoice.invoice_number|default:''|lower }}"
+                                    data-ref="{{ pay.reference_no|default:''|lower }}"
+                                    data-remarks="{{ pay.remarks|default:''|lower }}"
+                                    data-mode="{{ pay.payment_mode }}"
+                                    data-date="{{ pay.payment_date|date:'Y-m-d' }}"
+                                    data-amount="{{ pay.amount }}">
+                                    
+                                    <!-- Date -->
+                                    <td class="ps-4">
+                                        <span class="font-monospace fw-semibold text-dark">{{ pay.payment_date|date:"d M Y" }}</span>
+                                        <div class="text-muted small" style="font-size: 0.72rem;">{{ pay.payment_date|date:"D" }}</div>
                                     </td>
+
+                                    <!-- Chemist / Customer -->
                                     <td>
-                                        <span class="badge bg-light text-success border px-2.5 py-1 rounded-pill">{{ pay.payment_mode }}</span>
+                                        <div class="fw-bold text-dark">{{ pay.customer.name }}</div>
+                                        <div class="small text-muted">
+                                            {% if pay.customer.city %}
+                                                <i class="bi bi-geo-alt me-0.5 text-secondary"></i>{{ pay.customer.city }}
+                                            {% else %}
+                                                <span class="text-secondary">Wholesale Retailer</span>
+                                            {% endif %}
+                                        </div>
                                     </td>
+
+                                    <!-- Payment Mode with Color-coded Badges -->
                                     <td>
-                                        {% if pay.invoice %}
-                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2.5 py-1 rounded-pill" style="background-color: #e0e7ff; color: #4338ca; border-color: #c7d2fe !important;">
-                                                {{ pay.invoice.invoice_number }}
+                                        {% if pay.payment_mode == 'Cash' %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1">
+                                                <i class="bi bi-cash me-1"></i>Cash
+                                            </span>
+                                        {% elif pay.payment_mode == 'UPI' %}
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1" style="background-color: #faf5ff !important; color: #7c3aed !important; border-color: #e9d5ff !important;">
+                                                <i class="bi bi-qr-code-scan me-1"></i>UPI
+                                            </span>
+                                        {% elif pay.payment_mode == 'Bank' %}
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2.5 py-1">
+                                                <i class="bi bi-bank me-1"></i>Bank Transfer
+                                            </span>
+                                        {% elif pay.payment_mode == 'Cheque' %}
+                                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2.5 py-1">
+                                                <i class="bi bi-file-earmark-check me-1"></i>Cheque
                                             </span>
                                         {% else %}
-                                            <span class="badge bg-light text-secondary border px-2.5 py-1 rounded-pill">On Account</span>
+                                            <span class="badge bg-light text-dark border rounded-pill px-2.5 py-1">{{ pay.payment_mode }}</span>
                                         {% endif %}
                                     </td>
-                                    <td><span class="font-monospace text-muted">{{ pay.reference_no|default:"—" }}</span></td>
-                                    <td class="text-muted small">{{ pay.remarks|default:"—" }}</td>
-                                    <td class="text-end fw-bold text-success">₹{{ pay.amount|floatformat:2 }}</td>
+
+                                    <!-- Adjusted Invoice -->
+                                    <td>
+                                        {% if pay.invoice %}
+                                            <a href="{% url 'invoice_edit' pay.invoice.id %}" class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2.5 py-1 rounded-pill text-decoration-none" title="Click to view invoice">
+                                                <i class="bi bi-receipt me-1"></i>{{ pay.invoice.invoice_number }}
+                                            </a>
+                                        {% else %}
+                                            <span class="badge bg-light text-secondary border px-2.5 py-1 rounded-pill small">
+                                                <i class="bi bi-journal-text me-1"></i>On Account / Advance
+                                            </span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- Reference No -->
+                                    <td>
+                                        {% if pay.reference_no %}
+                                            <span class="font-monospace small text-dark bg-light border px-2 py-0.5 rounded">{{ pay.reference_no }}</span>
+                                        {% else %}
+                                            <span class="text-muted small">—</span>
+                                        {% endif %}
+                                    </td>
+
+                                    <!-- Remarks -->
+                                    <td class="text-muted small">
+                                        {{ pay.remarks|default:"—"|truncatechars:35 }}
+                                    </td>
+
+                                    <!-- Amount Received -->
+                                    <td class="text-end">
+                                        <strong class="font-monospace text-success fs-6">₹{{ pay.amount|floatformat:2 }}</strong>
+                                    </td>
+
+                                    <!-- Actions: Edit Button Only (No Delete as instructed) -->
                                     <td class="text-center pe-4">
-                                        <a href="{% url 'customer_payment_delete' pay.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="return confirm('Are you sure you want to delete this payment record and revert the customer balance adjustment?')" title="Delete Record">
-                                            <i class="bi bi-trash"></i>
+                                        <a href="{% url 'customer_payment_edit' pay.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 shadow-sm" title="Edit payment record">
+                                            <i class="bi bi-pencil-square me-1"></i>Edit
                                         </a>
                                     </td>
                                 </tr>
                             {% empty %}
-                                <tr>
-                                    <td colspan="7" class="text-center py-5 text-muted">
-                                        <i class="bi bi-wallet-fill display-4 d-block mb-3 text-secondary"></i>
-                                        No customer collections recorded yet. Use the Customer Ledger to add payments.
+                                <tr id="noDataRow">
+                                    <td colspan="8" class="text-center py-5 text-muted">
+                                        <i class="bi bi-wallet-fill display-4 d-block mb-3 text-secondary opacity-50"></i>
+                                        <h6 class="fw-semibold text-secondary mb-1">No customer payments recorded yet.</h6>
+                                        <span class="small text-muted">Click "+ Record New Payment" above to add customer collections.</span>
                                     </td>
                                 </tr>
                             {% endfor %}
+                            <tr id="noMatchRow" style="display: none;">
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="bi bi-search display-5 d-block mb-2 text-secondary opacity-50"></i>
+                                    <h6 class="fw-semibold text-secondary mb-1">No matching payments found.</h6>
+                                    <span class="small text-muted">Try clearing search filters or changing the date range.</span>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -74,4 +360,122 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.getElementById("paymentSearchInput");
+        const modeFilter = document.getElementById("paymentModeFilter");
+        const fromDateInput = document.getElementById("fromDateFilter");
+        const toDateInput = document.getElementById("toDateFilter");
+
+        searchInput.addEventListener("input", filterPayments);
+        modeFilter.addEventListener("change", filterPayments);
+        fromDateInput.addEventListener("change", filterPayments);
+        toDateInput.addEventListener("change", filterPayments);
+    });
+
+    function filterPayments() {
+        const query = document.getElementById("paymentSearchInput").value.trim().toLowerCase();
+        const selectedMode = document.getElementById("paymentModeFilter").value;
+        const fromDate = document.getElementById("fromDateFilter").value;
+        const toDate = document.getElementById("toDateFilter").value;
+
+        const rows = document.querySelectorAll("#paymentsTableBody .payment-row");
+        const noMatchRow = document.getElementById("noMatchRow");
+
+        let visibleCount = 0;
+        let visibleSum = 0.0;
+
+        rows.forEach(row => {
+            const customer = row.dataset.customer || "";
+            const invoice = row.dataset.invoice || "";
+            const ref = row.dataset.ref || "";
+            const remarks = row.dataset.remarks || "";
+            const mode = row.dataset.mode || "";
+            const date = row.dataset.date || "";
+            const amount = parseFloat(row.dataset.amount) || 0.0;
+
+            // Text search match
+            const matchesQuery = !query || 
+                customer.includes(query) || 
+                invoice.includes(query) || 
+                ref.includes(query) || 
+                remarks.includes(query);
+
+            // Payment mode match
+            const matchesMode = !selectedMode || mode === selectedMode;
+
+            // Date match
+            let matchesDate = true;
+            if (fromDate && date < fromDate) matchesDate = false;
+            if (toDate && date > toDate) matchesDate = false;
+
+            if (matchesQuery && matchesMode && matchesDate) {
+                row.style.display = "";
+                visibleCount++;
+                visibleSum += amount;
+            } else {
+                row.style.display = "none";
+            }
+        });
+
+        // Update Counter & Sum
+        document.getElementById("visibleCount").textContent = visibleCount;
+        document.getElementById("visibleSum").textContent = `₹${visibleSum.toFixed(2)}`;
+
+        if (rows.length > 0) {
+            if (visibleCount === 0) {
+                noMatchRow.style.display = "";
+            } else {
+                noMatchRow.style.display = "none";
+            }
+        }
+    }
+
+    function applyQuickDate(range, btn) {
+        document.querySelectorAll(".quick-date-btn").forEach(b => b.classList.remove("active"));
+        if (btn) btn.classList.add("active");
+
+        const fromInput = document.getElementById("fromDateFilter");
+        const toInput = document.getElementById("toDateFilter");
+
+        const today = new Date();
+        const formatDate = (d) => d.toISOString().split('T')[0];
+
+        if (range === 'all') {
+            fromInput.value = "";
+            toInput.value = "";
+        } else if (range === 'today') {
+            const todayStr = formatDate(today);
+            fromInput.value = todayStr;
+            toInput.value = todayStr;
+        } else if (range === 'week') {
+            const firstDayOfWeek = new Date(today);
+            firstDayOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+            fromInput.value = formatDate(firstDayOfWeek);
+            toInput.value = formatDate(today);
+        } else if (range === 'month') {
+            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            fromInput.value = formatDate(firstDayOfMonth);
+            toInput.value = formatDate(today);
+        }
+
+        filterPayments();
+    }
+
+    function resetAllPaymentFilters() {
+        document.getElementById("paymentSearchInput").value = "";
+        document.getElementById("paymentModeFilter").value = "";
+        document.getElementById("fromDateFilter").value = "";
+        document.getElementById("toDateFilter").value = "";
+
+        document.querySelectorAll(".quick-date-btn").forEach(b => b.classList.remove("active"));
+        const allBtn = document.querySelector('.quick-date-btn[data-range="all"]');
+        if (allBtn) allBtn.classList.add("active");
+
+        filterPayments();
+    }
+</script>
 {% endblock %}

@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.http import JsonResponse
 from decimal import Decimal
+import json
 from wholesaleApp.models import (
     SupplierMaster,
     CompanyMaster,
@@ -707,77 +708,123 @@ def purchase_return_create(request):
         messages.error(request, "Access Denied: You do not have permission to create Purchase Returns.")
         return redirect('purchase_return_list')
     
-    suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False)
-    products = ProductMaster.objects.filter(status=True, is_deleted=False)
+    suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False).order_by('name')
+    products = ProductMaster.objects.filter(status=True, is_deleted=False).select_related('company').order_by('name')
     
     if request.method == 'POST':
         supplier_id = request.POST.get('supplier')
         return_number = request.POST.get('return_number')
         return_date = request.POST.get('return_date')
+        return_reason = request.POST.get('return_reason', '').strip()
+        user_remarks = request.POST.get('remarks', '').strip()
+        
         from wholesaleApp.models.financial_year import is_date_in_closed_fy
         if is_date_in_closed_fy(return_date):
             messages.error(request, "Action Denied: The selected return date falls within a closed Financial Year.")
             return redirect('purchase_return_list')
-        gross_amount = Decimal(request.POST.get('gross_amount', 0))
-        gst_amount = Decimal(request.POST.get('gst_amount', 0))
-        net_amount = Decimal(request.POST.get('net_amount', 0))
-        remarks = request.POST.get('remarks', '')
-        
+            
+        if not supplier_id:
+            messages.error(request, "Validation Error: Please select a supplier.")
+            return redirect('purchase_return_create')
+            
         supplier = get_object_or_404(SupplierMaster, id=supplier_id)
-        
-        # Create return
-        p_return = PurchaseReturn.objects.create(
-            supplier=supplier,
-            return_number=return_number,
-            return_date=return_date,
-            gross_amount=gross_amount,
-            gst_amount=gst_amount,
-            net_amount=net_amount,
-            remarks=remarks,
-            created_by=request.user if request.user.is_authenticated else None
-        )
         
         # Parse return items
         product_ids = request.POST.getlist('product[]')
         batches = request.POST.getlist('batch_number[]')
+        batch_ids = request.POST.getlist('batch_id[]')
         expiries = request.POST.getlist('expiry_date[]')
         p_rates = request.POST.getlist('purchase_rate[]')
         quantities = request.POST.getlist('quantity[]')
-        totals = request.POST.getlist('total_amount[]')
+        
+        if not product_ids:
+            messages.error(request, "Validation Error: Please add at least one product to the return.")
+            return redirect('purchase_return_create')
+            
+        items_to_create = []
+        total_gross = Decimal('0.00')
+        total_gst = Decimal('0.00')
         
         for i in range(len(product_ids)):
             prod_id = product_ids[i]
-            batch_no = batches[i]
-            exp_date = expiries[i]
-            pr_val = Decimal(p_rates[i])
-            qty = int(quantities[i])
-            total_val = Decimal(totals[i])
+            if not prod_id:
+                continue
+            batch_no = batches[i] if i < len(batches) else ''
+            batch_id = batch_ids[i] if i < len(batch_ids) and batch_ids[i] else None
+            exp_date = expiries[i] if i < len(expiries) else None
+            pr_val = Decimal(p_rates[i]) if i < len(p_rates) and p_rates[i] else Decimal('0.00')
+            qty = Decimal(quantities[i]) if i < len(quantities) and quantities[i] else Decimal('0')
             
-            # Create Return Item
+            if qty <= 0:
+                continue
+                
+            # Locate batch in inventory
+            batch = None
+            if batch_id:
+                batch = ProductBatch.objects.filter(id=batch_id).select_related('product').first()
+            if not batch:
+                batch = ProductBatch.objects.filter(product_id=prod_id, batch_number=batch_no).select_related('product').first()
+                
+            # Pharma stock validation: Cannot return more than available stock
+            if batch and qty > batch.quantity:
+                messages.error(request, f"Pharma Rule Violation: Cannot return {int(qty)} packs of '{batch.product.name}' (Batch: {batch.batch_number}). Current stock in inventory is only {int(batch.quantity)} packs!")
+                return redirect('purchase_return_create')
+                
+            prod = batch.product if batch else ProductMaster.objects.filter(id=prod_id).first()
+            line_taxable = round(qty * pr_val, 2)
+            gst_pct = prod.gst_rate if prod and prod.gst_rate is not None else Decimal('12.00')
+            line_gst = round(line_taxable * (gst_pct / Decimal('100.00')), 2)
+            
+            total_gross += line_taxable
+            total_gst += line_gst
+            
+            items_to_create.append({
+                'product_id': prod_id,
+                'batch_number': batch_no,
+                'expiry_date': exp_date if exp_date else (batch.expiry_date if batch else return_date),
+                'purchase_rate': pr_val,
+                'quantity': int(qty),
+                'total_amount': line_taxable,
+                'batch': batch
+            })
+            
+        if not items_to_create:
+            messages.error(request, "Validation Error: No valid return items found.")
+            return redirect('purchase_return_create')
+            
+        total_net = total_gross + total_gst
+        combined_remarks = f"[{return_reason}] {user_remarks}".strip() if return_reason else user_remarks
+        
+        # Create return master record
+        p_return = PurchaseReturn.objects.create(
+            supplier=supplier,
+            return_number=return_number,
+            return_date=return_date,
+            gross_amount=total_gross,
+            gst_amount=total_gst,
+            net_amount=total_net,
+            remarks=combined_remarks,
+            created_by=request.user if request.user.is_authenticated else None
+        )
+        
+        # Save items and deduct stock
+        for itm in items_to_create:
             PurchaseReturnItem.objects.create(
                 purchase_return=p_return,
-                product_id=prod_id,
-                batch_number=batch_no,
-                expiry_date=exp_date,
-                purchase_rate=pr_val,
-                quantity=qty,
-                total_amount=total_val
+                product_id=itm['product_id'],
+                batch_number=itm['batch_number'],
+                expiry_date=itm['expiry_date'],
+                purchase_rate=itm['purchase_rate'],
+                quantity=itm['quantity'],
+                total_amount=itm['total_amount']
             )
-            
-            # Deduct from Batch Inventory
-            try:
-                batch = ProductBatch.objects.get(
-                    product_id=prod_id,
-                    batch_number=batch_no,
-                    expiry_date=exp_date
-                )
-                batch.quantity = max(0, batch.quantity - qty)
-                batch.save()
-            except ProductBatch.DoesNotExist:
-                pass
+            b = itm['batch']
+            if b:
+                b.quantity = max(Decimal('0'), b.quantity - Decimal(itm['quantity']))
+                b.save()
                 
-        # Deduct return value from Supplier Balance (reduces our liability)
-        supplier.opening_balance -= net_amount
+        # Deduct debit note value from Supplier Balance
+        supplier.opening_balance -= total_net
         supplier.save()
         
         log_activity(
@@ -786,15 +833,26 @@ def purchase_return_create(request):
             model_name='PurchaseReturn',
             object_id=p_return.id,
             object_repr=p_return.return_number,
-            description=f"Created purchase return to {supplier.name} for ₹{net_amount}"
+            description=f"Created purchase return {p_return.return_number} to {supplier.name} for ₹{total_net}"
         )
         
-        messages.success(request, f"Purchase Return '{return_number}' recorded successfully.")
+        messages.success(request, f"Purchase Return / Debit Note '{return_number}' created successfully. ₹{total_net} credited to supplier ledger.")
         return redirect('purchase_return_list')
+        
+    product_catalog = {}
+    for p in products:
+        product_catalog[str(p.id)] = {
+            'id': p.id,
+            'name': p.name,
+            'pack': p.pack_size or '',
+            'company': p.company.name if p.company else '',
+            'gst': float(p.gst_rate if p.gst_rate is not None else 12.0)
+        }
         
     context = {
         'suppliers': suppliers,
         'products': products,
+        'product_catalog_json': json.dumps(product_catalog),
         'page_title': 'New Purchase Return',
         'user_perms': get_user_permissions_context(request.user)
     }

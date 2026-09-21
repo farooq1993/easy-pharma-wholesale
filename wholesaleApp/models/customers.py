@@ -49,9 +49,9 @@ class CustomerMaster(TenantModel):
     alternate_mobile = models.CharField(max_length=15, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     gstin = models.CharField(max_length=15, blank=True, null=True)
-    dl_number_1 = models.CharField(max_length=15, blank=True, null=True)
-    dl_number_2 = models.CharField(max_length=15, blank=True, null=True)
-    dl_number_3 = models.CharField(max_length=15, blank=True, null=True)
+    dl_number_1 = models.CharField(max_length=100, blank=True, null=True)
+    dl_number_2 = models.CharField(max_length=100, blank=True, null=True)
+    dl_number_3 = models.CharField(max_length=100, blank=True, null=True)
     
     area = models.ForeignKey('AreaMaster', on_delete=models.PROTECT, related_name='customers')
     subarea = models.ForeignKey('SubareaMaster', on_delete=models.PROTECT, related_name='customers', blank=True, null=True)

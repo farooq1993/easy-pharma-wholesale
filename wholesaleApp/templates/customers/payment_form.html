@@ -4,120 +4,303 @@
 {% block page_title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10 col-12">
-        <form method="POST">
-            {% csrf_token %}
-            
-            <div class="row g-4">
-                <!-- Payment Entry Section -->
-                <div class="col-md-5 col-12">
-                    <div class="card shadow-sm border-0 rounded-4 h-100">
-                        <div class="card-header bg-white py-3 border-bottom-0">
-                            <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-wallet2 text-primary me-2"></i>Payment Details</h5>
+<style>
+    .payment-form-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    }
+    .form-section-header {
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 0.85rem;
+        margin-bottom: 1.25rem;
+    }
+    .sim-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid #cbd5e1;
+        border-radius: 14px;
+    }
+    .invoice-row-selected {
+        background-color: #f0fdf4 !important;
+    }
+    .pill-quick-amt {
+        cursor: pointer;
+        font-size: 0.78rem;
+        font-weight: 600;
+        transition: all 0.15s ease;
+    }
+    .pill-quick-amt:hover {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+    }
+</style>
+
+<div class="container-fluid px-0">
+    <!-- Top Action / Breadcrumb Bar -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <a href="{% url 'customer_payment_list' %}" class="btn btn-outline-secondary rounded-pill px-3 py-1.5 shadow-sm" title="Back to Collections">
+                <i class="bi bi-arrow-left me-1"></i> Back to Collections
+            </a>
+            <div>
+                <h4 class="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+                    {% if is_edit %}
+                        <span class="badge bg-amber-subtle text-warning border border-warning-subtle fs-6 px-2.5 py-1">
+                            <i class="bi bi-pencil-square me-1"></i> Edit Mode
+                        </span>
+                        Edit Payment Receipt #{{ payment.id }}
+                    {% else %}
+                        <i class="bi bi-wallet2 text-primary"></i> Record Customer Payment
+                    {% endif %}
+                </h4>
+                <p class="text-muted small mb-0 mt-0.5">
+                    {% if is_edit %}
+                        Update collection details and re-adjust ledger balances accurately.
+                    {% else %}
+                        Record inbound collection, allocate against outstanding invoices, or post on-account advance.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-light text-secondary border px-3 py-2 rounded-pill small">
+                <i class="bi bi-calendar-check me-1 text-primary"></i> FY Active
+            </span>
+        </div>
+    </div>
+
+    <!-- Form Body -->
+    <form method="POST" id="paymentForm">
+        {% csrf_token %}
+        
+        <div class="row g-4">
+            <!-- LEFT PANEL: Payment & Customer Details -->
+            <div class="col-lg-5 col-12">
+                <div class="payment-form-card p-4 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="form-section-header d-flex align-items-center justify-content-between">
+                            <h5 class="mb-0 fw-bold text-dark">
+                                <i class="bi bi-person-bounding-box text-primary me-2"></i>Payment Details
+                            </h5>
+                            <span class="badge bg-primary-subtle text-primary fw-semibold rounded-pill px-2.5 py-1">Step 1</span>
                         </div>
-                        <div class="card-body p-4">
-                            <div class="row g-3">
-                                <!-- Customer -->
-                                <div class="col-12">
-                                    <label class="form-label text-muted small fw-bold">Select Customer <span class="text-danger">*</span></label>
-                                    <select name="customer" id="customerSelect" class="form-select rounded-3" required>
-                                        <option value="">-- Choose Customer --</option>
-                                        {% for cust in customers %}
-                                            <option value="{{ cust.id }}">
-                                                {{ cust.name }} (Dues: ₹{{ cust.opening_balance|floatformat:2 }})
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
 
-                                <!-- Date -->
-                                <div class="col-12">
-                                    <label class="form-label text-muted small fw-bold">Payment Date <span class="text-danger">*</span></label>
-                                    <input type="date" name="payment_date" class="form-control rounded-3" value="{% now 'Y-m-d' %}" required>
+                        <div class="row g-3">
+                            <!-- Customer Selection (DRY Global ERP Combobox) -->
+                            <div class="col-12">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <label class="form-label text-secondary small fw-bold mb-0">
+                                        Customer (Chemist / Hospital) <span class="text-danger">*</span>
+                                    </label>
+                                    <span class="badge bg-light text-muted border small" id="customerCountBadge">{{ customers|length }} Available</span>
                                 </div>
+                                
+                                <div class="combobox-container position-relative">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white border-secondary-subtle text-primary"><i class="bi bi-shop"></i></span>
+                                        <input type="text" id="customerSearch" class="form-control form-control-lg combobox-input border-secondary-subtle" 
+                                               placeholder="Type Name, Address, Area or Phone..." 
+                                               autocomplete="off" required style="font-size: 0.95rem;">
+                                        <button class="btn btn-outline-secondary" type="button" id="btnClearCustomer" title="Clear customer">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                    <input type="hidden" name="customer" id="customerSelect" class="combobox-hidden-value" 
+                                           value="{% if is_edit and payment.customer %}{{ payment.customer.id }}{% endif %}" required>
+                                    <ul class="combobox-menu shadow-lg"></ul>
+                                </div>
+                            </div>
 
-                                <!-- Amount -->
-                                <div class="col-12">
-                                    <label class="form-label text-muted small fw-bold">Amount Received (₹) <span class="text-danger">*</span></label>
-                                    <input type="number" step="0.01" name="amount" id="amountInput" class="form-control rounded-3 fs-5 fw-bold text-primary" min="0.01" placeholder="0.00" required>
+                            <!-- Customer Info Badge / Summary -->
+                            <div class="col-12" id="customerInfoBox" style="display: none;">
+                                <div class="p-3 bg-white rounded-3 border border-primary-subtle shadow-xs d-flex align-items-center justify-content-between">
+                                    <div class="overflow-hidden me-3">
+                                        <div class="fw-bold text-dark fs-6 d-flex align-items-center gap-1.5">
+                                            <i class="bi bi-shop text-primary"></i>
+                                            <span id="custBoxName">-</span>
+                                        </div>
+                                        <div class="text-danger small mt-1 d-flex align-items-start gap-1" id="custBoxAddress">
+                                            <i class="bi bi-geo-alt-fill flex-shrink-0 mt-0.5"></i>
+                                            <span class="text-truncate fw-medium">-</span>
+                                        </div>
+                                        <div class="text-muted mt-1" style="font-size: 0.76rem;" id="custBoxMeta">-</div>
+                                    </div>
+                                    <div class="text-end ps-3 border-start flex-shrink-0">
+                                        <div class="text-muted" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;">Current Dues</div>
+                                        <div class="fw-bold fs-5 text-danger" id="custBoxBalance">₹0.00</div>
+                                    </div>
                                 </div>
+                            </div>
 
-                                <!-- Payment Mode -->
-                                <div class="col-12">
-                                    <label class="form-label text-muted small fw-bold">Payment Mode <span class="text-danger">*</span></label>
-                                    <select name="payment_mode" class="form-select rounded-3" required>
-                                        <option value="Cash">Cash</option>
-                                        <option value="Bank">Bank Transfer</option>
-                                        <option value="UPI">UPI</option>
-                                        <option value="Cheque">Cheque</option>
-                                    </select>
+                            <!-- Payment Date -->
+                            <div class="col-sm-6 col-12">
+                                <label class="form-label text-secondary small fw-bold mb-1">
+                                    Payment Date <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-secondary-subtle text-muted"><i class="bi bi-calendar"></i></span>
+                                    <input type="date" name="payment_date" id="paymentDateInput" class="form-control border-secondary-subtle" 
+                                           value="{% if is_edit %}{{ payment.payment_date|date:'Y-m-d' }}{% else %}{% now 'Y-m-d' %}{% endif %}" required>
                                 </div>
+                            </div>
 
-                                <!-- Reference No -->
-                                <div class="col-12">
-                                    <label class="form-label text-muted small fw-bold">Reference / Trans No.</label>
-                                    <input type="text" name="reference_no" class="form-control rounded-3" placeholder="e.g. Transaction ID, Cheque No">
-                                </div>
+                            <!-- Payment Mode -->
+                            <div class="col-sm-6 col-12">
+                                <label class="form-label text-secondary small fw-bold mb-1">
+                                    Payment Mode <span class="text-danger">*</span>
+                                </label>
+                                <select name="payment_mode" id="paymentModeSelect" class="form-select border-secondary-subtle" required>
+                                    <option value="Cash" {% if is_edit and payment.payment_mode == 'Cash' %}selected{% endif %}>💵 Cash</option>
+                                    <option value="UPI" {% if is_edit and payment.payment_mode == 'UPI' %}selected{% endif %}>📱 UPI / QR</option>
+                                    <option value="Bank" {% if is_edit and payment.payment_mode == 'Bank' %}selected{% endif %}>🏦 Bank Transfer (NEFT/RTGS)</option>
+                                    <option value="Cheque" {% if is_edit and payment.payment_mode == 'Cheque' %}selected{% endif %}>📜 Cheque</option>
+                                </select>
+                            </div>
 
-                                <!-- Remarks -->
-                                <div class="col-12">
-                                    <label class="form-label text-muted small fw-bold">Remarks / Notes</label>
-                                    <textarea name="remarks" class="form-control rounded-3" rows="2" placeholder="Add optional details..."></textarea>
+                            <!-- Amount Received -->
+                            <div class="col-12">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <label class="form-label text-secondary small fw-bold mb-0">
+                                        Amount Received (₹) <span class="text-danger">*</span>
+                                    </label>
+                                    <!-- Quick fill shortcuts -->
+                                    <div class="d-flex gap-1">
+                                        <span class="badge bg-light text-primary border pill-quick-amt" id="btnFullDue">Full Dues</span>
+                                        <span class="badge bg-light text-secondary border pill-quick-amt" id="btnHalfDue">50%</span>
+                                        <span class="badge bg-light text-danger border pill-quick-amt" id="btnClearAmt">Clear</span>
+                                    </div>
                                 </div>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text bg-primary-subtle border-primary-subtle text-primary fw-bold">₹</span>
+                                    <input type="number" step="0.01" min="0.01" name="amount" id="amountInput" 
+                                           class="form-control border-primary-subtle fw-bold fs-4 text-primary" 
+                                           placeholder="0.00" 
+                                           value="{% if is_edit %}{{ payment.amount }}{% endif %}" required>
+                                </div>
+                            </div>
+
+                            <!-- Reference / Trans No -->
+                            <div class="col-12">
+                                <label class="form-label text-secondary small fw-bold mb-1" id="refNoLabel">
+                                    Reference / Transaction No.
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-secondary-subtle text-muted"><i class="bi bi-hash"></i></span>
+                                    <input type="text" name="reference_no" id="referenceNoInput" class="form-control border-secondary-subtle" 
+                                           placeholder="e.g. UTR, Cheque No, UPI Ref..." 
+                                           value="{% if is_edit %}{{ payment.reference_no|default:'' }}{% endif %}">
+                                </div>
+                            </div>
+
+                            <!-- Remarks -->
+                            <div class="col-12">
+                                <label class="form-label text-secondary small fw-bold mb-1">Remarks / Internal Notes</label>
+                                <textarea name="remarks" class="form-control border-secondary-subtle" rows="2" 
+                                          placeholder="Optional details, deposit bank, collection agent notes...">{% if is_edit %}{{ payment.remarks|default:'' }}{% endif %}</textarea>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Invoice Adjustment Section -->
-                <div class="col-md-7 col-12">
-                    <div class="card shadow-sm border-0 rounded-4 h-100">
-                        <div class="card-header bg-white py-3 border-bottom-0">
-                            <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-file-earmark-ruled text-primary me-2"></i>Invoice Adjustment Window</h5>
+                    <!-- Live Ledger Simulation Box -->
+                    <div class="sim-card p-3 mt-4">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold small text-secondary">
+                                <i class="bi bi-calculator text-primary me-1"></i> Customer Balance Simulation
+                            </span>
+                            <span class="badge bg-white text-secondary border small" id="simStatusBadge">Standing</span>
                         </div>
-                        <div class="card-body p-4 d-flex flex-column justify-content-between">
-                            <div>
-                                <p class="text-muted small">Choose which outstanding invoice this payment should be adjusted against. Select **"On Account / General"** if this is an advance or unallocated payment.</p>
-                                
-                                <!-- Outstanding Invoices Table -->
-                                <div class="table-responsive border rounded-3 mb-3" style="max-height: 350px; overflow-y: auto;">
-                                    <table class="table table-hover align-middle mb-0" id="invoicesTable">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th style="width: 50px;">Select</th>
-                                                <th>Invoice No</th>
-                                                <th>Date</th>
-                                                <th class="text-end">Invoice Amt</th>
-                                                <th class="text-end">Outstanding</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td colspan="5" class="text-center py-5 text-muted" id="placeholderMessage">
-                                                    <i class="bi bi-person-fill-exclamation display-6 d-block mb-2"></i>
-                                                    Select a customer to view outstanding invoices.
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                        <div class="row g-2 text-center">
+                            <div class="col-4">
+                                <div class="text-muted" style="font-size: 0.72rem;">Customer Dues</div>
+                                <div class="fw-bold text-dark small" id="simInitialDues">₹0.00</div>
                             </div>
-
-                            <div class="border-top pt-3 d-flex gap-2">
-                                <button type="submit" class="btn btn-primary rounded-pill py-2.5 px-4 flex-grow-1">
-                                    <i class="bi bi-check-circle me-1"></i> Record Receipt &amp; Adjust
-                                </button>
-                                <a href="{% url 'customer_payment_list' %}" class="btn btn-outline-secondary rounded-pill py-2.5 px-4">
-                                    Cancel
-                                </a>
+                            <div class="col-4 border-start border-end">
+                                <div class="text-muted" style="font-size: 0.72rem;">Payment Inflow</div>
+                                <div class="fw-bold text-success small" id="simInflow">-₹0.00</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted" style="font-size: 0.72rem;">Projected Dues</div>
+                                <div class="fw-bold text-primary small" id="simProjectedDues">₹0.00</div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </form>
-    </div>
+
+            <!-- RIGHT PANEL: Invoice Adjustment Window -->
+            <div class="col-lg-7 col-12">
+                <div class="payment-form-card p-4 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="form-section-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div>
+                                <h5 class="mb-0 fw-bold text-dark">
+                                    <i class="bi bi-file-earmark-ruled text-primary me-2"></i>Invoice Adjustment Window
+                                </h5>
+                                <p class="text-muted small mb-0 mt-0.5">Select a specific bill to adjust or keep payment on-account</p>
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary fw-semibold rounded-pill px-2.5 py-1">Step 2</span>
+                        </div>
+
+                        <!-- Invoice Filter Bar -->
+                        <div class="mb-3 d-flex align-items-center justify-content-between gap-2">
+                            <div class="input-group input-group-sm" style="max-width: 280px;">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" id="filterInvoicesInput" class="form-control bg-light border-start-0" placeholder="Filter invoices in list...">
+                            </div>
+                            <div class="text-muted small">
+                                Available Bills: <span class="badge bg-secondary-subtle text-secondary fw-bold" id="invoiceCountBadge">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Invoices Table -->
+                        <div class="table-responsive border rounded-3" style="max-height: 420px; overflow-y: auto;">
+                            <table class="table table-hover align-middle mb-0" id="invoicesTable">
+                                <thead class="table-light sticky-top" style="z-index: 2;">
+                                    <tr style="font-size: 0.78rem;">
+                                        <th style="width: 55px;" class="text-center">Select</th>
+                                        <th>Invoice #</th>
+                                        <th>Date</th>
+                                        <th class="text-end">Net Total</th>
+                                        <th class="text-end">Outstanding Due</th>
+                                        <th class="text-center" style="width: 90px;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="invoicesTableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center py-5 text-muted" id="placeholderRow">
+                                            <i class="bi bi-person-lines-fill display-6 d-block mb-2 text-secondary-subtle"></i>
+                                            <div class="fw-semibold">No Customer Selected</div>
+                                            <div class="small">Choose a customer on the left to view their pending credit bills.</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="mt-2 text-muted" style="font-size: 0.76rem;">
+                            <i class="bi bi-info-circle me-1"></i> Selecting an invoice will link the receipt to that specific bill. If left on <strong>"On Account / General Adjust"</strong>, it sits in the customer's ledger as credit.
+                        </div>
+                    </div>
+
+                    <!-- Bottom Buttons -->
+                    <div class="border-top pt-3 mt-4 d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                        <a href="{% url 'customer_payment_list' %}" class="btn btn-outline-secondary rounded-pill px-4 py-2">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </a>
+                        <button type="submit" id="btnSubmitPayment" class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow-sm">
+                            {% if is_edit %}
+                                <i class="bi bi-check2-circle me-1"></i> Update Payment Record
+                            {% else %}
+                                <i class="bi bi-check2-circle me-1"></i> Record &amp; Save Receipt
+                            {% endif %}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
 </div>
 {% endblock %}
 
@@ -125,93 +308,361 @@
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const customerSelect = document.getElementById("customerSelect");
-        const invoicesTableBody = document.querySelector("#invoicesTable tbody");
-        const amountInput = document.getElementById("amountInput");
-        const placeholderMessage = document.getElementById("placeholderMessage");
+        const customerInfoBox = document.getElementById("customerInfoBox");
+        const custBoxName = document.getElementById("custBoxName");
+        const custBoxMeta = document.getElementById("custBoxMeta");
+        const custBoxBalance = document.getElementById("custBoxBalance");
 
-        customerSelect.addEventListener("change", function() {
-            const customerId = this.value;
+        const invoicesTableBody = document.getElementById("invoicesTableBody");
+        const invoiceCountBadge = document.getElementById("invoiceCountBadge");
+        const filterInvoicesInput = document.getElementById("filterInvoicesInput");
+        const amountInput = document.getElementById("amountInput");
+        const paymentModeSelect = document.getElementById("paymentModeSelect");
+        const refNoLabel = document.getElementById("refNoLabel");
+        const referenceNoInput = document.getElementById("referenceNoInput");
+
+        const simInitialDues = document.getElementById("simInitialDues");
+        const simInflow = document.getElementById("simInflow");
+        const simProjectedDues = document.getElementById("simProjectedDues");
+        const simStatusBadge = document.getElementById("simStatusBadge");
+
+        const btnFullDue = document.getElementById("btnFullDue");
+        const btnHalfDue = document.getElementById("btnHalfDue");
+        const btnClearAmt = document.getElementById("btnClearAmt");
+
+        const isEditMode = {% if is_edit %}true{% else %}false{% endif %};
+        const editPaymentId = {% if is_edit %}"{{ payment.id }}"{% else %}null{% endif %};
+        const editInvoiceId = {% if is_edit and payment.invoice %}"{{ payment.invoice.id }}"{% else %}null{% endif %};
+        const editOldAmount = {% if is_edit %}{{ payment.amount|default:0 }}{% else %}0{% endif %};
+
+        let currentCustomerDues = 0;
+        let fetchedInvoicesList = [];
+
+        // Global Customer Dataset for Combobox (DRY)
+        const customerList = [
+            {% for cust in customers %}
+            {
+                id: "{{ cust.id }}",
+                name: "{{ cust.name|escapejs }}",
+                address: "{{ cust.address|default:''|escapejs }}",
+                area: "{% if cust.area %}{{ cust.area.name|escapejs }}{% endif %}",
+                city: "{{ cust.city|default:''|escapejs }}",
+                mobile: "{{ cust.mobile|default:''|escapejs }}",
+                dl: "{{ cust.dl_number_1|default:''|escapejs }}",
+                type: "{{ cust.customer_type|escapejs }}",
+                outstanding: parseFloat("{{ cust.opening_balance|default:0 }}")
+            },
+            {% endfor %}
+        ];
+
+        // Update payment mode labels dynamically
+        function updateModeLabel() {
+            const mode = paymentModeSelect.value;
+            if (mode === 'UPI') {
+                refNoLabel.innerText = "UPI / Transaction Ref ID";
+                referenceNoInput.placeholder = "e.g. UPI Ref / GooglePay / PhonePe Trans ID";
+            } else if (mode === 'Cheque') {
+                refNoLabel.innerText = "Cheque Number & Bank Name";
+                referenceNoInput.placeholder = "e.g. Cheque #409212 - HDFC Bank";
+            } else if (mode === 'Bank') {
+                refNoLabel.innerText = "Bank UTR / NEFT / RTGS Ref";
+                referenceNoInput.placeholder = "e.g. UTR / NEFT Transfer Ref";
+            } else {
+                refNoLabel.innerText = "Reference / Voucher No.";
+                referenceNoInput.placeholder = "Optional cash voucher / receipt number";
+            }
+        }
+        paymentModeSelect.addEventListener("change", updateModeLabel);
+        updateModeLabel();
+
+        // Calculation of projected balance
+        function updateSimulation() {
+            const enteredAmt = parseFloat(amountInput.value) || 0;
+            simInflow.innerText = "-₹" + enteredAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            
+            // In edit mode: the customer's current balance already has editOldAmount subtracted.
+            // So the base balance before this transaction was (current_balance + editOldAmount).
+            let baseDues = currentCustomerDues;
+            if (isEditMode && editPaymentId) {
+                baseDues = currentCustomerDues + editOldAmount;
+            }
+
+            const projected = baseDues - enteredAmt;
+            simInitialDues.innerText = "₹" + baseDues.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            simProjectedDues.innerText = "₹" + projected.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            if (projected <= 0.001 && projected >= -0.001) {
+                simStatusBadge.className = "badge bg-success-subtle text-success border border-success-subtle small";
+                simStatusBadge.innerText = "Fully Cleared";
+                simProjectedDues.className = "fw-bold text-success small";
+            } else if (projected < 0) {
+                simStatusBadge.className = "badge bg-info-subtle text-info border border-info-subtle small";
+                simStatusBadge.innerText = "Advance Credit";
+                simProjectedDues.className = "fw-bold text-info small";
+            } else {
+                simStatusBadge.className = "badge bg-warning-subtle text-warning border border-warning-subtle small";
+                simStatusBadge.innerText = "Dues Remaining";
+                simProjectedDues.className = "fw-bold text-primary small";
+            }
+        }
+        amountInput.addEventListener("input", updateSimulation);
+
+        // Quick amount buttons
+        btnFullDue.addEventListener("click", function() {
+            let baseDues = currentCustomerDues;
+            if (isEditMode && editPaymentId) {
+                baseDues = currentCustomerDues + editOldAmount;
+            }
+            if (baseDues > 0) {
+                amountInput.value = baseDues.toFixed(2);
+                updateSimulation();
+            }
+        });
+
+        btnHalfDue.addEventListener("click", function() {
+            let baseDues = currentCustomerDues;
+            if (isEditMode && editPaymentId) {
+                baseDues = currentCustomerDues + editOldAmount;
+            }
+            if (baseDues > 0) {
+                amountInput.value = (baseDues / 2).toFixed(2);
+                updateSimulation();
+            }
+        });
+
+        btnClearAmt.addEventListener("click", function() {
+            amountInput.value = "";
+            updateSimulation();
+        });
+
+        // Load outstanding invoices for customer
+        function loadCustomerInvoices(customerId, custObj) {
             if (!customerId) {
+                customerInfoBox.style.display = "none";
+                currentCustomerDues = 0;
+                invoiceCountBadge.innerText = "0";
                 invoicesTableBody.innerHTML = `
                     <tr>
-                        <td colspan="5" class="text-center py-5 text-muted">
-                            <i class="bi bi-person-fill-exclamation display-6 d-block mb-2"></i>
-                            Select a customer to view outstanding invoices.
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-person-lines-fill display-6 d-block mb-2 text-secondary-subtle"></i>
+                            <div class="fw-semibold">No Customer Selected</div>
+                            <div class="small">Choose a customer on the left to view their pending credit bills.</div>
                         </td>
                     </tr>`;
+                updateSimulation();
                 return;
             }
 
+            // Display customer info
+            const cust = custObj || customerList.find(c => String(c.id) === String(customerId));
+            if (cust) {
+                currentCustomerDues = parseFloat(cust.outstanding || 0);
+                custBoxName.innerText = cust.name;
+                
+                const addressParts = [cust.address, cust.area, cust.city].filter(Boolean).join(", ");
+                const custBoxAddressEl = document.querySelector("#custBoxAddress span");
+                if (custBoxAddressEl) {
+                    custBoxAddressEl.innerText = addressParts ? addressParts : "Address not specified";
+                }
+                custBoxMeta.innerText = `${cust.mobile ? '📱 ' + cust.mobile : 'No mobile registered'} ${cust.dl ? '• 📜 DL: ' + cust.dl : ''} • Type: ${cust.type || 'Retailer'}`.trim();
+                custBoxBalance.innerText = "₹" + currentCustomerDues.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                customerInfoBox.style.display = "block";
+            }
+            updateSimulation();
+
             invoicesTableBody.innerHTML = `
                 <tr>
-                    <td colspan="5" class="text-center py-5 text-muted">
+                    <td colspan="6" class="text-center py-4 text-muted">
                         <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                        Fetching outstanding invoices...
+                        Fetching outstanding credit invoices...
                     </td>
                 </tr>`;
 
-            // Fetch outstanding invoices via AJAX
-            fetch(`/api/customer/${customerId}/outstanding-invoices/`)
+            let url = `/api/customer/${customerId}/outstanding-invoices/`;
+            const params = [];
+            if (isEditMode && editPaymentId) params.push(`exclude_payment_id=${editPaymentId}`);
+            if (isEditMode && editInvoiceId) params.push(`current_inv_id=${editInvoiceId}`);
+            if (params.length > 0) url += '?' + params.join('&');
+
+            fetch(url)
                 .then(response => response.json())
                 .then(invoices => {
-                    if (invoices.length === 0) {
-                        invoicesTableBody.innerHTML = `
-                            <tr>
-                                <td class="text-center" style="width: 50px;">
-                                    <input class="form-check-input" type="radio" name="invoice" value="" id="onAccountRadio" checked>
-                                </td>
-                                <td colspan="4">
-                                    <label class="form-check-label fw-bold text-success" for="onAccountRadio">
-                                        On Account / General Advance (No Outstanding Invoices)
-                                    </label>
-                                </td>
-                            </tr>`;
-                        return;
-                    }
-
-                    // Render table rows
-                    let rowsHtml = `
-                        <tr class="table-success">
-                            <td class="text-center">
-                                <input class="form-check-input invoice-radio" type="radio" name="invoice" value="" id="onAccountRadio" checked data-amount="">
-                            </td>
-                            <td colspan="4">
-                                <label class="form-check-label fw-bold text-dark" for="onAccountRadio">
-                                    On Account / General Adjust (Keep Unallocated)
-                                </label>
+                    fetchedInvoicesList = invoices;
+                    invoiceCountBadge.innerText = invoices.length;
+                    renderInvoicesTable(invoices);
+                })
+                .catch(err => {
+                    console.error("Error loading invoices:", err);
+                    invoicesTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-danger">
+                                <i class="bi bi-exclamation-triangle me-1"></i> Failed to load invoices. Please retry.
                             </td>
                         </tr>`;
-
-                    invoices.forEach(inv => {
-                        rowsHtml += `
-                            <tr>
-                                <td class="text-center">
-                                    <input class="form-check-input invoice-radio" type="radio" name="invoice" value="${inv.id}" id="invRadio_${inv.id}" data-amount="${inv.outstanding_amount.toFixed(2)}">
-                                </td>
-                                <td>
-                                    <label class="form-check-label fw-semibold text-dark" for="invRadio_${inv.id}">
-                                        ${inv.invoice_number}
-                                    </label>
-                                </td>
-                                <td class="small text-muted">${inv.invoice_date}</td>
-                                <td class="text-end text-secondary">₹${inv.net_amount.toFixed(2)}</td>
-                                <td class="text-end fw-bold text-primary">₹${inv.outstanding_amount.toFixed(2)}</td>
-                            </tr>`;
-                    });
-
-                    invoicesTableBody.innerHTML = rowsHtml;
                 });
+        }
+
+        // Render invoices into table
+        function renderInvoicesTable(invoices) {
+            let html = `
+                <tr class="table-light" id="rowOnAccount">
+                    <td class="text-center">
+                        <input class="form-check-input invoice-radio" type="radio" name="invoice" value="" id="onAccountRadio" 
+                               ${(!editInvoiceId || !invoices.some(i => String(i.id) === String(editInvoiceId))) ? 'checked' : ''} data-amount="">
+                    </td>
+                    <td colspan="4">
+                        <label class="form-check-label fw-bold text-dark d-flex align-items-center gap-2 cursor-pointer" for="onAccountRadio">
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">ON ACCOUNT</span>
+                            General Adjust / Advance (Unallocated)
+                        </label>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-secondary-subtle text-secondary small">General</span>
+                    </td>
+                </tr>`;
+
+            if (invoices.length === 0) {
+                html += `
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted small">
+                            <i class="bi bi-info-circle me-1"></i> No unpaid credit bills found for this customer. Payment will be posted on-account.
+                        </td>
+                    </tr>`;
+                invoicesTableBody.innerHTML = html;
+                return;
+            }
+
+            invoices.forEach(inv => {
+                const isSelected = editInvoiceId && String(inv.id) === String(editInvoiceId);
+                const outAmtStr = inv.outstanding_amount.toFixed(2);
+                const netAmtStr = inv.net_amount.toFixed(2);
+                
+                html += `
+                    <tr class="invoice-data-row ${isSelected ? 'invoice-row-selected' : ''}" id="invRow_${inv.id}">
+                        <td class="text-center">
+                            <input class="form-check-input invoice-radio" type="radio" name="invoice" value="${inv.id}" 
+                                   id="invRadio_${inv.id}" ${isSelected ? 'checked' : ''} data-amount="${outAmtStr}">
+                        </td>
+                        <td>
+                            <label class="form-check-label fw-bold text-dark d-block cursor-pointer" for="invRadio_${inv.id}">
+                                ${inv.invoice_number}
+                            </label>
+                        </td>
+                        <td class="small text-muted">${inv.invoice_date}</td>
+                        <td class="text-end text-secondary small">₹${netAmtStr}</td>
+                        <td class="text-end fw-bold text-primary">₹${outAmtStr}</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-xs btn-outline-primary rounded-pill py-0 px-2 btn-quick-pick" 
+                                    data-target="invRadio_${inv.id}" data-amount="${outAmtStr}" style="font-size: 0.72rem;">
+                                Select
+                            </button>
+                        </td>
+                    </tr>`;
+            });
+
+            invoicesTableBody.innerHTML = html;
+        }
+
+        // Search/filter invoices in table
+        filterInvoicesInput.addEventListener("input", function() {
+            const query = this.value.toLowerCase().trim();
+            const rows = invoicesTableBody.querySelectorAll(".invoice-data-row");
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(query) ? "" : "none";
+            });
         });
 
-        // Listen for radio selection changes to auto-fill payment amount
+        // Event delegation for radio selection and quick pick buttons
         invoicesTableBody.addEventListener("change", function(e) {
             if (e.target.classList.contains("invoice-radio")) {
-                const outstandingAmt = e.target.getAttribute("data-amount");
-                if (outstandingAmt) {
-                    amountInput.value = outstandingAmt;
-                } else {
-                    amountInput.value = '';
+                handleRadioSelection(e.target);
+            }
+        });
+
+        invoicesTableBody.addEventListener("click", function(e) {
+            const quickBtn = e.target.closest(".btn-quick-pick");
+            if (quickBtn) {
+                const radioId = quickBtn.getAttribute("data-target");
+                const radio = document.getElementById(radioId);
+                if (radio) {
+                    radio.checked = true;
+                    handleRadioSelection(radio);
                 }
+            }
+        });
+
+        function handleRadioSelection(radio) {
+            // Update row highlights
+            invoicesTableBody.querySelectorAll("tr").forEach(tr => tr.classList.remove("invoice-row-selected"));
+            const parentTr = radio.closest("tr");
+            if (parentTr && radio.value) {
+                parentTr.classList.add("invoice-row-selected");
+            }
+
+            // If a specific invoice is selected and amount is not manually locked or is empty/initial
+            const outAmt = radio.getAttribute("data-amount");
+            if (outAmt && (!amountInput.value || amountInput.value === "0" || amountInput.value === "0.00")) {
+                amountInput.value = outAmt;
+                updateSimulation();
+            }
+        }
+
+        // Setup Global ERP Combobox (DRY)
+        const customerSearchInput = document.getElementById("customerSearch");
+        if (customerSearchInput && typeof setupERPCombobox === "function") {
+            setupERPCombobox(
+                customerSearchInput,
+                customerList,
+                (id, name, custObj) => {
+                    loadCustomerInvoices(id, custObj);
+                },
+                null,
+                {
+                    onClear: () => {
+                        loadCustomerInvoices("");
+                    }
+                }
+            );
+        }
+
+        // Clear Customer button
+        const btnClearCustomer = document.getElementById("btnClearCustomer");
+        if (btnClearCustomer) {
+            btnClearCustomer.addEventListener("click", () => {
+                const searchInput = document.getElementById("customerSearch");
+                const hiddenCust = document.getElementById("customerSelect");
+                if (searchInput) searchInput.value = "";
+                if (hiddenCust) hiddenCust.value = "";
+                loadCustomerInvoices("");
+                if (searchInput) searchInput.focus();
+            });
+        }
+
+        // Initialize if customer is already selected (e.g. edit mode or reload)
+        const initCustId = customerSelect ? customerSelect.value : "";
+        if (initCustId) {
+            const initCust = customerList.find(c => String(c.id) === String(initCustId));
+            if (initCust) {
+                const searchInput = document.getElementById("customerSearch");
+                if (searchInput) searchInput.value = initCust.name;
+                loadCustomerInvoices(initCust.id, initCust);
+            }
+        }
+
+        // Prevent multiple form submissions
+        const paymentForm = document.getElementById("paymentForm");
+        paymentForm.addEventListener("submit", function() {
+            const btn = document.getElementById("btnSubmitPayment");
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving...`;
+        });
+
+        // Keyboard shortcut: Ctrl + S to save
+        document.addEventListener("keydown", function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                paymentForm.requestSubmit();
             }
         });
     });

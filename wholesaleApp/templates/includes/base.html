@@ -11,10 +11,18 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <style>
+        :root {
+            --bs-primary: #2563eb;
+            --bs-primary-rgb: 37, 99, 235;
+            --erp-navy: #172554;
+            --erp-teal: #0f766e;
+            --erp-amber: #d97706;
+            --erp-surface: #f8fafc;
+        }
         .sidebar {
             width: 260px;
             height: 100vh;
-            background: linear-gradient(180deg, #4f46e5 0%, #312e81 100%);
+            background: linear-gradient(180deg, #1e3a8a 0%, var(--erp-navy) 100%);
             position: fixed;
             overflow-y: auto;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -30,6 +38,8 @@
             margin-left: 260px;
             transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             min-height: 100vh;
+            background-color: var(--erp-surface);
+        }
         input[type="text"]:not(.no-uppercase), input[type="email"]:not(.no-uppercase), textarea:not(.no-uppercase) {
             text-transform: uppercase;
         }
@@ -37,7 +47,7 @@
             text-transform: none;
         }
 
-        /* Desktop Mini-Sidebar Mode (Collapsed) */
+        /* Desktop Mini-Sidebar Mode (Collapsed) & Hover-to-Expand */
         @media (min-width: 769px) {
             body.sidebar-collapsed .sidebar {
                 width: 72px;
@@ -68,6 +78,33 @@
                 margin-right: 0 !important;
                 font-size: 1.35rem;
             }
+
+            /* Hover-to-Expand Smooth Overlay (Opens on Hover instead of Click) */
+            body.sidebar-collapsed .sidebar:hover {
+                width: 260px !important;
+                box-shadow: 8px 0 30px rgba(0, 0, 0, 0.35) !important;
+                z-index: 1060 !important;
+            }
+            body.sidebar-collapsed .sidebar:hover .menu-text,
+            body.sidebar-collapsed .sidebar:hover .header-text,
+            body.sidebar-collapsed .sidebar:hover .collapse.show,
+            body.sidebar-collapsed .sidebar:hover .nav-item-header {
+                display: block !important;
+            }
+            body.sidebar-collapsed .sidebar:hover .sidebar-header {
+                padding: 1rem !important;
+                text-align: left !important;
+            }
+            body.sidebar-collapsed .sidebar:hover .nav-link {
+                text-align: left !important;
+                padding: 10px 14px !important;
+                justify-content: flex-start !important;
+                border-radius: 10px;
+            }
+            body.sidebar-collapsed .sidebar:hover .nav-link i {
+                margin-right: 0.5rem !important;
+                font-size: 1.25rem !important;
+            }
         }
 
         /* Mobile Responsive Overlay Mode (<768px) */
@@ -94,6 +131,118 @@
                 display: block;
             }
         }
+
+        /* ==================== GLOBAL ERP COMBOBOX COMPONENT (DRY) ==================== */
+        .combobox-container {
+            position: relative;
+            width: 100%;
+        }
+        .combobox-input {
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .combobox-input:focus {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15) !important;
+        }
+        .combobox-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 1060;
+            display: none;
+            min-width: 100%;
+            padding: 6px 0;
+            margin-top: 4px;
+            background-color: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.12);
+            border-radius: 12px;
+            box-shadow: 0 14px 30px -4px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .combobox-menu li {
+            margin: 2px 6px;
+            list-style: none;
+        }
+        .combobox-menu li a {
+            display: block;
+            padding: 8px 12px;
+            color: #1e293b;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+        .combobox-menu li a:hover,
+        .combobox-menu li.active a {
+            color: #ffffff !important;
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+        }
+        .combobox-menu li a:hover .combo-title,
+        .combobox-menu li.active a .combo-title {
+            color: #ffffff !important;
+        }
+        .combobox-menu li a:hover .combo-capsule-icon,
+        .combobox-menu li.active a .combo-capsule-icon,
+        .combobox-menu li a:hover .combo-shop-icon,
+        .combobox-menu li.active a .combo-shop-icon {
+            color: #a5f3fc !important;
+        }
+        .combobox-menu li a:hover .combo-meta-label,
+        .combobox-menu li.active a .combo-meta-label,
+        .combobox-menu li a:hover .combo-divider,
+        .combobox-menu li.active a .combo-divider,
+        .combobox-menu li a:hover .combo-cust-meta,
+        .combobox-menu li.active a .combo-cust-meta,
+        .combobox-menu li a:hover .combo-cust-meta span,
+        .combobox-menu li.active a .combo-cust-meta span {
+            color: rgba(255, 255, 255, 0.88) !important;
+        }
+        .combobox-menu li a:hover .combo-cust-meta i,
+        .combobox-menu li.active a .combo-cust-meta i {
+            color: #a5f3fc !important;
+        }
+        .combobox-menu li a:hover .combo-mrp,
+        .combobox-menu li.active a .combo-mrp,
+        .combobox-menu li a:hover .combo-gst,
+        .combobox-menu li.active a .combo-gst {
+            color: #ffffff !important;
+        }
+        .combobox-menu li a:hover .combo-sale,
+        .combobox-menu li.active a .combo-sale {
+            color: #6ee7b7 !important;
+            font-weight: 800 !important;
+        }
+        .combobox-menu li a:hover .combo-pack-badge,
+        .combobox-menu li.active a .combo-pack-badge,
+        .combobox-menu li a:hover .combo-enter-hint .badge,
+        .combobox-menu li.active a .combo-enter-hint .badge {
+            background-color: rgba(255, 255, 255, 0.22) !important;
+            color: #ffffff !important;
+            border-color: rgba(255, 255, 255, 0.4) !important;
+        }
+        .combobox-menu li a:hover .combo-stock-badge,
+        .combobox-menu li.active a .combo-stock-badge {
+            background-color: rgba(255, 255, 255, 0.22) !important;
+            color: #ffffff !important;
+            border-color: rgba(255, 255, 255, 0.45) !important;
+        }
+        .combobox-menu li a:hover .combo-scheme-badge,
+        .combobox-menu li.active a .combo-scheme-badge {
+            background-color: rgba(56, 189, 248, 0.25) !important;
+            color: #e0f2fe !important;
+            border-color: rgba(56, 189, 248, 0.5) !important;
+        }
+        .combobox-menu::-webkit-scrollbar {
+            width: 6px;
+        }
+        .combobox-menu::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -117,11 +266,11 @@
                     
                     <div class="ms-auto d-flex align-items-center gap-2 gap-md-3">
                         {% if current_tenant %}
-                        <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 rounded-pill d-flex align-items-center gap-2" style="background-color: #e0e7ff; color: #4338ca; border-color: #c7d2fe !important; font-size: 0.85rem; font-weight: 600;">
+                        <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 rounded-pill d-flex align-items-center gap-2" style="background-color: #dbeafe; color: #1e40af; border-color: #93c5fd !important; font-size: 0.85rem; font-weight: 600;">
                             <i class="bi bi-building"></i> <span>{{ current_tenant.company_name }}</span>
                         </span>
                         {% else %}
-                        <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 rounded-pill d-flex align-items-center gap-2" style="background-color: #e0e7ff; color: #4338ca; border-color: #c7d2fe !important; font-size: 0.85rem; font-weight: 600;">
+                        <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 rounded-pill d-flex align-items-center gap-2" style="background-color: #dbeafe; color: #1e40af; border-color: #93c5fd !important; font-size: 0.85rem; font-weight: 600;">
                             <i class="bi bi-building"></i> <span>SAHARA PHARMA</span>
                         </span>
                         {% endif %}
@@ -159,7 +308,8 @@
             if (window.innerWidth <= 768) {
                 document.body.classList.toggle("sidebar-mobile-open");
             } else {
-                document.body.classList.toggle("sidebar-collapsed");
+                const isCollapsed = document.body.classList.toggle("sidebar-collapsed");
+                try { localStorage.setItem("sidebar_collapsed", isCollapsed ? "true" : "false"); } catch(e){}
             }
         }
         function collapseSidebar() {
@@ -167,6 +317,7 @@
                 document.body.classList.remove("sidebar-mobile-open");
             } else {
                 document.body.classList.add("sidebar-collapsed");
+                try { localStorage.setItem("sidebar_collapsed", "true"); } catch(e){}
             }
         }
         function expandSidebar() {
@@ -174,6 +325,7 @@
                 document.body.classList.add("sidebar-mobile-open");
             } else {
                 document.body.classList.remove("sidebar-collapsed");
+                try { localStorage.setItem("sidebar_collapsed", "false"); } catch(e){}
             }
         }
 
@@ -275,13 +427,20 @@
         }
         
         document.addEventListener("DOMContentLoaded", function() {
+            // Enable hover mini-sidebar mode on desktop (opens smoothly on mouse hover)
+            try {
+                if (window.innerWidth > 768 && localStorage.getItem("sidebar_collapsed") !== "false") {
+                    document.body.classList.add("sidebar-collapsed");
+                }
+            } catch(e){}
+
             {% if messages %}
                 {% for message in messages %}
                     showToast("{{ message|escapejs }}", "{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}");
                 {% endfor %}
             {% endif %}
 
-            // Close mobile sidebar when clicking menu links (except accordion triggers)
+            // Close / collapse sidebar when navigating via menu links
             document.querySelectorAll(".sidebar .nav-link:not([data-bs-toggle='collapse'])").forEach(link => {
                 link.addEventListener("click", function() {
                     collapseSidebar();
@@ -305,6 +464,219 @@
                 }
             });
         });
+
+        // ==================== GLOBAL ERP COMBOBOX ENGINE (DRY) ====================
+        function setupERPCombobox(inputEl, dataset, onSelectCallback, onAddCallback, options = {}) {
+            if (!inputEl) return;
+            const container = inputEl.closest(".combobox-container");
+            if (!container) return;
+            const menu = container.querySelector(".combobox-menu");
+            const hiddenInput = container.querySelector(".combobox-hidden-value");
+            let activeIdx = -1;
+
+            // Pre-calculate cached search index if not present
+            dataset.forEach(item => {
+                if (!item._searchIndex) {
+                    if (item.isProduct) {
+                        item._searchIndex = `${item.name} ${item.pack || ''}`.toLowerCase();
+                    } else {
+                        item._searchIndex = `${item.name} ${item.address || ''} ${item.area || ''} ${item.city || ''} ${item.mobile || ''} ${item.dl || ''}`.toLowerCase();
+                    }
+                }
+            });
+
+            inputEl.addEventListener("focus", () => {
+                renderSuggestions(inputEl.value);
+            });
+
+            document.addEventListener("click", (e) => {
+                if (!container.contains(e.target)) {
+                    menu.style.display = "none";
+                }
+            });
+
+            inputEl.addEventListener("input", () => {
+                renderSuggestions(inputEl.value);
+                if (inputEl.value.trim() === "") {
+                    if (hiddenInput) hiddenInput.value = "";
+                    if (options.onClear) options.onClear();
+                }
+            });
+
+            inputEl.addEventListener("keydown", (e) => {
+                const items = menu.querySelectorAll("li:not(.footer-item)");
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    if (menu.style.display === "none") {
+                        menu.style.display = "block";
+                        return;
+                    }
+                    if (items.length > 0) {
+                        activeIdx = (activeIdx + 1) % items.length;
+                        highlightItem(items);
+                    }
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    if (items.length > 0) {
+                        activeIdx = (activeIdx - 1 + items.length) % items.length;
+                        highlightItem(items);
+                    }
+                } else if (e.key === "Enter") {
+                    if (menu.style.display !== "none") {
+                        e.preventDefault();
+                        if (activeIdx > -1 && activeIdx < items.length) {
+                            selectItem(items[activeIdx]);
+                        } else if (items.length > 0) {
+                            selectItem(items[0]);
+                        } else {
+                            menu.style.display = "none";
+                        }
+                    }
+                } else if (e.key === "Escape") {
+                    menu.style.display = "none";
+                } else if (e.key === "F4" && onAddCallback) {
+                    e.preventDefault();
+                    menu.style.display = "none";
+                    onAddCallback();
+                }
+            });
+
+            function highlightItem(items) {
+                items.forEach((item, idx) => {
+                    if (idx === activeIdx) {
+                        item.classList.add("active");
+                        item.scrollIntoView({ block: "nearest" });
+                    } else {
+                        item.classList.remove("active");
+                    }
+                });
+            }
+
+            function selectItem(liEl) {
+                const id = liEl.dataset.id;
+                const name = liEl.dataset.name;
+                const itemObj = dataset.find(x => String(x.id) === String(id));
+                if (hiddenInput) {
+                    hiddenInput.value = id;
+                    if (hiddenInput.id === "customerSelect" && itemObj) {
+                        hiddenInput.dataset.type = itemObj.type || '';
+                    }
+                }
+                inputEl.value = itemObj ? itemObj.name : name;
+                menu.style.display = "none";
+                activeIdx = -1;
+                if (onSelectCallback) {
+                    onSelectCallback(id, name, itemObj);
+                }
+            }
+
+            function renderSuggestions(query) {
+                activeIdx = -1;
+                menu.innerHTML = "";
+                if (document.querySelector(".modal.show")) {
+                    menu.style.display = "none";
+                    return;
+                }
+                const q = (query || "").trim().toLowerCase();
+                const filtered = dataset.filter(item => {
+                    if (!q) return true;
+                    if (item._searchIndex) return item._searchIndex.includes(q);
+                    return (item.name || "").toLowerCase().includes(q);
+                }).slice(0, 35);
+
+                if (filtered.length > 0) {
+                    filtered.forEach(item => {
+                        const li = document.createElement("li");
+                        li.dataset.id = item.id;
+                        li.dataset.name = item.name;
+                        if (item.isProduct) {
+                            const stockVal = parseFloat(item.stock || 0);
+                            const dispStock = (stockVal % 1 === 0) ? stockVal.toFixed(0) : stockVal.toFixed(2);
+                            let stockBadgeClass = "bg-success-subtle text-success border border-success-subtle";
+                            let stockIcon = '<i class="bi bi-box-seam me-1"></i>';
+                            let stockLabel = `Stock: ${dispStock}`;
+                            if (stockVal <= 0) {
+                                stockBadgeClass = "bg-danger-subtle text-danger border border-danger-subtle";
+                                stockLabel = "Out of Stock (0)";
+                            } else if (stockVal <= 10) {
+                                stockBadgeClass = "bg-warning-subtle text-warning-emphasis border border-warning-subtle";
+                                stockLabel = `Low Stock: ${dispStock}`;
+                            }
+                            li.innerHTML = `
+                                <a class="dropdown-item py-2 px-3">
+                                    <div class="d-flex justify-content-between align-items-center w-100">
+                                        <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
+                                            <span class="combo-capsule-icon text-primary"><i class="bi bi-capsule"></i></span>
+                                            <strong class="combo-title text-dark fs-6 text-truncate">${item.name}</strong>
+                                            <span class="badge bg-light text-secondary border combo-pack-badge flex-shrink-0" style="font-size: 0.74rem; padding: 3px 8px;">${item.pack || '-'}</span>
+                                        </div>
+                                        <div class="combo-enter-hint d-none d-md-flex align-items-center flex-shrink-0">
+                                            <span class="badge bg-light text-muted border font-monospace" style="font-size: 0.68rem;">Enter ↵</span>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center flex-wrap gap-2.5 mt-1 combo-meta-row" style="font-size: 0.82rem; padding-left: 20px;">
+                                        <span class="badge ${stockBadgeClass} combo-stock-badge fw-semibold" style="font-size: 0.74rem; padding: 3px 8px;">
+                                            ${stockIcon}${stockLabel}
+                                        </span>
+                                        ${item.mrp !== undefined ? `<span class="combo-meta-label text-muted">MRP: <strong class="combo-mrp text-dark font-monospace">₹${parseFloat(item.mrp || 0).toFixed(2)}</strong></span><span class="combo-divider text-muted">•</span>` : ''}
+                                        ${item.saleRate !== undefined ? `<span class="combo-meta-label text-muted">Sale Rate: <strong class="combo-sale text-success fw-bold font-monospace fs-6">₹${parseFloat(item.saleRate || 0).toFixed(2)}</strong></span><span class="combo-divider text-muted">•</span>` : ''}
+                                        ${item.gst !== undefined ? `<span class="combo-meta-label text-muted">GST: <strong class="combo-gst text-dark">${item.gst || 12}%</strong></span>` : ''}
+                                    </div>
+                                </a>
+                            `;
+                        } else {
+                            const addressParts = [item.address, item.area, item.city].filter(Boolean).join(", ");
+                            const duesVal = parseFloat(item.outstanding || 0);
+                            const duesBadgeClass = duesVal > 0 
+                                ? "bg-danger-subtle text-danger border border-danger-subtle" 
+                                : "bg-success-subtle text-success border border-success-subtle";
+                            const duesLabel = duesVal > 0 ? `Dues: ₹${duesVal.toFixed(2)}` : 'No Dues';
+
+                            li.innerHTML = `
+                                <a class="dropdown-item py-2 px-3">
+                                    <div class="d-flex justify-content-between align-items-center w-100">
+                                        <div class="d-flex align-items-center gap-2 overflow-hidden me-2">
+                                            <span class="combo-shop-icon text-primary"><i class="bi bi-shop"></i></span>
+                                            <strong class="combo-title text-dark fs-6 text-truncate">${item.name}</strong>
+                                            <span class="badge bg-light text-secondary border flex-shrink-0" style="font-size: 0.74rem;">${item.type || 'Retailer'}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                            <span class="badge ${duesBadgeClass} font-monospace" style="font-size: 0.75rem;">${duesLabel}</span>
+                                            <span class="badge bg-light text-muted border font-monospace d-none d-md-inline" style="font-size: 0.68rem;">Enter ↵</span>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center flex-wrap gap-2.5 mt-1 combo-cust-meta" style="font-size: 0.81rem; padding-left: 24px; color: #475569;">
+                                        ${addressParts ? `<span class="text-truncate" style="max-width: 320px;" title="${addressParts}"><i class="bi bi-geo-alt text-danger me-1"></i>${addressParts}</span>` : '<span class="text-muted fst-italic">No address listed</span>'}
+                                        ${item.mobile ? `<span>•</span><span><i class="bi bi-telephone text-success me-1"></i>${item.mobile}</span>` : ''}
+                                        ${item.dl ? `<span>•</span><span class="text-muted"><i class="bi bi-card-text text-info me-1"></i>DL: ${item.dl}</span>` : ''}
+                                    </div>
+                                </a>
+                            `;
+                        }
+                        li.addEventListener("click", () => selectItem(li));
+                        menu.appendChild(li);
+                    });
+                } else {
+                    const li = document.createElement("li");
+                    li.className = "text-muted p-3 text-center small";
+                    li.textContent = "No matches found";
+                    menu.appendChild(li);
+                }
+
+                if (onAddCallback) {
+                    const footerLi = document.createElement("li");
+                    footerLi.className = "footer-item border-top mt-1";
+                    footerLi.innerHTML = `<a class="dropdown-item text-primary fw-bold text-center py-2"><i class="bi bi-plus-lg"></i> Add New (F4)</a>`;
+                    footerLi.addEventListener("click", () => {
+                        menu.style.display = "none";
+                        onAddCallback();
+                    });
+                    menu.appendChild(footerLi);
+                }
+                menu.style.display = "block";
+            }
+        }
+        window.setupERPCombobox = setupERPCombobox;
     </script>
     {% block extra_js %}{% endblock %}
 </body>

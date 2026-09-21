@@ -2,12 +2,14 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, Q, DecimalField
+from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from decimal import Decimal
 import datetime
 from wholesaleApp.models import (
     CustomerMaster,
+    AreaMaster,
     ProductMaster,
     ProductBatch,
     SalesInvoice,
@@ -19,8 +21,10 @@ from wholesaleApp.models import (
 def get_product_batches(request, pk):
     """API endpoint to get active batches for a selected product in FEFO order."""
     from django.core.cache import cache
+    from django.utils import timezone
+    today = timezone.now().date()
     include_all = request.GET.get('all') == 'true'
-    cache_key = f"product_batches_{pk}_all_{include_all}"
+    cache_key = f"product_batches_{pk}_all_{include_all}_{today.strftime('%Y%m%d')}"
     data = cache.get(cache_key)
     
     if data is None:
@@ -33,6 +37,7 @@ def get_product_batches(request, pk):
             # Format MM/YY for display mask and YYYY-MM-DD for form submit
             exp_mask = b.expiry_date.strftime('%m/%y') if b.expiry_date else ''
             exp_real = b.expiry_date.strftime('%Y-%m-%d') if b.expiry_date else ''
+            is_expired = bool(b.expiry_date and b.expiry_date < today)
             data.append({
                 'id': b.id,
                 'batch_number': b.batch_number,
@@ -44,7 +49,8 @@ def get_product_batches(request, pk):
                 'wholesale_rate': float(b.wholesale_rate),
                 'rate_c': float(getattr(b, 'rate_c', 0.0) or 0.0),
                 'quantity': float(b.quantity),
-                'units_per_strip': b.product.units_per_strip
+                'units_per_strip': b.product.units_per_strip,
+                'is_expired': is_expired
             })
         cache.set(cache_key, data, timeout=60)
     return JsonResponse(data, safe=False)
@@ -53,6 +59,12 @@ def get_product_batches(request, pk):
 @login_required
 def get_customer_product_sales_history(request, customer_id, product_id):
     """API endpoint to get past sales invoice history for a given customer and product."""
+    from django.core.cache import cache
+    cache_key = f"cust_prod_history_{customer_id}_{product_id}"
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return JsonResponse(cached_data, safe=False)
+
     from wholesaleApp.models import SalesInvoiceItem
     items = SalesInvoiceItem.objects.filter(
         sales_invoice__customer_id=customer_id,
@@ -73,12 +85,57 @@ def get_customer_product_sales_history(request, customer_id, product_id):
             'discount_percentage': float(item.discount_percentage),
             'total_amount': float(item.total_amount)
         })
+    cache.set(cache_key, data, timeout=60)
+    return JsonResponse(data, safe=False)
+
+
+@login_required
+def get_product_sales_history(request, product_id):
+    """Return the five most recent customers and rates for a product."""
+    from django.core.cache import cache
+    tenant = getattr(request, 'tenant', None)
+    tenant_id = tenant.id if tenant else 0
+    cache_key = f"prod_sales_history_{tenant_id}_{product_id}"
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return JsonResponse(cached_data, safe=False)
+
+    items = SalesInvoiceItem.unfiltered_objects.filter(
+        product_id=product_id,
+        tenant=tenant
+    ).select_related('product', 'batch', 'sales_invoice', 'sales_invoice__customer').order_by(
+        '-sales_invoice__invoice_date', '-id'
+    )[:5] if tenant else SalesInvoiceItem.unfiltered_objects.none()
+
+    data = []
+    for item in items:
+        invoice = item.sales_invoice
+        customer = invoice.customer
+        data.append({
+            'customer_name': customer.name if customer else (invoice.patient_name or 'Walk-in Customer'),
+            'product_name': item.product.name,
+            'invoice_number': invoice.invoice_number,
+            'invoice_date': invoice.invoice_date.strftime('%d/%m/%Y'),
+            'quantity': float(item.quantity),
+            'batch_number': item.batch.batch_number,
+            'sale_rate': float(item.sale_rate),
+            'mrp': float(item.batch.mrp),
+            'discount_percentage': float(item.discount_percentage),
+            'total_amount': float(item.total_amount)
+        })
+    cache.set(cache_key, data, timeout=60)
     return JsonResponse(data, safe=False)
 
 
 @login_required
 def get_customer_credit_notes(request, customer_id):
     """API endpoint to get active/unadjusted Credit Notes (Sales Returns) for a customer."""
+    from django.core.cache import cache
+    cache_key = f"cust_credit_notes_{customer_id}"
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return JsonResponse(cached_data, safe=False)
+
     from wholesaleApp.models import SalesReturn
     returns = SalesReturn.objects.filter(
         customer_id=customer_id,
@@ -94,6 +151,7 @@ def get_customer_credit_notes(request, customer_id):
             'net_amount': float(r.net_amount),
             'remarks': r.remarks or ''
         })
+    cache.set(cache_key, data, timeout=60)
     return JsonResponse(data, safe=False)
 
 
@@ -195,8 +253,14 @@ def invoice_create(request):
         messages.error(request, "Access Denied: You do not have permission to create Sale Bills.")
         return redirect('home')
         
-    customers = CustomerMaster.objects.filter(status=True, is_deleted=False)
-    products = ProductMaster.objects.filter(status=True, is_deleted=False)
+    customers = CustomerMaster.objects.filter(status=True, is_deleted=False).select_related('area', 'subarea')
+    products = ProductMaster.objects.filter(status=True, is_deleted=False).annotate(
+        annotated_stock=Coalesce(
+            Sum('batches__quantity', filter=Q(batches__quantity__gt=0)),
+            Decimal('0'),
+            output_field=DecimalField()
+        )
+    ).prefetch_related('batches')
     
     if request.method == 'POST':
         customer_id = request.POST.get('customer')
@@ -213,6 +277,11 @@ def invoice_create(request):
             messages.error(request, "Action Denied: The selected invoice date falls within a closed Financial Year.")
             return redirect('invoice_create')
         payment_type = request.POST.get('payment_type', 'Cash')
+        if customer_id:
+            customer = get_object_or_404(CustomerMaster, id=customer_id, is_deleted=False)
+            if not (customer.dl_number_1 or '').strip():
+                messages.error(request, 'Customer Drug Licence Number is required before making a sale.')
+                return redirect('invoice_create')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))
@@ -229,7 +298,13 @@ def invoice_create(request):
         
         is_retail = request.POST.get('is_retail') == 'true' or request.POST.get('is_retail') == '1' or request.POST.get('is_retail') == 'on'
 
-        # 1. Pre-validate stock availability for all items to avoid rollback errors
+        # Parse invoice_date to datetime.date object for calculations
+        if isinstance(invoice_date, str):
+            parsed_date = datetime.datetime.strptime(invoice_date, '%Y-%m-%d').date()
+        else:
+            parsed_date = invoice_date
+
+        # 1. Pre-validate stock availability & pharma compliance (no expired medicine sales)
         for i in range(len(product_ids)):
             batch_id = batch_ids[i]
             qty = Decimal(quantities[i])
@@ -237,15 +312,15 @@ def invoice_create(request):
             total_requested = qty + free_qty
             
             batch = get_object_or_404(ProductBatch, id=batch_id)
+            if batch.expiry_date and batch.expiry_date < parsed_date:
+                messages.error(
+                    request,
+                    f"Pharma Compliance Violation: Cannot sell expired product! '{batch.product.name}' (Batch: {batch.batch_number}) expired on {batch.expiry_date.strftime('%d/%m/%Y')}."
+                )
+                return redirect('invoice_create')
             if batch.quantity < total_requested:
                 messages.error(request, f"Insufficient stock for {batch.product.name} (Batch: {batch.batch_number}). Available: {batch.quantity}, Requested: {total_requested}")
                 return redirect('invoice_create')
-        
-        # Parse invoice_date to datetime.date object for calculations
-        if isinstance(invoice_date, str):
-            parsed_date = datetime.datetime.strptime(invoice_date, '%Y-%m-%d').date()
-        else:
-            parsed_date = invoice_date
 
         # Generate Invoice Number (I-[tenant_id][FY]-0001) for GST compliance
         from wholesaleApp.models.tenant import get_current_tenant, Tenant
@@ -366,9 +441,11 @@ def invoice_create(request):
     if saved_id:
         saved_invoice = SalesInvoice.objects.filter(id=saved_id).select_related('customer').first()
 
+    areas = AreaMaster.objects.filter(is_active=True).order_by('city')
     context = {
         'customers': customers,
         'products': products,
+        'areas': areas,
         'page_title': 'Create Sales Invoice (Bill)',
         'saved_invoice': saved_invoice,
         'user_perms': get_user_permissions_context(request.user)
@@ -670,8 +747,14 @@ def invoice_edit(request, pk):
     if is_date_in_closed_fy(invoice.invoice_date):
         messages.error(request, "Action Denied: This invoice falls within a closed Financial Year and cannot be modified.")
         return redirect('invoice_list')
-    customers = CustomerMaster.objects.filter(status=True, is_deleted=False)
-    products = ProductMaster.objects.filter(status=True, is_deleted=False)
+    customers = CustomerMaster.objects.filter(status=True, is_deleted=False).select_related('area', 'subarea')
+    products = ProductMaster.objects.filter(status=True, is_deleted=False).annotate(
+        annotated_stock=Coalesce(
+            Sum('batches__quantity', filter=Q(batches__quantity__gt=0)),
+            Decimal('0'),
+            output_field=DecimalField()
+        )
+    ).prefetch_related('batches')
     
     if request.method == 'POST':
         customer_id = request.POST.get('customer')
@@ -687,6 +770,11 @@ def invoice_edit(request, pk):
             messages.error(request, "Action Denied: The selected invoice date falls within a closed Financial Year.")
             return redirect('invoice_list')
         payment_type = request.POST.get('payment_type', 'Cash')
+        if customer_id:
+            customer = get_object_or_404(CustomerMaster, id=customer_id, is_deleted=False)
+            if not (customer.dl_number_1 or '').strip():
+                messages.error(request, 'Customer Drug Licence Number is required before making a sale.')
+                return redirect('invoice_list')
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))
@@ -709,13 +797,31 @@ def invoice_edit(request, pk):
             batch.quantity += (item.quantity + item.free_quantity)
             batch.save()
             
-        # 2. Check if new items have sufficient stock
+        # Parse invoice_date to date object
+        if isinstance(invoice_date, str):
+            parsed_date = datetime.datetime.strptime(invoice_date, '%Y-%m-%d').date()
+        else:
+            parsed_date = invoice_date
+
+        # 2. Check if new items have sufficient stock and are compliant with pharma expiry rules
         for i in range(len(product_ids)):
             batch_id = batch_ids[i]
             qty = Decimal(quantities[i])
             free_qty = Decimal(free_quantities[i]) if free_quantities[i] else Decimal('0.0000')
             
             batch = ProductBatch.objects.get(id=batch_id)
+            if batch.expiry_date and batch.expiry_date < parsed_date:
+                # Rollback temporary stock changes
+                for old_item in old_items:
+                    obatch = old_item.batch
+                    obatch.quantity -= (old_item.quantity + old_item.free_quantity)
+                    obatch.save()
+                messages.error(
+                    request,
+                    f"Pharma Compliance Violation: Cannot sell expired product! '{batch.product.name}' (Batch: {batch.batch_number}) expired on {batch.expiry_date.strftime('%d/%m/%Y')}."
+                )
+                return redirect('invoice_edit', pk=pk)
+
             if batch.quantity < (qty + free_qty):
                 # Rollback temporary stock changes by restoring them back to old state
                 for old_item in old_items:
@@ -819,10 +925,12 @@ def invoice_edit(request, pk):
     import json
     existing_items_json = json.dumps(items_data)
 
+    areas = AreaMaster.objects.filter(is_active=True).order_by('city')
     context = {
         'invoice': invoice,
         'customers': customers,
         'products': products,
+        'areas': areas,
         'existing_items_json': existing_items_json,
         'page_title': f'Edit Sales Invoice {invoice.invoice_number}',
         'user_perms': get_user_permissions_context(request.user)

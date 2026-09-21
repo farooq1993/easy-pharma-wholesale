@@ -4,124 +4,361 @@
 {% block page_title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-<div class="row">
+<style>
+    /* Styling for Purchase Return / Debit Note Entry */
+    .combobox-container {
+        position: relative;
+    }
+    .combobox-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        z-index: 1060;
+        display: none;
+        min-width: 100%;
+        padding: 6px 0;
+        margin-top: 4px;
+        background-color: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        border-radius: 12px;
+        box-shadow: 0 14px 30px -4px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+        max-height: 280px;
+        overflow-y: auto;
+    }
+    .combobox-menu li a {
+        display: block;
+        padding: 8px 12px;
+        color: #1e293b;
+        text-decoration: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        transition: all 0.15s ease;
+        cursor: pointer;
+    }
+    .combobox-menu li a:hover,
+    .combobox-menu li.active a {
+        color: #ffffff !important;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    }
+    .combobox-menu li a:hover .combo-title,
+    .combobox-menu li.active a .combo-title {
+        color: #ffffff !important;
+    }
+    .entry-bar-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+    }
+    .ledger-badge-box {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 12px 16px;
+    }
+    .table-return thead th {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+        color: #475569;
+        background-color: #f8fafc;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table-return tbody tr:hover {
+        background-color: #f8fafc;
+    }
+    .return-qty-input:focus {
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    }
+</style>
+
+<div class="row g-4">
     <div class="col-12">
-        <form method="POST" id="purchaseReturnForm">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <div>
+                <h4 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-arrow-return-left text-primary me-2"></i>New Purchase Return (Debit Note)
+                </h4>
+                <p class="text-muted small mb-0">Return expired, damaged, or excess goods to suppliers &amp; credit your payable ledger.</p>
+            </div>
+            <a href="{% url 'purchase_return_list' %}" class="btn btn-outline-secondary rounded-pill px-3 py-1.5 small shadow-sm">
+                <i class="bi bi-arrow-left me-1"></i> Back to Returns List
+            </a>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <form method="POST" id="purchaseReturnForm" onsubmit="return validateReturnFormSubmission(event)">
             {% csrf_token %}
             
-            <!-- Master Info Card -->
+            <!-- MASTER DETAILS CARD -->
             <div class="card shadow-sm border-0 rounded-4 mb-4">
                 <div class="card-body p-4">
-                    <h5 class="fw-bold text-dark mb-3"><i class="bi bi-file-earmark-diff text-primary me-2"></i>Return Details</h5>
+                    <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
+                        <h6 class="fw-bold text-dark mb-0">
+                            <i class="bi bi-building-check text-primary me-2"></i>Supplier &amp; Debit Note Information
+                        </h6>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill small">
+                            <i class="bi bi-shield-check me-1"></i>Pharma Compliance
+                        </span>
+                    </div>
                     
                     <div class="row g-3">
-                        <div class="col-md-4 col-12">
-                            <label class="form-label text-muted small fw-bold">Select Supplier <span class="text-danger">*</span></label>
-                            <select name="supplier" id="supplierSelect" class="form-select rounded-3" required>
+                        <!-- Supplier Selector -->
+                        <div class="col-lg-4 col-md-6 col-12">
+                            <label class="form-label text-muted small fw-bold mb-1">Select Supplier <span class="text-danger">*</span></label>
+                            <select name="supplier" id="supplierSelect" class="form-select rounded-3 shadow-none fw-semibold" onchange="onSupplierChange()" required>
                                 <option value="">-- Choose Supplier --</option>
                                 {% for sup in suppliers %}
-                                    <option value="{{ sup.id }}">
-                                        {{ sup.name }} (Outstanding Dues: ₹{{ sup.opening_balance|floatformat:2 }})
+                                    <option value="{{ sup.id }}" 
+                                            data-dues="{{ sup.opening_balance|default:0 }}"
+                                            data-gstin="{{ sup.gstin|default:'N/A' }}"
+                                            data-city="{{ sup.city|default:'N/A' }}">
+                                        {{ sup.name }}{% if sup.city %} ({{ sup.city }}){% endif %}
                                     </option>
                                 {% endfor %}
                             </select>
+                            <div class="mt-1" id="supplierDuesBadgeContainer" style="display: none;">
+                                <span class="badge bg-warning-subtle text-dark border border-warning-subtle px-2.5 py-1 rounded-pill small" id="supplierDuesBadge">
+                                    <i class="bi bi-wallet2 me-1"></i>Outstanding: ₹0.00
+                                </span>
+                            </div>
                         </div>
                         
-                        <div class="col-md-4 col-12">
-                            <label class="form-label text-muted small fw-bold">Return Number / Debit Note No. <span class="text-danger">*</span></label>
-                            <input type="text" name="return_number" class="form-control rounded-3" placeholder="e.g. PR-2026-0001" value="PR-{% now 'Ymd-His' %}" required>
+                        <!-- Debit Note Number -->
+                        <div class="col-lg-3 col-md-6 col-12">
+                            <label class="form-label text-muted small fw-bold mb-1">Debit Note / Return No. <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted border-end-0 rounded-start-3"><i class="bi bi-hash"></i></span>
+                                <input type="text" name="return_number" id="returnNumberInput" class="form-control rounded-end-3 font-monospace fw-bold" placeholder="e.g. PR-2026-0001" value="PR-{% now 'Ymd-His' %}" required>
+                            </div>
                         </div>
                         
-                        <div class="col-md-4 col-12">
-                            <label class="form-label text-muted small fw-bold">Return Date <span class="text-danger">*</span></label>
-                            <input type="date" name="return_date" class="form-control rounded-3" value="{% now 'Y-m-d' %}" required>
+                        <!-- Return Date -->
+                        <div class="col-lg-2 col-md-6 col-12">
+                            <label class="form-label text-muted small fw-bold mb-1">Return Date <span class="text-danger">*</span></label>
+                            <input type="date" name="return_date" class="form-control rounded-3 fw-semibold" value="{% now 'Y-m-d' %}" required>
                         </div>
                         
+                        <!-- Reason for Return (Pharma Compliance Dropdown) -->
+                        <div class="col-lg-3 col-md-6 col-12">
+                            <label class="form-label text-muted small fw-bold mb-1">Return Reason <span class="text-danger">*</span></label>
+                            <select name="return_reason" id="returnReason" class="form-select rounded-3 fw-semibold text-primary">
+                                <option value="Expired Stock Return" selected>Expired Stock Return</option>
+                                <option value="Near Expiry Stock Return">Near Expiry (&lt; 90 Days)</option>
+                                <option value="Damaged / Leakage / Breakage">Damaged / Breakage / Leakage</option>
+                                <option value="Wrong Supply / Excess Quantity">Wrong Supply / Excess Quantity</option>
+                                <option value="Rate Difference / Claim">Rate Difference / Purchase Claim</option>
+                                <option value="Batch Quality Recall / Defect">Batch Quality Recall / Defect</option>
+                                <option value="Slow Moving / Stock Adjustment">Slow Moving / Stock Adjustment</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Remarks -->
                         <div class="col-12">
-                            <label class="form-label text-muted small fw-bold">Remarks / Reason for Return</label>
-                            <input type="text" name="remarks" class="form-control rounded-3" placeholder="e.g. Expired stock return, damaged goods, incorrect shipment">
+                            <label class="form-label text-muted small fw-bold mb-1">Remarks &amp; Supplier Authorization Reference</label>
+                            <input type="text" name="remarks" class="form-control rounded-3" placeholder="e.g. Claim authorization email #CUB-2026-99, Transporter LR #5432">
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Items Table Card -->
+            <!-- FAST MEDICINE ENTRY BAR (PREMIUM UX) -->
+            <div class="card entry-bar-card border-0 mb-4">
+                <div class="card-body p-3.5">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-dark fw-bold small text-uppercase" style="letter-spacing: 0.5px;">
+                            <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Fast Return Item Entry Bar
+                        </span>
+                        <span class="text-muted small" style="font-size: 0.78rem;">
+                            <i class="bi bi-keyboard me-1"></i>Press <strong>Enter</strong> to quickly add product to return table
+                        </span>
+                    </div>
+
+                    <div class="row g-2 align-items-end">
+                        <!-- Medicine Search Combobox -->
+                        <div class="col-lg-4 col-md-6 col-12">
+                            <label class="form-label text-muted small fw-bold mb-1">Search Medicine <span class="text-danger">*</span></label>
+                            <div class="combobox-container">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-end-0 rounded-start-3 text-muted">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" id="entryProdSearch" class="form-control border-start-0 rounded-end-3 fw-bold" placeholder="Type medicine brand name..." autocomplete="off">
+                                </div>
+                                <input type="hidden" id="entryProdId">
+                                <ul id="entryProdMenu" class="combobox-menu list-unstyled"></ul>
+                            </div>
+                        </div>
+
+                        <!-- Batch Selection -->
+                        <div class="col-lg-3 col-md-6 col-12">
+                            <label class="form-label text-muted small fw-bold mb-1">Available Batch <span class="text-danger">*</span></label>
+                            <select id="entryBatchSelect" class="form-select rounded-3 fw-semibold" onchange="onEntryBatchSelectChange()">
+                                <option value="">Select Medicine First</option>
+                            </select>
+                        </div>
+
+                        <!-- Purchase Rate (₹) -->
+                        <div class="col-lg-2 col-md-4 col-6">
+                            <label class="form-label text-muted small fw-bold mb-1">P. Rate (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted border-end-0 py-1.5 px-2">₹</span>
+                                <input type="number" step="0.01" id="entryPurchaseRate" class="form-control rounded-end-3 fw-bold text-primary" placeholder="0.00" oninput="recalcEntryPreview()">
+                            </div>
+                        </div>
+
+                        <!-- Return Quantity -->
+                        <div class="col-lg-1 col-md-4 col-6">
+                            <label class="form-label text-muted small fw-bold mb-1">Return Qty <span class="text-danger">*</span></label>
+                            <input type="number" id="entryReturnQty" class="form-control rounded-3 fw-bold text-center return-qty-input" min="1" value="1" oninput="recalcEntryPreview()">
+                        </div>
+
+                        <!-- Add Button -->
+                        <div class="col-lg-2 col-md-4 col-12">
+                            <button type="button" id="btnAddToReturnTable" class="btn btn-primary rounded-3 w-100 fw-bold py-2 shadow-sm" onclick="addItemToReturnTable()">
+                                <i class="bi bi-plus-circle me-1"></i> Add to Return
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live Entry Meta & Stock Indicator -->
+                    <div id="entryMetaRow" class="d-none align-items-center justify-content-between mt-2 pt-2 border-top">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge bg-light text-dark border px-2.5 py-1 rounded-pill small" id="entryPackBadge">Pack: -</span>
+                            <span class="badge bg-light text-dark border px-2.5 py-1 rounded-pill small" id="entryGstBadge">GST: 12%</span>
+                            <span class="badge bg-info-subtle text-info border border-info-subtle px-2.5 py-1 rounded-pill small" id="entryExpiryBadge">Exp: -</span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill small font-monospace" id="entryStockBadge">Stock: 0 Packs</span>
+                        </div>
+                        <div class="text-end">
+                            <span class="text-muted small">Estimated Line Total: </span>
+                            <strong class="text-dark font-monospace fs-6" id="entryLineTotalPreview">₹0.00</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RETURNED PRODUCTS TABLE CARD -->
             <div class="card shadow-sm border-0 rounded-4 mb-4">
                 <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 text-dark fw-bold"><i class="bi bi-box-seam text-primary me-2"></i>Returned Products</h5>
-                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="addItemBtn">
-                        <i class="bi bi-plus-lg"></i> Add Product
-                    </button>
+                    <div>
+                        <h5 class="mb-0 text-dark fw-bold">
+                            <i class="bi bi-box-seam text-primary me-2"></i>Returned Products List
+                        </h5>
+                        <span class="text-muted small">Verified batches to be deducted from stock</span>
+                    </div>
+                    <span class="badge bg-light text-dark border px-3 py-1.5 rounded-pill font-monospace" id="tableItemCountBadge">0 Items Added</span>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table align-middle mb-0" id="itemsTable">
-                            <thead class="table-light">
+                        <table class="table table-return align-middle mb-0" id="returnItemsTable">
+                            <thead>
                                 <tr>
-                                    <th class="ps-4" style="width: 25%;">Product Name</th>
-                                    <th style="width: 15%;">Batch Number</th>
-                                    <th style="width: 15%;">Expiry Date</th>
-                                    <th style="width: 10%;">Rate (₹)</th>
-                                    <th style="width: 10%;">Return Qty</th>
-                                    <th class="text-end" style="width: 15%;">Total</th>
-                                    <th class="text-center pe-4" style="width: 10%;">Action</th>
+                                    <th class="ps-4" style="width: 5%;">#</th>
+                                    <th style="width: 25%;">Medicine Name</th>
+                                    <th style="width: 14%;">Batch &amp; Expiry</th>
+                                    <th class="text-center" style="width: 10%;">Available Stock</th>
+                                    <th class="text-center" style="width: 10%;">Return Qty</th>
+                                    <th class="text-end" style="width: 11%;">P. Rate (₹)</th>
+                                    <th class="text-center" style="width: 7%;">GST %</th>
+                                    <th class="text-end" style="width: 10%;">Taxable (₹)</th>
+                                    <th class="text-end" style="width: 10%;">Net Total (₹)</th>
+                                    <th class="text-center pe-4" style="width: 8%;">Action</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <!-- Rows will be added dynamically -->
+                            <tbody id="returnTableBody">
+                                <!-- Dynamically added items will appear here -->
                             </tbody>
                         </table>
                     </div>
                     
-                    {% if not products %}
-                        <div class="text-center py-5 text-muted" id="noItemsMessage">
-                            <i class="bi bi-cart-x display-4 d-block mb-3 text-secondary"></i>
-                            No products available in the database. Please add products first.
+                    <div class="text-center py-5 text-muted" id="emptyReturnMessage">
+                        <div class="mb-2">
+                            <i class="bi bi-arrow-return-left display-5 text-secondary opacity-50"></i>
                         </div>
-                    {% endif %}
+                        <h6 class="fw-semibold text-secondary mb-1">No items added to this return yet.</h6>
+                        <span class="small text-muted">Use the Fast Return Item Entry Bar above to search medicine and add batches.</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Summary & Calculations -->
+            <!-- SUMMARY & CALCULATIONS -->
             <div class="row g-4 align-items-start">
-                <div class="col-md-6 col-12">
-                    <!-- Informative Card -->
-                    <div class="card shadow-sm border-0 rounded-4 bg-light">
+                <!-- Left Column: Pharma Inventory & Supplier Ledger Guidance -->
+                <div class="col-lg-6 col-12">
+                    <div class="card shadow-sm border-0 rounded-4 h-100 bg-light">
                         <div class="card-body p-4">
-                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-info-circle-fill text-primary me-2"></i>Inventory &amp; Ledger Notes</h6>
-                            <ul class="small text-muted mb-0">
-                                <li>Submitting this return will **deduct** the returned quantity from the respective batch inventory.</li>
-                                <li>The supplier's outstanding ledger balance will be **reduced** by the Net Refund amount.</li>
+                            <h6 class="fw-bold text-dark mb-3">
+                                <i class="bi bi-info-circle-fill text-primary me-2"></i>Inventory &amp; Ledger Notes
+                            </h6>
+                            
+                            <div class="ledger-badge-box mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted small">Current Supplier Payable:</span>
+                                    <strong class="font-monospace text-dark" id="ledgerCurrentDues">₹0.00</strong>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted small">Less Debit Note Credit:</span>
+                                    <strong class="font-monospace text-success" id="ledgerDebitAmount">-₹0.00</strong>
+                                </div>
+                                <hr class="my-1.5">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold text-dark small">Projected Outstanding:</span>
+                                    <strong class="font-monospace text-primary fw-bold" id="ledgerProjectedDues">₹0.00</strong>
+                                </div>
+                            </div>
+
+                            <ul class="small text-muted mb-0 ps-3">
+                                <li class="mb-1"><strong>Stock Deduction:</strong> Submitting this debit note will <strong>permanently deduct</strong> the returned quantity from the respective batch inventory.</li>
+                                <li class="mb-1"><strong>Liability Reduction:</strong> The supplier's outstanding ledger balance will be reduced by the exact Net Debit Note value.</li>
+                                <li><strong>Pharma Audit Trail:</strong> The transaction is registered with your user account and financial year timestamp.</li>
                             </ul>
                         </div>
                     </div>
                 </div>
                 
-                <div class="col-md-6 col-12">
+                <!-- Right Column: Financial Breakdown -->
+                <div class="col-lg-6 col-12">
                     <div class="card shadow-sm border-0 rounded-4">
                         <div class="card-body p-4">
+                            <h6 class="fw-bold text-dark mb-3">
+                                <i class="bi bi-receipt text-primary me-2"></i>Debit Note Calculation
+                            </h6>
+
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Gross Taxable Amount:</span>
-                                <strong id="grossDisplay">₹0.00</strong>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">GST Tax (approx 12%):</span>
-                                <strong id="gstDisplay" class="text-success">+₹0.00</strong>
-                            </div>
-                            <hr>
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <span class="text-dark fw-bold fs-5">Net Refund Value:</span>
-                                <strong id="netDisplay" class="text-primary fs-4">₹0.00</strong>
+                                <strong id="grossDisplay" class="font-monospace">₹0.00</strong>
                             </div>
                             
-                            <!-- Hidden inputs for form submission -->
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Total GST Tax:</span>
+                                <strong id="gstDisplay" class="text-success font-monospace">+₹0.00</strong>
+                            </div>
+
+                            <div id="gstBreakdownContainer" class="small text-muted ps-3 mb-2" style="font-size: 0.8rem; display: none;">
+                                <!-- Dynamic GST breakdown (e.g. GST 12%: ₹...) rendered here -->
+                            </div>
+
+                            <hr class="my-3">
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <span class="text-dark fw-bold fs-5 d-block">Net Debit Note Total:</span>
+                                    <small class="text-muted">Total credit claimable from supplier</small>
+                                </div>
+                                <strong id="netDisplay" class="text-primary fs-3 font-monospace">₹0.00</strong>
+                            </div>
+                            
+                            <!-- Hidden inputs for backend submission -->
                             <input type="hidden" name="gross_amount" id="grossInput" value="0.00">
                             <input type="hidden" name="gst_amount" id="gstInput" value="0.00">
                             <input type="hidden" name="net_amount" id="netInput" value="0.00">
 
                             <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-primary rounded-pill py-2.5 px-4 flex-grow-1">
-                                    <i class="bi bi-check-circle me-1"></i> Save Purchase Return
+                                <button type="submit" id="btnSubmitReturn" class="btn btn-primary rounded-pill py-2.5 px-4 flex-grow-1 fw-bold shadow-sm">
+                                    <i class="bi bi-check2-circle me-1"></i> Save Purchase Return
                                 </button>
                                 <a href="{% url 'purchase_return_list' %}" class="btn btn-outline-secondary rounded-pill py-2.5 px-4">
                                     Cancel
@@ -134,167 +371,573 @@
         </form>
     </div>
 </div>
-
-<!-- Template Row (Hidden) -->
-<table style="display: none;">
-    <tr id="rowTemplate">
-        <td class="ps-4">
-            <select name="product[]" class="form-select product-select" required>
-                <option value="">-- Select Product --</option>
-                {% for prod in products %}
-                    <option value="{{ prod.id }}">{{ prod.name }} (Pack: {{ prod.pack_size }})</option>
-                {% endfor %}
-            </select>
-        </td>
-        <td>
-            <select name="batch_number[]" class="form-select batch-select" required disabled>
-                <option value="">-- Choose Batch --</option>
-            </select>
-        </td>
-        <td>
-            <input type="date" name="expiry_date[]" class="form-control expiry-input" readonly required>
-        </td>
-        <td>
-            <input type="number" step="0.01" name="purchase_rate[]" class="form-control rate-input" placeholder="0.00" required>
-        </td>
-        <td>
-            <input type="number" name="quantity[]" class="form-control qty-input" min="1" value="1" required>
-            <small class="text-muted stock-display" style="display: none;">Stock: <span class="stock-qty">0</span></small>
-        </td>
-        <td class="text-end">
-            <input type="number" step="0.01" name="total_amount[]" class="form-control total-input text-end border-0 bg-transparent fw-bold" readonly value="0.00">
-        </td>
-        <td class="text-center">
-            <button type="button" class="btn btn-sm btn-outline-danger remove-row-btn rounded-circle">
-                <i class="bi bi-trash"></i>
-            </button>
-        </td>
-    </tr>
-</table>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // Product Catalog & Batches Cache
+    const productCatalog = {{ product_catalog_json|safe }};
+    const batchCache = {};
+    let loadedBatches = [];
+
     document.addEventListener("DOMContentLoaded", function() {
-        const itemsTableBody = document.querySelector("#itemsTable tbody");
-        const addItemBtn = document.getElementById("addItemBtn");
-        const rowTemplate = document.getElementById("rowTemplate");
+        setupProductCombobox();
+        onSupplierChange();
 
-        // Add Initial Row
-        addBlankRow();
+        // Keyboard Enter navigation on Fast Entry Bar
+        const entrySearch = document.getElementById("entryProdSearch");
+        const entryQty = document.getElementById("entryReturnQty");
+        const entryRate = document.getElementById("entryPurchaseRate");
 
-        addItemBtn.addEventListener("click", function() {
-            addBlankRow();
-        });
-
-        itemsTableBody.addEventListener("click", function(e) {
-            if (e.target.closest(".remove-row-btn")) {
-                const row = e.target.closest("tr");
-                row.remove();
-                calculateTotals();
+        entryQty.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                addItemToReturnTable();
             }
         });
 
-        itemsTableBody.addEventListener("input", function(e) {
-            if (e.target.classList.contains("qty-input") || e.target.classList.contains("rate-input")) {
-                const row = e.target.closest("tr");
-                calculateRowTotal(row);
-                calculateTotals();
+        entryRate.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                addItemToReturnTable();
             }
         });
-
-        itemsTableBody.addEventListener("change", function(e) {
-            const row = e.target.closest("tr");
-            if (e.target.classList.contains("product-select")) {
-                const productId = e.target.value;
-                const batchSelect = row.querySelector(".batch-select");
-                const expiryInput = row.querySelector(".expiry-input");
-                const rateInput = row.querySelector(".rate-input");
-                
-                if (!productId) {
-                    batchSelect.innerHTML = '<option value="">-- Choose Batch --</option>';
-                    batchSelect.disabled = true;
-                    expiryInput.value = '';
-                    rateInput.value = '';
-                    calculateRowTotal(row);
-                    calculateTotals();
-                    return;
-                }
-
-                // Fetch batches for product via AJAX
-                fetch(`/api/product/${productId}/batches/`)
-                    .then(response => response.json())
-                    .then(batches => {
-                        batchSelect.innerHTML = '<option value="">-- Choose Batch --</option>';
-                        batches.forEach(b => {
-                            batchSelect.innerHTML += `<option value="${b.batch_number}" data-id="${b.id}" data-exp="${b.expiry_date}" data-rate="${b.purchase_rate}" data-qty="${b.quantity}">
-                                ${b.batch_number} (Stock: ${b.quantity} | Rate: ₹${b.purchase_rate})
-                            </option>`;
-                        });
-                        batchSelect.disabled = false;
-                    });
-            }
-
-            if (e.target.classList.contains("batch-select")) {
-                const selectedOption = e.target.options[e.target.selectedIndex];
-                const expiryInput = row.querySelector(".expiry-input");
-                const rateInput = row.querySelector(".rate-input");
-                const stockDisplay = row.querySelector(".stock-display");
-                const stockQtySpan = row.querySelector(".stock-qty");
-                const qtyInput = row.querySelector(".qty-input");
-
-                if (selectedOption && selectedOption.value) {
-                    const expiry = selectedOption.getAttribute("data-exp");
-                    const rate = selectedOption.getAttribute("data-rate");
-                    const stock = selectedOption.getAttribute("data-qty");
-
-                    expiryInput.value = expiry;
-                    rateInput.value = rate;
-                    stockQtySpan.textContent = stock;
-                    stockDisplay.style.display = "block";
-                    qtyInput.max = stock; // Don't return more than available
-                } else {
-                    expiryInput.value = '';
-                    rateInput.value = '';
-                    stockDisplay.style.display = "none";
-                }
-                calculateRowTotal(row);
-                calculateTotals();
-            }
-        });
-
-        function addBlankRow() {
-            const newRow = rowTemplate.cloneNode(true);
-            newRow.removeAttribute("id");
-            itemsTableBody.appendChild(newRow);
-        }
-
-        function calculateRowTotal(row) {
-            const qty = parseInt(row.querySelector(".qty-input").value) || 0;
-            const rate = parseFloat(row.querySelector(".rate-input").value) || 0.00;
-            const total = qty * rate;
-            row.querySelector(".total-input").value = total.toFixed(2);
-        }
-
-        function calculateTotals() {
-            let gross = 0.00;
-            const totals = itemsTableBody.querySelectorAll(".total-input");
-            totals.forEach(t => {
-                gross += parseFloat(t.value) || 0.00;
-            });
-            
-            // Assume 12% average GST for returning products
-            const gst = gross * 0.12;
-            const net = gross + gst;
-
-            document.getElementById("grossDisplay").textContent = "₹" + gross.toFixed(2);
-            document.getElementById("gstDisplay").textContent = "+₹" + gst.toFixed(2);
-            document.getElementById("netDisplay").textContent = "₹" + net.toFixed(2);
-
-            document.getElementById("grossInput").value = gross.toFixed(2);
-            document.getElementById("gstInput").value = gst.toFixed(2);
-            document.getElementById("netInput").value = net.toFixed(2);
-        }
     });
+
+    // Handle Supplier Selection
+    function onSupplierChange() {
+        const supSelect = document.getElementById("supplierSelect");
+        const badgeContainer = document.getElementById("supplierDuesBadgeContainer");
+        const badge = document.getElementById("supplierDuesBadge");
+        const ledgerCurrentDues = document.getElementById("ledgerCurrentDues");
+
+        if (supSelect.selectedIndex > 0) {
+            const opt = supSelect.options[supSelect.selectedIndex];
+            const dues = parseFloat(opt.dataset.dues) || 0;
+            badge.innerHTML = `<i class="bi bi-wallet2 me-1"></i>Outstanding Payable: ₹${dues.toFixed(2)}`;
+            badgeContainer.style.display = "block";
+            ledgerCurrentDues.textContent = `₹${dues.toFixed(2)}`;
+        } else {
+            badgeContainer.style.display = "none";
+            ledgerCurrentDues.textContent = "₹0.00";
+        }
+        recalculateAllTotals();
+    }
+
+    // Product Combobox Implementation
+    function setupProductCombobox() {
+        const searchInput = document.getElementById("entryProdSearch");
+        const menu = document.getElementById("entryProdMenu");
+        const prodIdInput = document.getElementById("entryProdId");
+
+        const productList = Object.values(productCatalog);
+
+        function renderMatches(query) {
+            menu.innerHTML = "";
+            const q = query.trim().toLowerCase();
+            const matches = productList.filter(p => {
+                return p.name.toLowerCase().includes(q) || (p.company && p.company.toLowerCase().includes(q));
+            }).slice(0, 30);
+
+            if (matches.length === 0) {
+                menu.innerHTML = `<li class="p-2 text-muted small text-center">No matching medicines found</li>`;
+                menu.style.display = "block";
+                return;
+            }
+
+            matches.forEach((p, idx) => {
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    <a class="dropdown-item ${idx === 0 ? 'active' : ''}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold combo-title text-dark">${p.name}</span>
+                            <span class="badge bg-light text-secondary border small">${p.pack || '-'}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small text-muted mt-0.5">
+                            <span>${p.company || 'Generic'}</span>
+                            <span class="text-primary font-monospace">GST: ${p.gst}%</span>
+                        </div>
+                    </a>
+                `;
+                li.querySelector("a").addEventListener("click", () => {
+                    selectProduct(p);
+                });
+                menu.appendChild(li);
+            });
+            menu.style.display = "block";
+        }
+
+        function selectProduct(p) {
+            searchInput.value = p.name + (p.pack ? ` (${p.pack})` : '');
+            prodIdInput.value = p.id;
+            menu.style.display = "none";
+            onProductSelected(p.id);
+        }
+
+        searchInput.addEventListener("input", function() {
+            renderMatches(this.value);
+        });
+
+        searchInput.addEventListener("focus", function() {
+            renderMatches(this.value);
+        });
+
+        searchInput.addEventListener("keydown", function(e) {
+            const items = menu.querySelectorAll("li a");
+            let activeIdx = -1;
+            items.forEach((item, idx) => {
+                if (item.parentElement.classList.contains("active") || item.classList.contains("active")) activeIdx = idx;
+            });
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (activeIdx < items.length - 1) {
+                    if (activeIdx >= 0) items[activeIdx].classList.remove("active");
+                    items[activeIdx + 1].classList.add("active");
+                    items[activeIdx + 1].scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                if (activeIdx > 0) {
+                    items[activeIdx].classList.remove("active");
+                    items[activeIdx - 1].classList.add("active");
+                    items[activeIdx - 1].scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (activeIdx >= 0 && items[activeIdx]) {
+                    items[activeIdx].click();
+                } else if (items.length > 0) {
+                    items[0].click();
+                }
+            } else if (e.key === "Escape") {
+                menu.style.display = "none";
+            }
+        });
+
+        document.addEventListener("click", function(e) {
+            if (!searchInput.contains(e.target) && !menu.contains(e.target)) {
+                menu.style.display = "none";
+            }
+        });
+    }
+
+    // When Product is Selected in Fast Entry Bar
+    function onProductSelected(productId) {
+        const prod = productCatalog[productId];
+        const batchSelect = document.getElementById("entryBatchSelect");
+        const metaRow = document.getElementById("entryMetaRow");
+        const packBadge = document.getElementById("entryPackBadge");
+        const gstBadge = document.getElementById("entryGstBadge");
+
+        if (!prod) return;
+
+        packBadge.textContent = `Pack: ${prod.pack || '-'}`;
+        gstBadge.textContent = `GST: ${prod.gst}%`;
+        metaRow.classList.remove("d-none");
+        metaRow.classList.add("d-flex");
+
+        batchSelect.innerHTML = `<option value="">Loading Batches...</option>`;
+
+        fetchProductBatches(productId, function(batches) {
+            loadedBatches = batches || [];
+            batchSelect.innerHTML = "";
+
+            if (loadedBatches.length === 0) {
+                batchSelect.innerHTML = `<option value="">No Active Stock Batches</option>`;
+                updateBatchDetails(null);
+                return;
+            }
+
+            loadedBatches.forEach(b => {
+                const isExpired = Boolean(b.is_expired);
+                const opt = document.createElement("option");
+                opt.value = b.id;
+                opt.dataset.batchNo = b.batch_number;
+                opt.dataset.expiryReal = b.expiry_real;
+                opt.dataset.expiryMask = b.expiry_mask;
+                opt.dataset.stock = b.quantity;
+                opt.dataset.prate = b.purchase_rate;
+                opt.dataset.expired = isExpired ? "true" : "false";
+
+                const expPrefix = isExpired ? "⛔ [EXPIRED] " : "";
+                opt.textContent = `${expPrefix}${b.batch_number} (Exp: ${b.expiry_mask} | Stock: ${Math.floor(b.quantity)} packs | Rate: ₹${parseFloat(b.purchase_rate).toFixed(2)})`;
+                if (isExpired) {
+                    opt.style.color = "#dc2626";
+                    opt.style.fontWeight = "bold";
+                }
+                batchSelect.appendChild(opt);
+            });
+
+            onEntryBatchSelectChange();
+        });
+    }
+
+    // Fetch batches with cache
+    function fetchProductBatches(productId, callback) {
+        if (batchCache[productId]) {
+            callback(batchCache[productId]);
+            return;
+        }
+        fetch(`/api/product/${productId}/batches/`)
+            .then(res => res.json())
+            .then(data => {
+                batchCache[productId] = data;
+                callback(data);
+            })
+            .catch(err => {
+                console.error("Batch fetch error:", err);
+                callback([]);
+            });
+    }
+
+    // When Batch Select is changed in Fast Entry Bar
+    function onEntryBatchSelectChange() {
+        const batchSelect = document.getElementById("entryBatchSelect");
+        if (batchSelect.selectedIndex < 0) {
+            updateBatchDetails(null);
+            return;
+        }
+        const opt = batchSelect.options[batchSelect.selectedIndex];
+        if (!opt || !opt.value) {
+            updateBatchDetails(null);
+            return;
+        }
+
+        const batchObj = {
+            id: opt.value,
+            batchNo: opt.dataset.batchNo,
+            expiryReal: opt.dataset.expiryReal,
+            expiryMask: opt.dataset.expiryMask,
+            stock: parseFloat(opt.dataset.stock) || 0,
+            purchaseRate: parseFloat(opt.dataset.prate) || 0,
+            isExpired: opt.dataset.expired === "true"
+        };
+        updateBatchDetails(batchObj);
+    }
+
+    function updateBatchDetails(batchObj) {
+        const rateInput = document.getElementById("entryPurchaseRate");
+        const qtyInput = document.getElementById("entryReturnQty");
+        const stockBadge = document.getElementById("entryStockBadge");
+        const expBadge = document.getElementById("entryExpiryBadge");
+
+        if (!batchObj) {
+            rateInput.value = "";
+            stockBadge.className = "badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill small font-monospace";
+            stockBadge.textContent = "Stock: 0 Packs";
+            expBadge.textContent = "Exp: -";
+            recalcEntryPreview();
+            return;
+        }
+
+        rateInput.value = batchObj.purchaseRate.toFixed(2);
+        qtyInput.max = batchObj.stock;
+        qtyInput.value = Math.min(1, Math.floor(batchObj.stock));
+
+        const stockPacks = Math.floor(batchObj.stock);
+        if (stockPacks > 10) {
+            stockBadge.className = "badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill small font-monospace";
+            stockBadge.textContent = `Available Stock: ${stockPacks} Packs`;
+        } else if (stockPacks > 0) {
+            stockBadge.className = "badge bg-warning-subtle text-warning border border-warning-subtle px-2.5 py-1 rounded-pill small font-monospace";
+            stockBadge.textContent = `Low Stock: ${stockPacks} Packs`;
+        } else {
+            stockBadge.className = "badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill small font-monospace";
+            stockBadge.textContent = `Out of Stock: 0`;
+        }
+
+        if (batchObj.isExpired) {
+            expBadge.className = "badge bg-danger text-white px-2.5 py-1 rounded-pill small font-monospace";
+            expBadge.innerHTML = `<i class="bi bi-slash-circle me-1"></i>EXPIRED (${batchObj.expiryMask})`;
+        } else {
+            expBadge.className = "badge bg-info-subtle text-info border border-info-subtle px-2.5 py-1 rounded-pill small font-monospace";
+            expBadge.textContent = `Exp: ${batchObj.expiryMask}`;
+        }
+
+        recalcEntryPreview();
+    }
+
+    function recalcEntryPreview() {
+        const qty = parseFloat(document.getElementById("entryReturnQty").value) || 0;
+        const rate = parseFloat(document.getElementById("entryPurchaseRate").value) || 0;
+        const prodId = document.getElementById("entryProdId").value;
+        const prod = productCatalog[prodId];
+        const gstPct = prod ? prod.gst : 12;
+
+        const taxable = qty * rate;
+        const gstAmt = taxable * (gstPct / 100);
+        const lineTotal = taxable + gstAmt;
+
+        document.getElementById("entryLineTotalPreview").textContent = `₹${lineTotal.toFixed(2)}`;
+    }
+
+    // Add Item to Return Table
+    function addItemToReturnTable() {
+        const prodId = document.getElementById("entryProdId").value;
+        const batchSelect = document.getElementById("entryBatchSelect");
+        const qtyInput = document.getElementById("entryReturnQty");
+        const rateInput = document.getElementById("entryPurchaseRate");
+
+        if (!prodId || !productCatalog[prodId]) {
+            alert("Please search and select a medicine first.");
+            document.getElementById("entryProdSearch").focus();
+            return;
+        }
+
+        if (batchSelect.selectedIndex < 0 || !batchSelect.value) {
+            alert("Please select a batch for this medicine.");
+            batchSelect.focus();
+            return;
+        }
+
+        const opt = batchSelect.options[batchSelect.selectedIndex];
+        const batchId = opt.value;
+        const batchNo = opt.dataset.batchNo;
+        const expReal = opt.dataset.expiryReal;
+        const expMask = opt.dataset.expiryMask;
+        const stock = parseFloat(opt.dataset.stock) || 0;
+        const isExpired = opt.dataset.expired === "true";
+
+        const qty = parseInt(qtyInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+
+        if (qty <= 0) {
+            alert("Return quantity must be at least 1 pack.");
+            qtyInput.focus();
+            return;
+        }
+
+        // Pharma stock validation
+        if (qty > stock) {
+            alert(`Pharma Stock Rule Violation:\nCannot return ${qty} packs. Current stock in inventory is only ${Math.floor(stock)} packs.`);
+            qtyInput.value = Math.floor(stock);
+            qtyInput.focus();
+            return;
+        }
+
+        if (rate <= 0) {
+            alert("Purchase rate must be greater than ₹0.00.");
+            rateInput.focus();
+            return;
+        }
+
+        // Check if batch is already added in the table
+        const existingRow = document.querySelector(`tr[data-batch-id="${batchId}"]`);
+        if (existingRow) {
+            alert(`Batch ${batchNo} is already in the return list. You can edit its quantity directly in the table.`);
+            return;
+        }
+
+        const prod = productCatalog[prodId];
+        const tbody = document.getElementById("returnTableBody");
+        const emptyMsg = document.getElementById("emptyReturnMessage");
+        if (emptyMsg) emptyMsg.style.display = "none";
+
+        const rowIdx = tbody.children.length + 1;
+        const tr = document.createElement("tr");
+        tr.dataset.batchId = batchId;
+        tr.dataset.prodId = prodId;
+        tr.dataset.stock = stock;
+        tr.dataset.gst = prod.gst;
+
+        const taxable = (qty * rate);
+        const gstAmt = taxable * (prod.gst / 100);
+        const netLineTotal = taxable + gstAmt;
+
+        tr.innerHTML = `
+            <td class="ps-4 text-muted small row-index">${rowIdx}</td>
+            <td>
+                <span class="fw-bold text-dark">${prod.name}</span>
+                <div class="small text-muted">${prod.company || 'Generic'} | Pack: ${prod.pack || '-'}</div>
+                <input type="hidden" name="product[]" value="${prod.id}">
+                <input type="hidden" name="batch_id[]" value="${batchId}">
+                <input type="hidden" name="batch_number[]" value="${batchNo}">
+                <input type="hidden" name="expiry_date[]" value="${expReal}">
+            </td>
+            <td>
+                <span class="font-monospace fw-semibold text-dark">${batchNo}</span>
+                <div>
+                    ${isExpired ? '<span class="badge bg-danger text-white rounded-pill px-2 py-0.5" style="font-size: 0.68rem;"><i class="bi bi-slash-circle me-1"></i>EXPIRED: ' + expMask + '</span>' : '<span class="badge bg-light text-dark border font-monospace px-2 py-0.5" style="font-size: 0.72rem;">Exp: ' + expMask + '</span>'}
+                </div>
+            </td>
+            <td class="text-center font-monospace">
+                <span class="badge bg-light text-dark border rounded-pill px-2.5 py-1">${Math.floor(stock)}</span>
+            </td>
+            <td class="text-center">
+                <input type="number" name="quantity[]" class="form-control form-control-sm text-center fw-bold row-qty-input mx-auto" style="width: 75px;" min="1" max="${stock}" value="${qty}" oninput="onTableRowChange(this)">
+            </td>
+            <td class="text-end">
+                <input type="number" step="0.01" name="purchase_rate[]" class="form-control form-control-sm text-end fw-bold row-rate-input ms-auto" style="width: 90px;" value="${rate.toFixed(2)}" oninput="onTableRowChange(this)">
+            </td>
+            <td class="text-center">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill font-monospace">${prod.gst}%</span>
+            </td>
+            <td class="text-end font-monospace fw-semibold row-taxable">
+                ₹${taxable.toFixed(2)}
+            </td>
+            <td class="text-end font-monospace fw-bold text-dark row-net">
+                ₹${netLineTotal.toFixed(2)}
+                <input type="hidden" name="total_amount[]" class="row-total-input" value="${taxable.toFixed(2)}">
+            </td>
+            <td class="text-center pe-4">
+                <button type="button" class="btn btn-sm btn-outline-danger rounded-circle p-1" onclick="removeTableRow(this)" title="Remove item">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+
+        // Reset Entry Bar
+        resetEntryBar();
+        recalculateAllTotals();
+    }
+
+    // Table Inline Change Handler
+    function onTableRowChange(inputEl) {
+        const tr = inputEl.closest("tr");
+        const qtyInput = tr.querySelector(".row-qty-input");
+        const rateInput = tr.querySelector(".row-rate-input");
+        const stockMax = parseFloat(tr.dataset.stock) || 0;
+        const gstPct = parseFloat(tr.dataset.gst) || 12;
+
+        let qty = parseInt(qtyInput.value) || 0;
+        let rate = parseFloat(rateInput.value) || 0;
+
+        if (qty > stockMax) {
+            alert(`Cannot return ${qty} packs! Maximum available stock is ${Math.floor(stockMax)} packs.`);
+            qty = Math.floor(stockMax);
+            qtyInput.value = qty;
+        }
+
+        const taxable = qty * rate;
+        const gstAmt = taxable * (gstPct / 100);
+        const net = taxable + gstAmt;
+
+        tr.querySelector(".row-taxable").textContent = `₹${taxable.toFixed(2)}`;
+        tr.querySelector(".row-net").innerHTML = `₹${net.toFixed(2)} <input type="hidden" name="total_amount[]" class="row-total-input" value="${taxable.toFixed(2)}">`;
+
+        recalculateAllTotals();
+    }
+
+    // Remove row
+    function removeTableRow(btn) {
+        const tr = btn.closest("tr");
+        tr.remove();
+
+        const tbody = document.getElementById("returnTableBody");
+        const emptyMsg = document.getElementById("emptyReturnMessage");
+        if (tbody.children.length === 0 && emptyMsg) {
+            emptyMsg.style.display = "block";
+        }
+
+        // Re-index rows
+        Array.from(tbody.children).forEach((r, idx) => {
+            const idxCell = r.querySelector(".row-index");
+            if (idxCell) idxCell.textContent = idx + 1;
+        });
+
+        recalculateAllTotals();
+    }
+
+    // Reset Fast Entry Bar
+    function resetEntryBar() {
+        document.getElementById("entryProdSearch").value = "";
+        document.getElementById("entryProdId").value = "";
+        const batchSelect = document.getElementById("entryBatchSelect");
+        batchSelect.innerHTML = `<option value="">Select Medicine First</option>`;
+        document.getElementById("entryPurchaseRate").value = "";
+        document.getElementById("entryReturnQty").value = "1";
+        document.getElementById("entryMetaRow").classList.add("d-none");
+        document.getElementById("entryMetaRow").classList.remove("d-flex");
+        document.getElementById("entryLineTotalPreview").textContent = "₹0.00";
+        document.getElementById("entryProdSearch").focus();
+    }
+
+    // Recalculate All Totals (Subtotal, GST breakdown, Net Amount, Ledger)
+    function recalculateAllTotals() {
+        const tbody = document.getElementById("returnTableBody");
+        const rows = tbody.querySelectorAll("tr");
+        let grossTaxable = 0;
+        let totalGst = 0;
+        const gstBreakdowns = {};
+
+        rows.forEach(tr => {
+            const qty = parseInt(tr.querySelector(".row-qty-input").value) || 0;
+            const rate = parseFloat(tr.querySelector(".row-rate-input").value) || 0;
+            const gstPct = parseFloat(tr.dataset.gst) || 12;
+
+            const taxable = qty * rate;
+            const gstAmt = taxable * (gstPct / 100);
+
+            grossTaxable += taxable;
+            totalGst += gstAmt;
+
+            gstBreakdowns[gstPct] = (gstBreakdowns[gstPct] || 0) + gstAmt;
+        });
+
+        const netTotal = grossTaxable + totalGst;
+
+        document.getElementById("grossDisplay").textContent = `₹${grossTaxable.toFixed(2)}`;
+        document.getElementById("gstDisplay").textContent = `+₹${totalGst.toFixed(2)}`;
+        document.getElementById("netDisplay").textContent = `₹${netTotal.toFixed(2)}`;
+
+        document.getElementById("grossInput").value = grossTaxable.toFixed(2);
+        document.getElementById("gstInput").value = totalGst.toFixed(2);
+        document.getElementById("netInput").value = netTotal.toFixed(2);
+
+        document.getElementById("tableItemCountBadge").textContent = `${rows.length} Item(s) Added`;
+
+        // Render GST Rate Breakdown
+        const gstBreakdownEl = document.getElementById("gstBreakdownContainer");
+        const gstKeys = Object.keys(gstBreakdowns);
+        if (gstKeys.length > 0) {
+            let breakdownHtml = "";
+            gstKeys.forEach(k => {
+                breakdownHtml += `<div>• GST ${k}%: <strong>₹${gstBreakdowns[k].toFixed(2)}</strong></div>`;
+            });
+            gstBreakdownEl.innerHTML = breakdownHtml;
+            gstBreakdownEl.style.display = "block";
+        } else {
+            gstBreakdownEl.style.display = "none";
+        }
+
+        // Update Supplier Ledger Simulation
+        const supSelect = document.getElementById("supplierSelect");
+        let dues = 0;
+        if (supSelect.selectedIndex > 0) {
+            dues = parseFloat(supSelect.options[supSelect.selectedIndex].dataset.dues) || 0;
+        }
+        const projected = dues - netTotal;
+
+        document.getElementById("ledgerCurrentDues").textContent = `₹${dues.toFixed(2)}`;
+        document.getElementById("ledgerDebitAmount").textContent = `-₹${netTotal.toFixed(2)}`;
+        document.getElementById("ledgerProjectedDues").textContent = `₹${projected.toFixed(2)}`;
+    }
+
+    // Final Form Validation before Submit
+    function validateReturnFormSubmission(e) {
+        const supSelect = document.getElementById("supplierSelect");
+        if (!supSelect.value) {
+            alert("Please select a supplier.");
+            supSelect.focus();
+            e.preventDefault();
+            return false;
+        }
+
+        const tbody = document.getElementById("returnTableBody");
+        if (tbody.children.length === 0) {
+            alert("Cannot save empty return. Please add at least one product to the return list.");
+            document.getElementById("entryProdSearch").focus();
+            e.preventDefault();
+            return false;
+        }
+
+        const submitBtn = document.getElementById("btnSubmitReturn");
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Recording Return...`;
+        return true;
+    }
 </script>
 {% endblock %}

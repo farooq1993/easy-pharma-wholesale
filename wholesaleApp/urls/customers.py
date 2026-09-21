@@ -16,6 +16,7 @@ from wholesaleApp.views.customers_views import (
     customer_payment_delete,
     customer_payment_list,
     customer_payment_create,
+    customer_payment_edit,
     get_customer_outstanding_invoices,
     customer_manage,
     get_customer_manage_details
@@ -27,6 +28,7 @@ urlpatterns = [
     path("api/customer/<int:customer_id>/manage-details/", get_customer_manage_details, name='api_customer_manage_details'),
     path("customer/payment/list/", customer_payment_list, name='customer_payment_list'),
     path("customer/payment/create/", customer_payment_create, name='customer_payment_create'),
+    path("customer/payment/edit/<int:pk>/", customer_payment_edit, name='customer_payment_edit'),
     path("api/customer/<int:customer_id>/outstanding-invoices/", get_customer_outstanding_invoices, name='api_customer_outstanding_invoices'),
 
 

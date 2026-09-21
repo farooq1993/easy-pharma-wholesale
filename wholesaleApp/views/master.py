@@ -1,11 +1,12 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, Avg
 from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth.models import User
 from datetime import datetime, timedelta
 from decimal import Decimal
+from collections import defaultdict
 from wholesaleApp.models import (
     ProductMaster,
     CustomerMaster,
@@ -42,11 +43,13 @@ def HomeView(request):
     avg_order_value = float(todays_revenue / todays_orders_count) if todays_orders_count > 0 else 0.00
     out_of_stock_count = ProductBatch.objects.filter(quantity=0).values('product').distinct().count()
     
-    # Order Status summary
+    # Order Status summary in 1 query instead of 3
+    status_summary = SalesInvoice.objects.values('status').annotate(count=Count('id'))
+    status_counts = {item['status']: item['count'] for item in status_summary}
     orders_by_status = {
-        'Pending': SalesInvoice.objects.filter(status='Pending').count(),
-        'Completed': SalesInvoice.objects.filter(status='Delivered').count(),
-        'Cancelled': SalesInvoice.objects.filter(status='Cancelled').count(),
+        'Pending': status_counts.get('Pending', 0),
+        'Completed': status_counts.get('Delivered', 0),
+        'Cancelled': status_counts.get('Cancelled', 0),
     }
     
     # ---------------- LIVE AREA-WISE ORDERS ----------------
@@ -112,7 +115,7 @@ def HomeView(request):
         expiring_soon.append({
             'product': {'name': b.product.name, 'sku': b.product.hsn_code or 'N/A'},
             'batch_number': b.batch_number,
-            'stock_quantity': b.quantity,
+            'stock_quantity': int(b.quantity) if b.quantity == int(b.quantity) else float(b.quantity),
             'expiry_date': b.expiry_date,
             'days_left': days_left
         })
@@ -124,7 +127,7 @@ def HomeView(request):
         low_stock_alerts.append({
             'product_name': b.product.name,
             'batch_number': b.batch_number,
-            'quantity': b.quantity
+            'quantity': int(b.quantity) if b.quantity == int(b.quantity) else float(b.quantity)
         })
 
     # ---------------- OUTSTANDING PAYMENTS & AGING ----------------
@@ -133,44 +136,58 @@ def HomeView(request):
     customers_with_dues_count = CustomerMaster.objects.filter(is_deleted=False, opening_balance__gt=0).count()
     
     top_dues = []
-    custs_with_dues = CustomerMaster.objects.filter(is_deleted=False, opening_balance__gt=0).order_by('-opening_balance')[:5]
-    for c in custs_with_dues:
-        # FIFO Aging calculation
-        bal = c.opening_balance
-        invoices = SalesInvoice.objects.filter(customer=c, payment_type='Credit').order_by('-invoice_date', '-id')
+    custs_with_dues = list(CustomerMaster.objects.filter(is_deleted=False, opening_balance__gt=0).order_by('-opening_balance')[:5])
+    if custs_with_dues:
+        cust_ids = [c.id for c in custs_with_dues]
+        all_credit_invoices = SalesInvoice.objects.filter(
+            customer_id__in=cust_ids,
+            payment_type='Credit'
+        ).order_by('-invoice_date', '-id')
         
-        oldest_date = None
-        accumulated = Decimal('0.00')
-        for inv in invoices:
-            accumulated += inv.net_amount
-            oldest_date = inv.invoice_date
-            if accumulated >= bal:
-                break
-                
-        if oldest_date:
-            days_overdue = (today - oldest_date).days
-            last_payment_date = oldest_date
-        else:
-            days_overdue = (today - c.created_at.date()).days
-            last_payment_date = c.created_at.date()
+        invoices_by_customer = defaultdict(list)
+        for inv in all_credit_invoices:
+            invoices_by_customer[inv.customer_id].append(inv)
             
-        top_dues.append({
-            'customer': {'id': c.id, 'pharmacy_name': c.name, 'city': c.city},
-            'amount': float(c.opening_balance),
-            'last_payment_date': last_payment_date,
-            'days_overdue': days_overdue
-        })
+        for c in custs_with_dues:
+            bal = c.opening_balance
+            invoices = invoices_by_customer.get(c.id, [])
+            
+            oldest_date = None
+            accumulated = Decimal('0.00')
+            for inv in invoices:
+                accumulated += inv.net_amount
+                oldest_date = inv.invoice_date
+                if accumulated >= bal:
+                    break
+                    
+            if oldest_date:
+                days_overdue = (today - oldest_date).days
+                last_payment_date = oldest_date
+            else:
+                days_overdue = (today - c.created_at.date()).days
+                last_payment_date = c.created_at.date()
+                
+            top_dues.append({
+                'customer': {'id': c.id, 'pharmacy_name': c.name, 'city': c.city},
+                'amount': float(c.opening_balance),
+                'last_payment_date': last_payment_date,
+                'days_overdue': days_overdue
+            })
 
     # ---------------- LIVE CHART DATA & TRENDS ----------------
-    # 1. Weekly Sales Trend
+    # 1. Weekly Sales Trend in a single ORM query
+    seven_days_ago = today - timedelta(days=6)
+    weekly_sales_qs = SalesInvoice.objects.filter(
+        invoice_date__range=[seven_days_ago, today]
+    ).values('invoice_date').annotate(total=Sum('net_amount'))
+    daily_sales_map = {row['invoice_date']: float(row['total']) for row in weekly_sales_qs}
+
     revenue_trend_labels = []
     revenue_trend_data = []
     for i in range(6, -1, -1):
         d = today - timedelta(days=i)
-        label = d.strftime('%a')
-        rev = SalesInvoice.objects.filter(invoice_date=d).aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
-        revenue_trend_labels.append(label)
-        revenue_trend_data.append(float(rev))
+        revenue_trend_labels.append(d.strftime('%a'))
+        revenue_trend_data.append(daily_sales_map.get(d, 0.0))
         
     # 2. Monthly Company-wise Sales
     from wholesaleApp.models import SalesInvoiceItem
@@ -230,18 +247,30 @@ def HomeView(request):
         })
 
     # ---------------- SMART PREDICTIVE FORECASTS (LOCAL ENGINE) ----------------
-    monthly_sales = []
+    earliest_first_day = (today.replace(day=1) - timedelta(days=5*30)).replace(day=1)
+    
+    # 1 single ORM query for historical 6 months sales
+    past_invoices_qs = SalesInvoice.objects.filter(
+        invoice_date__range=[earliest_first_day, today]
+    ).values('invoice_date').annotate(total=Sum('net_amount'))
+    
+    month_ranges = []
     for m in range(5, -1, -1):
-        first_day_of_m = (today.replace(day=1) - timedelta(days=m*30)).replace(day=1)
+        f_day = (today.replace(day=1) - timedelta(days=m*30)).replace(day=1)
         if m > 0:
-            last_day_of_m = (first_day_of_m + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            l_day = (f_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
         else:
-            last_day_of_m = today
-            
-        sales_val = SalesInvoice.objects.filter(
-            invoice_date__range=[first_day_of_m, last_day_of_m]
-        ).aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
-        monthly_sales.append(float(sales_val))
+            l_day = today
+        month_ranges.append((f_day, l_day))
+
+    monthly_sales = [0.0] * len(month_ranges)
+    for inv in past_invoices_qs:
+        inv_d = inv['invoice_date']
+        inv_amt = float(inv['total'] or 0.0)
+        for idx, (f_day, l_day) in enumerate(month_ranges):
+            if f_day <= inv_d <= l_day:
+                monthly_sales[idx] += inv_amt
+                break
         
     n = len(monthly_sales)
     x = list(range(n))
@@ -274,41 +303,53 @@ def HomeView(request):
         dues_collection_forecast = outstanding_dues * 0.15
 
     from wholesaleApp.models import SalesInvoiceItem
-    recent_sales_items = SalesInvoiceItem.objects.filter(
+    recent_sales_items = list(SalesInvoiceItem.objects.filter(
         sales_invoice__invoice_date__range=[last_30_days_start, today]
-    ).values('product_id').annotate(qty_sold=Sum('quantity'))
+    ).values('product_id').annotate(qty_sold=Sum('quantity')))
     
+    # Bulk aggregate stocks & purchase rates in 1 single ORM query to eliminate N+1
+    recent_pids = [item['product_id'] for item in recent_sales_items]
+    if recent_pids:
+        batch_stocks = ProductBatch.objects.filter(
+            product_id__in=recent_pids
+        ).values('product_id').annotate(
+            total_stock=Sum('quantity'),
+            avg_purchase_rate=Avg('purchase_rate')
+        )
+        stock_map = {
+            b['product_id']: (float(b['total_stock'] or 0), float(b['avg_purchase_rate'] or 50.00))
+            for b in batch_stocks
+        }
+    else:
+        stock_map = {}
+
     purchase_req_forecast = 0.0
     for item in recent_sales_items:
         p_id = item['product_id']
         qty_sold = float(item['qty_sold'])
-        current_stock_val = ProductBatch.objects.filter(product_id=p_id).aggregate(total=Sum('quantity'))['total'] or 0
-        current_stock = float(current_stock_val)
-        
+        current_stock, p_rate = stock_map.get(p_id, (0.0, 50.00))
         deficit = max(0.0, qty_sold - current_stock)
         if deficit > 0:
-            batch = ProductBatch.objects.filter(product_id=p_id).first()
-            p_rate = float(batch.purchase_rate) if batch else 50.00
             purchase_req_forecast += (deficit * p_rate)
             
-    # ---------------- NEAR EXPIRY ALERTS (< 90 DAYS) ----------------
+    # ---------------- EXPIRY ALERTS (EXPIRED + NEAR EXPIRY < 90 DAYS) ----------------
     expiry_limit_date = today + timedelta(days=90)
     expiring_batches = ProductBatch.objects.filter(
         expiry_date__lte=expiry_limit_date,
-        expiry_date__gte=today,
         quantity__gt=0
     ).select_related('product').order_by('expiry_date')
 
     expiring_soon = []
-    for b in expiring_batches[:10]:
-        days_left = (b.expiry_date - today).days
+    for b in expiring_batches[:15]:
+        days_left = (b.expiry_date - today).days if b.expiry_date else 0
         expiring_soon.append({
             'product_name': b.product.name,
             'pack_size': b.product.pack_size,
             'batch_number': b.batch_number,
-            'stock': b.quantity,
+            'stock': int(b.quantity) if b.quantity == int(b.quantity) else float(b.quantity),
             'expiry_date': b.expiry_date,
             'days_left': days_left,
+            'is_expired': days_left <= 0,
             'mrp': float(b.mrp),
             'sale_rate': float(b.sale_rate)
         })
