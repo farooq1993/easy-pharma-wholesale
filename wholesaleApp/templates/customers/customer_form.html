@@ -7,107 +7,479 @@
 
 <div class="row justify-content-center">
     <div class="col-lg-10">
-        <div class="card shadow-sm">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-                <h5 class="mb-0">{{ page_title }}</h5>
-                <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary btn-sm">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom-0">
+                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-person-plus text-primary me-2"></i>{{ page_title }}</h5>
+                <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
                     <i class="bi bi-arrow-left"></i> Back to List
                 </a>
             </div>
-            <div class="card-body">
-                <form method="POST">
+            <div class="card-body p-4 pt-0">
+                <form method="POST" id="customerForm">
                     {% csrf_token %}
                     
                     <div class="row g-4">
                         <!-- Basic Info -->
                         <div class="col-md-4">
-                            <label class="form-label">Customer Name <span class="text-danger">*</span></label>
-                            <input type="text" name="name" class="form-control" value="{{ customer.name|default:'' }}" required>
+                            <label class="form-label text-muted small fw-bold">Customer Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" value="{{ customer.name|default:'' }}" required placeholder="e.g. Life Care Chemist">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Customer Type <span class="text-danger">*</span></label>
+                            <label class="form-label text-muted small fw-bold">Customer Type <span class="text-danger">*</span></label>
                             <select name="customer_type" class="form-select" required>
-                                <option value="Retailer" {% if customer.customer_type == 'Retailer' %}selected{% endif %}>Retailer / Chemist</option>
+                                <option value="Retailer" {% if customer.customer_type == 'Retailer' or not customer %}selected{% endif %}>Retailer / Chemist</option>
                                 <option value="Wholesaler" {% if customer.customer_type == 'Wholesaler' %}selected{% endif %}>Wholesaler / Sub-distributor</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Mobile <span class="text-danger">*</span></label>
-                            <input type="text" name="mobile" class="form-control" value="{{ customer.mobile|default:'' }}" required>
+                            <label class="form-label text-muted small fw-bold">Mobile <span class="text-danger">*</span></label>
+                            <input type="text" name="mobile" class="form-control" value="{{ customer.mobile|default:'' }}" required placeholder="10-digit mobile number">
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label">Alternate Mobile</label>
+                            <label class="form-label text-muted small fw-bold">Alternate Mobile</label>
                             <input type="text" name="alternate_mobile" class="form-control" value="{{ customer.alternate_mobile|default:'' }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Email</label>
+                            <label class="form-label text-muted small fw-bold">Email</label>
                             <input type="email" name="email" class="form-control" value="{{ customer.email|default:'' }}">
                         </div>
 
                         <!-- GST & DL -->
                         <div class="col-md-6">
-                            <label class="form-label">GSTIN</label>
-                            <input type="text" name="gstin" class="form-control" value="{{ customer.gstin|default:'' }}">
+                            <label class="form-label text-muted small fw-bold">GSTIN</label>
+                            <input type="text" name="gstin" class="form-control" value="{{ customer.gstin|default:'' }}" placeholder="15-digit GSTIN">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">DL Number 20</label>
+                            <label class="form-label text-muted small fw-bold">DL Number 20 <span class="text-danger">*</span></label>
                             <input type="text" name="dl_number_1" class="form-control" value="{{ customer.dl_number_1|default:'' }}" required maxlength="100" placeholder="e.g. 20B/12345">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">DL Number 21</label>
+                            <label class="form-label text-muted small fw-bold">DL Number 21</label>
                             <input type="text" name="dl_number_2" class="form-control" value="{{ customer.dl_number_2|default:'' }}" maxlength="100" placeholder="e.g. 21B/12345">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">DL Number 20C</label>
+                            <label class="form-label text-muted small fw-bold">DL Number 20C</label>
                             <input type="text" name="dl_number_3" class="form-control" value="{{ customer.dl_number_3|default:'' }}" maxlength="100" placeholder="e.g. 20C/12345">
                         </div>
 
-                        <!-- Area & Address -->
-                        <div class="col-md-6">
-                            <label class="form-label">Area <span class="text-danger">*</span></label>
-                            <select name="area" class="form-select" required>
-                                <option value="">Select Area</option>
-                                {% for area in areas %}
-                                <option value="{{ area.id }}" {% if customer.area_id == area.id %}selected{% endif %}>
-                                    {{ area.city }}
-                                </option>
-                                {% endfor %}
-                            </select>
+                        <!-- Area, Subarea & City from Master -->
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label text-muted small fw-bold mb-0">Area / City Master <span class="text-danger">*</span></label>
+                                <button type="button" class="btn btn-link p-0 text-primary small text-decoration-none fw-semibold" data-bs-toggle="modal" data-bs-target="#quickAreaModal" title="Shortcut: Alt+A">
+                                    <i class="bi bi-plus-circle"></i> New Area <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.68rem;">Alt+A</span>
+                                </button>
+                            </div>
+                            <div class="input-group">
+                                <select name="area" id="areaSelect" class="form-select" required onchange="onAreaChange(this)">
+                                    <option value="" data-city="">Select Area / City</option>
+                                    {% for a in areas %}
+                                    <option value="{{ a.id }}" data-city="{{ a.city }}" data-code="{{ a.code|default:'' }}" {% if customer.area_id == a.id %}selected{% endif %}>
+                                        {{ a.city }}{% if a.code %} [{{ a.code }}]{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#quickAreaModal" title="Add Area/City (Alt+A)">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">City</label>
-                            <input type="text" name="city" class="form-control" value="{{ customer.city|default:'' }}">
+
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label text-muted small fw-bold mb-0">Subarea / Locality</label>
+                                <button type="button" class="btn btn-link p-0 text-primary small text-decoration-none fw-semibold" data-bs-toggle="modal" data-bs-target="#quickSubareaModal" title="Shortcut: Alt+S">
+                                    <i class="bi bi-plus-circle"></i> New Subarea
+                                </button>
+                            </div>
+                            <div class="input-group">
+                                <select name="subarea" id="subareaSelect" class="form-select">
+                                    <option value="">Select Subarea / Locality</option>
+                                    {% for sub in subareas %}
+                                    <option value="{{ sub.id }}" data-area-id="{{ sub.area_id }}" {% if customer.subarea_id == sub.id %}selected{% endif %}>
+                                        {{ sub.name }} ({{ sub.area.city }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#quickSubareaModal" title="Add Subarea">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label text-muted small fw-bold mb-1">City Name</label>
+                            <input type="text" name="city" id="cityInput" class="form-control" value="{{ customer.city|default:'' }}" placeholder="City name">
                         </div>
 
                         <div class="col-12">
-                            <label class="form-label">Full Address</label>
-                            <textarea name="address" class="form-control" rows="3">{{ customer.address|default:'' }}</textarea>
+                            <label class="form-label text-muted small fw-bold">Full Address</label>
+                            <textarea name="address" class="form-control" rows="2" placeholder="Shop / Building Address, Landmark, etc.">{{ customer.address|default:'' }}</textarea>
                         </div>
 
                         <!-- Financial Info -->
                         <div class="col-md-4">
-                            <label class="form-label">Opening Balance (₹)</label>
+                            <label class="form-label text-muted small fw-bold">Opening Balance (₹)</label>
                             <input type="number" step="0.01" name="opening_balance" class="form-control" value="{{ customer.opening_balance|default:0 }}">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Credit Limit (₹)</label>
+                            <label class="form-label text-muted small fw-bold">Credit Limit (₹)</label>
                             <input type="number" step="0.01" name="credit_limit" class="form-control" value="{{ customer.credit_limit|default:0 }}">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Credit Days</label>
+                            <label class="form-label text-muted small fw-bold">Credit Days</label>
                             <input type="number" name="credit_days" class="form-control" value="{{ customer.credit_days|default:0 }}">
                         </div>
                     </div>
                     
-                    <div class="mt-5">
-                        <button type="submit" class="btn btn-primary btn-lg px-5">Save Customer</button>
-                        <a href="{% url 'customer_list' %}" class="btn btn-secondary btn-lg px-5">Cancel</a>
+                    <div class="mt-4 pt-3 border-top d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg px-5 rounded-pill shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
+                            <i class="bi bi-check-circle me-1"></i> Save Customer
+                        </button>
+                        <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary btn-lg px-4 rounded-pill">Cancel</a>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<!-- ==================== MODAL 1: ADD NEW AREA / CITY ==================== -->
+<div class="modal fade" id="quickAreaModal" tabindex="-1" aria-labelledby="quickAreaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-light border-0 py-3">
+                <h5 class="modal-title fw-bold text-dark" id="quickAreaModalLabel">
+                    <i class="bi bi-building text-primary me-2"></i>Add New Area / City Master
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="quickAreaForm" onsubmit="submitQuickArea(event)">
+                <div class="modal-body p-4">
+                    <div id="quickAreaAlert" class="alert alert-danger d-none py-2 small mb-3"></div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">City / Area Name <span class="text-danger">*</span></label>
+                        <input type="text" id="newAreaCity" class="form-control form-control-lg fs-6" required placeholder="e.g. Digras, Kanpur, PUSAD" autofocus>
+                        <div class="form-text small">Enter city or major town/area name.</div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small text-muted">Area Code <span class="text-muted">(Optional)</span></label>
+                        <input type="text" id="newAreaCode" class="form-control" placeholder="e.g. DSG, KMP, PSD" maxlength="20">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 py-3 d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="saveAreaSubmitBtn" class="btn btn-primary rounded-pill px-4 shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
+                        <span id="saveAreaSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                        <i class="bi bi-check-lg me-1"></i> Save Area
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL 2: ADD NEW SUBAREA / LOCALITY ==================== -->
+<div class="modal fade" id="quickSubareaModal" tabindex="-1" aria-labelledby="quickSubareaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-light border-0 py-3">
+                <h5 class="modal-title fw-bold text-dark" id="quickSubareaModalLabel">
+                    <i class="bi bi-geo-alt text-primary me-2"></i>Add New Subarea / Locality
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="quickSubareaForm" onsubmit="submitQuickSubarea(event)">
+                <div class="modal-body p-4">
+                    <div id="quickSubareaAlert" class="alert alert-danger d-none py-2 small mb-3"></div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Parent Area / City <span class="text-danger">*</span></label>
+                        <select id="newSubareaParent" class="form-select form-select-lg fs-6" required>
+                            <option value="">Select Parent Area / City</option>
+                            {% for a in areas %}
+                            <option value="{{ a.id }}">{{ a.city }}{% if a.code %} [{{ a.code }}]{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small text-muted">Subarea / Locality Name <span class="text-danger">*</span></label>
+                        <input type="text" id="newSubareaName" class="form-control form-control-lg fs-6" required placeholder="e.g. Ambedkar chowk, Gandhi nagar">
+                        <div class="form-text small">Enter ward, street, locality or landmark.</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 py-3 d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="saveSubareaSubmitBtn" class="btn btn-primary rounded-pill px-4 shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
+                        <span id="saveSubareaSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                        <i class="bi bi-check-lg me-1"></i> Save Subarea
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function getCSRFToken() {
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='))
+            ?.split('=')[1];
+        if (cookieValue) return cookieValue;
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        return csrfInput ? csrfInput.value : '';
+    }
+
+    function onAreaChange(selectEl) {
+        const selectedOpt = selectEl.options[selectEl.selectedIndex];
+        const cityName = selectedOpt ? selectedOpt.getAttribute('data-city') : '';
+        const cityInput = document.getElementById('cityInput');
+        if (cityName && cityInput && (!cityInput.value || cityInput.dataset.autoFilled === 'true' || cityInput.value === '')) {
+            cityInput.value = cityName;
+            cityInput.dataset.autoFilled = 'true';
+        }
+
+        // Filter subarea options based on selected area
+        filterSubareaDropdown(selectEl.value);
+    }
+
+    function filterSubareaDropdown(areaId) {
+        const subareaSelect = document.getElementById('subareaSelect');
+        if (!subareaSelect) return;
+        const options = subareaSelect.querySelectorAll('option');
+        options.forEach(opt => {
+            if (!opt.value) return; // Keep "Select Subarea"
+            const optAreaId = opt.getAttribute('data-area-id');
+            if (!areaId || optAreaId === areaId) {
+                opt.style.display = '';
+            } else {
+                opt.style.display = 'none';
+                if (opt.selected) {
+                    subareaSelect.value = '';
+                }
+            }
+        });
+    }
+
+    // Modal 1: Submit New Area via AJAX
+    function submitQuickArea(event) {
+        event.preventDefault();
+        const cityInput = document.getElementById('newAreaCity');
+        const codeInput = document.getElementById('newAreaCode');
+        const alertBox = document.getElementById('quickAreaAlert');
+        const submitBtn = document.getElementById('saveAreaSubmitBtn');
+        const spinner = document.getElementById('saveAreaSpinner');
+
+        const city = cityInput.value.trim();
+        const code = codeInput.value.trim();
+
+        if (!city) {
+            alertBox.textContent = 'City / Area Name is required.';
+            alertBox.classList.remove('d-none');
+            return;
+        }
+
+        alertBox.classList.add('d-none');
+        submitBtn.disabled = true;
+        spinner.classList.remove('d-none');
+
+        const formData = new FormData();
+        formData.append('city', city);
+        formData.append('code', code);
+        formData.append('ajax', '1');
+
+        fetch("{% url 'area_create' %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json().then(data => ({ status: response.status, data })))
+        .then(({ status, data }) => {
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+
+            if (data.status === 'success' || (data.id && status < 400)) {
+                // Add to main Area dropdown and select it
+                const areaSelect = document.getElementById('areaSelect');
+                const newOpt = document.createElement('option');
+                newOpt.value = data.id;
+                newOpt.textContent = data.city + (data.code ? ` [${data.code}]` : '');
+                newOpt.setAttribute('data-city', data.city);
+                newOpt.setAttribute('data-code', data.code || '');
+                newOpt.selected = true;
+                areaSelect.appendChild(newOpt);
+
+                // Also add to Subarea modal parent area select
+                const parentAreaSelect = document.getElementById('newSubareaParent');
+                if (parentAreaSelect) {
+                    const pOpt = document.createElement('option');
+                    pOpt.value = data.id;
+                    pOpt.textContent = data.city + (data.code ? ` [${data.code}]` : '');
+                    parentAreaSelect.appendChild(pOpt);
+                }
+
+                // Trigger area change to fill city
+                onAreaChange(areaSelect);
+
+                // Close Modal
+                const modalEl = document.getElementById('quickAreaModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                modalInstance.hide();
+
+                // Reset modal form
+                cityInput.value = '';
+                codeInput.value = '';
+
+                // Toast/Feedback
+                if (typeof showERPToast === 'function') {
+                    showERPToast(`Area "${data.city}" created and selected!`, 'success');
+                }
+            } else {
+                alertBox.textContent = data.message || 'Error creating Area. Please check and try again.';
+                alertBox.classList.remove('d-none');
+            }
+        })
+        .catch(error => {
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+            console.error('Error creating area:', error);
+            alertBox.textContent = 'Server communication error. Please try again.';
+            alertBox.classList.remove('d-none');
+        });
+    }
+
+    // Modal 2: Submit New Subarea via AJAX
+    function submitQuickSubarea(event) {
+        event.preventDefault();
+        const parentSelect = document.getElementById('newSubareaParent');
+        const nameInput = document.getElementById('newSubareaName');
+        const alertBox = document.getElementById('quickSubareaAlert');
+        const submitBtn = document.getElementById('saveSubareaSubmitBtn');
+        const spinner = document.getElementById('saveSubareaSpinner');
+
+        const areaId = parentSelect.value;
+        const name = nameInput.value.trim();
+
+        if (!areaId || !name) {
+            alertBox.textContent = 'Parent Area and Subarea Name are required.';
+            alertBox.classList.remove('d-none');
+            return;
+        }
+
+        alertBox.classList.add('d-none');
+        submitBtn.disabled = true;
+        spinner.classList.remove('d-none');
+
+        const formData = new FormData();
+        formData.append('area', areaId);
+        formData.append('name', name);
+        formData.append('ajax', '1');
+
+        fetch("{% url 'subarea_create' %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json().then(data => ({ status: response.status, data })))
+        .then(({ status, data }) => {
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+
+            if (data.status === 'success' || (data.id && status < 400)) {
+                // Add to subarea dropdown and select it
+                const subareaSelect = document.getElementById('subareaSelect');
+                const newOpt = document.createElement('option');
+                newOpt.value = data.id;
+                newOpt.textContent = `${data.name} (${data.area_city || ''})`;
+                newOpt.setAttribute('data-area-id', data.area_id);
+                newOpt.selected = true;
+                subareaSelect.appendChild(newOpt);
+
+                // Close modal
+                const modalEl = document.getElementById('quickSubareaModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                modalInstance.hide();
+
+                // Reset modal form
+                nameInput.value = '';
+
+                // Toast/Feedback
+                if (typeof showERPToast === 'function') {
+                    showERPToast(`Subarea "${data.name}" created and selected!`, 'success');
+                }
+            } else {
+                alertBox.textContent = data.message || 'Error creating Subarea. Please check and try again.';
+                alertBox.classList.remove('d-none');
+            }
+        })
+        .catch(error => {
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+            console.error('Error creating subarea:', error);
+            alertBox.textContent = 'Server communication error. Please try again.';
+            alertBox.classList.remove('d-none');
+        });
+    }
+
+    // Keyboard Shortcuts: Alt+A for Area Modal, Alt+S for Subarea Modal
+    document.addEventListener('keydown', function(e) {
+        if (e.altKey && (e.key === 'a' || e.key === 'A')) {
+            e.preventDefault();
+            const modalEl = document.getElementById('quickAreaModal');
+            if (modalEl) {
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
+        } else if (e.altKey && (e.key === 's' || e.key === 'S')) {
+            e.preventDefault();
+            const modalEl = document.getElementById('quickSubareaModal');
+            if (modalEl) {
+                const areaSelect = document.getElementById('areaSelect');
+                const parentSelect = document.getElementById('newSubareaParent');
+                if (areaSelect && parentSelect && areaSelect.value) {
+                    parentSelect.value = areaSelect.value;
+                }
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
+        }
+    });
+
+    // When Subarea modal opens, sync current area
+    document.getElementById('quickSubareaModal')?.addEventListener('show.bs.modal', function() {
+        const areaSelect = document.getElementById('areaSelect');
+        const parentSelect = document.getElementById('newSubareaParent');
+        if (areaSelect && parentSelect && areaSelect.value) {
+            parentSelect.value = areaSelect.value;
+        }
+    });
+
+    // Auto focus inputs when modals open
+    document.getElementById('quickAreaModal')?.addEventListener('shown.bs.modal', function() {
+        document.getElementById('newAreaCity')?.focus();
+    });
+    document.getElementById('quickSubareaModal')?.addEventListener('shown.bs.modal', function() {
+        document.getElementById('newSubareaName')?.focus();
+    });
+
+    // Initial filter on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const areaSelect = document.getElementById('areaSelect');
+        if (areaSelect && areaSelect.value) {
+            filterSubareaDropdown(areaSelect.value);
+        }
+    });
+</script>
 
 {% endblock %}

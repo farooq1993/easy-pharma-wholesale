@@ -1,0 +1,743 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<style>
+    .profit-pill-tab .nav-link {
+        color: #475569;
+        font-weight: 600;
+        border-radius: 50rem;
+        padding: 0.55rem 1.25rem;
+        transition: all 0.2s ease;
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
+    }
+    .profit-pill-tab .nav-link:hover {
+        background-color: #f1f5f9;
+        color: #0f766e;
+    }
+    .profit-pill-tab .nav-link.active {
+        background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%) !important;
+        color: #ffffff !important;
+        border-color: #0f766e;
+        box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+    }
+    .kpi-card {
+        border-radius: 16px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    }
+    .quick-date-btn {
+        font-size: 0.78rem;
+        padding: 0.25rem 0.65rem;
+        border-radius: 20px;
+    }
+    .table-profit thead th {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+        background-color: #f8fafc;
+        color: #475569;
+    }
+    .table-profit tbody td {
+        font-size: 0.90rem;
+        vertical-align: middle;
+    }
+    .badge-margin-high {
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+    .badge-margin-mid {
+        background-color: #fef9c3;
+        color: #a16207;
+        border: 1px solid #fef08a;
+    }
+    .badge-margin-low {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+    }
+    .nested-item-table th {
+        font-size: 0.75rem;
+        background-color: #f1f5f9;
+    }
+    .nested-item-table td {
+        font-size: 0.82rem;
+    }
+</style>
+
+<!-- Top Title & Export Action Bar -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h4 class="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+            <span class="p-2 rounded-3 text-white" style="background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);">
+                <i class="bi bi-graph-up-arrow"></i>
+            </span>
+            Profit &amp; Margins Report
+        </h4>
+        <p class="text-muted small mb-0">Comprehensive gross profit and profit margin analysis across Date-wise, Bill-wise, Customer-wise, and Company-wise metrics.</p>
+    </div>
+    <div class="d-flex gap-2 d-print-none flex-wrap">
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i> Print
+        </button>
+        <button type="button" class="btn btn-outline-danger rounded-pill px-3 shadow-sm" onclick="exportReportToPDF('profitReportExportArea', 'Profit_Margins_Report.pdf')">
+            <i class="bi bi-file-pdf me-1"></i> Export PDF
+        </button>
+        <button type="button" class="btn btn-outline-success rounded-pill px-3 shadow-sm" onclick="exportCurrentActiveTableCSV()">
+            <i class="bi bi-file-spreadsheet me-1"></i> Export CSV
+        </button>
+    </div>
+</div>
+
+<!-- Filters Panel -->
+<div class="card shadow-sm border-0 rounded-4 mb-4 d-print-none">
+    <div class="card-body p-4">
+        <form method="GET" id="profitFilterForm" class="row g-3 align-items-end">
+            <input type="hidden" name="tab" id="activeTabInput" value="{{ active_tab }}">
+            
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label text-muted small fw-bold mb-1">Start Date</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar-event text-muted"></i></span>
+                    <input type="date" name="start_date" id="filterStartDate" class="form-control border-start-0" value="{{ start_date }}" required>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label text-muted small fw-bold mb-1">End Date</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar-event text-muted"></i></span>
+                    <input type="date" name="end_date" id="filterEndDate" class="form-control border-start-0" value="{{ end_date }}" required>
+                </div>
+            </div>
+
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label text-muted small fw-bold mb-1">Filter Customer</label>
+                <select name="customer" class="form-select">
+                    <option value="all" {% if selected_customer == 'all' %}selected{% endif %}>All Customers</option>
+                    {% for cust in customers %}
+                        <option value="{{ cust.id }}" {% if selected_customer == cust.id|stringformat:"s" %}selected{% endif %}>{{ cust.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label text-muted small fw-bold mb-1">Filter Company</label>
+                <select name="company" class="form-select">
+                    <option value="all" {% if selected_company == 'all' %}selected{% endif %}>All Companies</option>
+                    {% for comp in companies %}
+                        <option value="{{ comp.id }}" {% if selected_company == comp.id|stringformat:"s" %}selected{% endif %}>{{ comp.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-lg-2 col-md-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 shadow-sm" style="background-color: #0f766e; border-color: #0f766e;">
+                    <i class="bi bi-funnel-fill me-1"></i> Filter
+                </button>
+                <a href="{% url 'report_profit' %}" class="btn btn-light rounded-pill px-3 py-2 border" title="Reset Filters">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+            </div>
+
+            <!-- Quick Date Presets -->
+            <div class="col-12 pt-2 border-top d-flex flex-wrap align-items-center gap-2">
+                <span class="text-muted small fw-semibold me-1"><i class="bi bi-clock-history"></i> Quick Presets:</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-date-btn" onclick="applyDatePreset('today')">Today</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-date-btn" onclick="applyDatePreset('yesterday')">Yesterday</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-date-btn" onclick="applyDatePreset('this_month')">This Month</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-date-btn" onclick="applyDatePreset('last_month')">Last Month</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-date-btn" onclick="applyDatePreset('last_30_days')">Last 30 Days</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="profitReportExportArea">
+    <!-- Top KPI Summary Cards -->
+    <div class="row g-3 mb-4">
+        <!-- Total Sales Revenue Card -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card kpi-card shadow-sm border-0 bg-white p-3 h-100 border-start border-4 border-primary">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="text-muted small text-uppercase fw-bold">Total Sales (Revenue)</span>
+                        <h4 class="fw-bold text-dark mb-0 mt-1 font-monospace">₹{{ overall_sales|floatformat:2 }}</h4>
+                        <span class="text-muted small">{{ overall_total_qty|floatformat:0 }} Packs ({{ overall_bills_count }} Bills)</span>
+                    </div>
+                    <div class="p-2.5 rounded-3 bg-primary bg-opacity-10 text-primary fs-5">
+                        <i class="bi bi-cash-stack"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Purchase Cost Card -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card kpi-card shadow-sm border-0 bg-white p-3 h-100 border-start border-4 border-secondary">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="text-muted small text-uppercase fw-bold">Purchase Cost (COGS)</span>
+                        <h4 class="fw-bold text-secondary mb-0 mt-1 font-monospace">₹{{ overall_cost|floatformat:2 }}</h4>
+                        <span class="text-muted small">Free Issued: {{ overall_free_qty|floatformat:0 }} Packs</span>
+                    </div>
+                    <div class="p-2.5 rounded-3 bg-secondary bg-opacity-10 text-secondary fs-5">
+                        <i class="bi bi-box-seam"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gross Profit Card -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card kpi-card shadow-sm border-0 p-3 h-100 border-start border-4 {% if overall_profit >= 0 %}border-success bg-white{% else %}border-danger bg-white{% endif %}">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="text-muted small text-uppercase fw-bold">Total Gross Profit</span>
+                        <h4 class="fw-bold {% if overall_profit >= 0 %}text-success{% else %}text-danger{% endif %} mb-0 mt-1 font-monospace">
+                            {% if overall_profit < 0 %}-{% endif %}₹{{ overall_profit|floatformat:2 }}
+                        </h4>
+                        <span class="badge {% if overall_profit >= 0 %}bg-success-subtle text-success border border-success-subtle{% else %}bg-danger-subtle text-danger border border-danger-subtle{% endif %} mt-1">
+                            {% if overall_profit >= 0 %}Profit +₹{{ overall_profit|floatformat:2 }}{% else %}Loss -₹{{ overall_profit|floatformat:2 }}{% endif %}
+                        </span>
+                    </div>
+                    <div class="p-2.5 rounded-3 {% if overall_profit >= 0 %}bg-success bg-opacity-10 text-success{% else %}bg-danger bg-opacity-10 text-danger{% endif %} fs-5">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overall Profit Margin % Card -->
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card kpi-card shadow-sm border-0 p-3 h-100 text-white" style="background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <span class="text-white-50 small text-uppercase fw-bold">Overall Net Margin</span>
+                        <h4 class="fw-bold text-white mb-0 mt-1 font-monospace">{{ overall_margin|floatformat:2 }}%</h4>
+                        <span class="text-white-50 small">Across {{ total_line_items }} Line Items</span>
+                    </div>
+                    <div class="p-2.5 rounded-3 bg-white bg-opacity-20 text-white fs-5">
+                        <i class="bi bi-pie-chart-fill"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-Tab Navigation for Profit Report -->
+    <div class="card shadow-sm border-0 rounded-4 overflow-hidden mb-4">
+        <div class="card-header bg-white border-bottom p-3">
+            <ul class="nav profit-pill-tab gap-2 d-flex flex-wrap" id="profitTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'date' %}active{% endif %}" id="tab-date-btn" data-bs-toggle="pill" data-bs-target="#pane-date" type="button" role="tab" onclick="setTabParam('date')">
+                        <i class="bi bi-calendar3 me-1.5"></i> 📅 Date-wise Profit
+                        <span class="badge bg-light text-dark ms-1.5 border">{{ date_report|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'bill' %}active{% endif %}" id="tab-bill-btn" data-bs-toggle="pill" data-bs-target="#pane-bill" type="button" role="tab" onclick="setTabParam('bill')">
+                        <i class="bi bi-receipt me-1.5"></i> 🧾 Bill-wise Profit
+                        <span class="badge bg-light text-dark ms-1.5 border">{{ bill_report|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'customer' %}active{% endif %}" id="tab-customer-btn" data-bs-toggle="pill" data-bs-target="#pane-customer" type="button" role="tab" onclick="setTabParam('customer')">
+                        <i class="bi bi-people-fill me-1.5"></i> 👥 Customer-wise Profit
+                        <span class="badge bg-light text-dark ms-1.5 border">{{ customer_report|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'company' %}active{% endif %}" id="tab-company-btn" data-bs-toggle="pill" data-bs-target="#pane-company" type="button" role="tab" onclick="setTabParam('company')">
+                        <i class="bi bi-building me-1.5"></i> 🏢 Company-wise Profit
+                        <span class="badge bg-light text-dark ms-1.5 border">{{ company_report|length }}</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="tab-content" id="profitTabsContent">
+                
+                <!-- 1. DATE-WISE PROFIT PANE -->
+                <div class="tab-pane fade {% if active_tab == 'date' %}show active{% endif %}" id="pane-date" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-profit" id="tableDateWise">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Date</th>
+                                    <th class="text-center">Total Bills</th>
+                                    <th class="text-center">Billed Qty</th>
+                                    <th class="text-center">Free Qty</th>
+                                    <th class="text-center">Total Packs</th>
+                                    <th class="text-end">Sales Value (₹)</th>
+                                    <th class="text-end">Purchase Cost (₹)</th>
+                                    <th class="text-end">Gross Profit (₹)</th>
+                                    <th class="text-end pe-4">Margin %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in date_report %}
+                                    <tr>
+                                        <td class="ps-4 fw-bold text-dark">
+                                            <i class="bi bi-calendar-check text-muted me-1"></i> {{ row.date|date:"d M Y" }}
+                                            <span class="text-muted small fw-normal d-block">({{ row.date|date:"l" }})</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border">{{ row.bills_count }} Bills</span>
+                                        </td>
+                                        <td class="text-center">{{ row.billed_qty|floatformat:0 }}</td>
+                                        <td class="text-center text-muted">{% if row.free_qty > 0 %}+{{ row.free_qty|floatformat:0 }}{% else %}-{% endif %}</td>
+                                        <td class="text-center fw-semibold">{{ row.total_qty|floatformat:0 }}</td>
+                                        <td class="text-end font-monospace">₹{{ row.total_sales|floatformat:2 }}</td>
+                                        <td class="text-end font-monospace text-secondary">₹{{ row.total_cost|floatformat:2 }}</td>
+                                        <td class="text-end font-monospace fw-bold {% if row.total_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            ₹{{ row.total_profit|floatformat:2 }}
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <span class="badge {% if row.margin_pct >= 15 %}badge-margin-high{% elif row.margin_pct >= 5 %}badge-margin-mid{% else %}badge-margin-low{% endif %} font-monospace">
+                                                {{ row.margin_pct|floatformat:2 }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="9" class="text-center py-5 text-muted">
+                                            <i class="bi bi-calendar-x display-4 d-block mb-3 text-secondary"></i>
+                                            No sales found for the selected date range.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            {% if date_report %}
+                            <tfoot class="table-light fw-bold">
+                                <tr class="border-top border-2">
+                                    <td class="ps-4">TOTALS ({{ date_report|length }} Days)</td>
+                                    <td class="text-center">{{ overall_bills_count }} Bills</td>
+                                    <td class="text-center">{{ overall_billed_qty|floatformat:0 }}</td>
+                                    <td class="text-center">+{{ overall_free_qty|floatformat:0 }}</td>
+                                    <td class="text-center">{{ overall_total_qty|floatformat:0 }}</td>
+                                    <td class="text-end font-monospace">₹{{ overall_sales|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace text-secondary">₹{{ overall_cost|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace text-success">₹{{ overall_profit|floatformat:2 }}</td>
+                                    <td class="text-end pe-4 font-monospace">{{ overall_margin|floatformat:2 }}%</td>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 2. BILL-WISE PROFIT PANE -->
+                <div class="tab-pane fade {% if active_tab == 'bill' %}show active{% endif %}" id="pane-bill" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-profit" id="tableBillWise">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Invoice #</th>
+                                    <th>Date</th>
+                                    <th>Customer / Chemist Name</th>
+                                    <th class="text-center">Payment</th>
+                                    <th class="text-center">Items</th>
+                                    <th class="text-end">Sale Value (₹)</th>
+                                    <th class="text-end">Cost Value (₹)</th>
+                                    <th class="text-end">Profit (₹)</th>
+                                    <th class="text-center">Margin %</th>
+                                    <th class="text-center pe-4 d-print-none">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in bill_report %}
+                                    <tr>
+                                        <td class="ps-4 fw-bold font-monospace text-primary">
+                                            {{ row.invoice.invoice_number }}
+                                        </td>
+                                        <td>{{ row.invoice.invoice_date|date:"d M Y" }}</td>
+                                        <td>
+                                            {% if row.invoice.customer %}
+                                                <strong>{{ row.invoice.customer.name }}</strong>
+                                                <span class="text-muted small d-block">{{ row.invoice.customer.city|default:row.invoice.customer.area.city|default:"" }}</span>
+                                            {% else %}
+                                                <strong>{{ row.invoice.patient_name|default:"Retail Walk-in" }}</strong>
+                                                <span class="badge bg-light text-secondary border">Retail</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge {% if row.invoice.payment_type == 'Cash' %}bg-success-subtle text-success border border-success-subtle{% else %}bg-info-subtle text-info border border-info-subtle{% endif %}">
+                                                {{ row.invoice.payment_type }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border">{{ row.items_count }} items</span>
+                                        </td>
+                                        <td class="text-end font-monospace">₹{{ row.total_sales|floatformat:2 }}</td>
+                                        <td class="text-end font-monospace text-secondary">₹{{ row.total_cost|floatformat:2 }}</td>
+                                        <td class="text-end font-monospace fw-bold {% if row.total_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            ₹{{ row.total_profit|floatformat:2 }}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge {% if row.margin_pct >= 15 %}badge-margin-high{% elif row.margin_pct >= 5 %}badge-margin-mid{% else %}badge-margin-low{% endif %} font-monospace">
+                                                {{ row.margin_pct|floatformat:2 }}%
+                                            </span>
+                                        </td>
+                                        <td class="text-center pe-4 d-print-none">
+                                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 py-1" data-bs-toggle="collapse" data-bs-target="#bill-breakdown-{{ forloop.counter }}" aria-expanded="false" title="View Item Profit Breakdown">
+                                                <i class="bi bi-chevron-down"></i> Items
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <!-- Collapsible Item Breakdown Row -->
+                                    <tr class="collapse bg-light d-print-table-row" id="bill-breakdown-{{ forloop.counter }}">
+                                        <td colspan="10" class="p-3 bg-light">
+                                            <div class="card border rounded-3 p-2 bg-white">
+                                                <h6 class="fw-bold mb-2 text-dark px-2 pt-1">
+                                                    <i class="bi bi-box-seam me-1 text-primary"></i> Invoice Items Profit Breakdown ({{ row.invoice.invoice_number }})
+                                                </h6>
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-bordered align-middle mb-0 nested-item-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Product Brand Name</th>
+                                                                <th>Batch No</th>
+                                                                <th>Expiry</th>
+                                                                <th class="text-center">Billed Qty</th>
+                                                                <th class="text-center">Free Qty</th>
+                                                                <th class="text-end">Cost Rate</th>
+                                                                <th class="text-end">Sale Rate</th>
+                                                                <th class="text-end">Disc %</th>
+                                                                <th class="text-end">Taxable Sale (₹)</th>
+                                                                <th class="text-end">Cost Value (₹)</th>
+                                                                <th class="text-end">Item Profit (₹)</th>
+                                                                <th class="text-end">Margin %</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {% for itm in row.items %}
+                                                                <tr>
+                                                                    <td class="fw-bold">{{ itm.product_name }}</td>
+                                                                    <td><code>{{ itm.batch_number }}</code></td>
+                                                                    <td>{{ itm.expiry_date|date:"m/y"|default:"-" }}</td>
+                                                                    <td class="text-center">{{ itm.billed_qty|floatformat:0 }}</td>
+                                                                    <td class="text-center">{% if itm.free_qty > 0 %}+{{ itm.free_qty|floatformat:0 }}{% else %}-{% endif %}</td>
+                                                                    <td class="text-end font-monospace">₹{{ itm.purchase_rate|floatformat:2 }}</td>
+                                                                    <td class="text-end font-monospace">₹{{ itm.sale_rate|floatformat:2 }}</td>
+                                                                    <td class="text-end">{{ itm.discount_pct|floatformat:1 }}%</td>
+                                                                    <td class="text-end font-monospace">₹{{ itm.sale_val|floatformat:2 }}</td>
+                                                                    <td class="text-end font-monospace text-secondary">₹{{ itm.cost_val|floatformat:2 }}</td>
+                                                                    <td class="text-end font-monospace fw-bold {% if itm.profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                                                        ₹{{ itm.profit|floatformat:2 }}
+                                                                    </td>
+                                                                    <td class="text-end font-monospace">
+                                                                        <span class="badge {% if itm.margin_pct >= 15 %}badge-margin-high{% elif itm.margin_pct >= 5 %}badge-margin-mid{% else %}badge-margin-low{% endif %}">
+                                                                            {{ itm.margin_pct|floatformat:2 }}%
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="10" class="text-center py-5 text-muted">
+                                            <i class="bi bi-receipt-cutoff display-4 d-block mb-3 text-secondary"></i>
+                                            No bill transactions recorded in this range.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            {% if bill_report %}
+                            <tfoot class="table-light fw-bold">
+                                <tr class="border-top border-2">
+                                    <td class="ps-4" colspan="4">TOTALS ({{ bill_report|length }} Bills)</td>
+                                    <td class="text-center">{{ total_line_items }} items</td>
+                                    <td class="text-end font-monospace">₹{{ overall_sales|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace text-secondary">₹{{ overall_cost|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace text-success">₹{{ overall_profit|floatformat:2 }}</td>
+                                    <td class="text-center font-monospace">{{ overall_margin|floatformat:2 }}%</td>
+                                    <td class="d-print-none"></td>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 3. CUSTOMER-WISE PROFIT PANE -->
+                <div class="tab-pane fade {% if active_tab == 'customer' %}show active{% endif %}" id="pane-customer" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-profit" id="tableCustomerWise">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Chemist / Customer Name</th>
+                                    <th>City / Area</th>
+                                    <th class="text-center">Bills Count</th>
+                                    <th class="text-center">Total Packs</th>
+                                    <th class="text-end">Total Sales (₹)</th>
+                                    <th class="text-end">Total Cost (₹)</th>
+                                    <th class="text-end">Gross Profit (₹)</th>
+                                    <th class="text-end">Margin %</th>
+                                    <th class="text-end pe-4">Profit Share %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in customer_report %}
+                                    <tr>
+                                        <td class="ps-4">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="bi bi-shop text-primary"></i>
+                                                <strong class="text-dark">{{ row.customer_name }}</strong>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="text-muted">{{ row.city|default:row.area|default:"-" }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border">{{ row.bills_count }} Bills</span>
+                                        </td>
+                                        <td class="text-center">{{ row.total_qty|floatformat:0 }}</td>
+                                        <td class="text-end font-monospace">₹{{ row.total_sales|floatformat:2 }}</td>
+                                        <td class="text-end font-monospace text-secondary">₹{{ row.total_cost|floatformat:2 }}</td>
+                                        <td class="text-end font-monospace fw-bold {% if row.total_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            ₹{{ row.total_profit|floatformat:2 }}
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="badge {% if row.margin_pct >= 15 %}badge-margin-high{% elif row.margin_pct >= 5 %}badge-margin-mid{% else %}badge-margin-low{% endif %} font-monospace">
+                                                {{ row.margin_pct|floatformat:2 }}%
+                                            </span>
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <div class="d-flex align-items-center justify-content-end gap-2">
+                                                <span class="font-monospace fw-semibold">{{ row.profit_share|floatformat:1 }}%</span>
+                                                <div class="progress flex-grow-1" style="height: 6px; max-width: 60px;">
+                                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ row.profit_share|floatformat:0 }}%;"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="9" class="text-center py-5 text-muted">
+                                            <i class="bi bi-people display-4 d-block mb-3 text-secondary"></i>
+                                            No customer sales data available for this selection.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            {% if customer_report %}
+                            <tfoot class="table-light fw-bold">
+                                <tr class="border-top border-2">
+                                    <td class="ps-4" colspan="2">TOTALS ({{ customer_report|length }} Customers)</td>
+                                    <td class="text-center">{{ overall_bills_count }} Bills</td>
+                                    <td class="text-center">{{ overall_total_qty|floatformat:0 }}</td>
+                                    <td class="text-end font-monospace">₹{{ overall_sales|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace text-secondary">₹{{ overall_cost|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace text-success">₹{{ overall_profit|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace">{{ overall_margin|floatformat:2 }}%</td>
+                                    <td class="text-end pe-4 font-monospace">100.0%</td>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 4. COMPANY-WISE PROFIT PANE -->
+                <div class="tab-pane fade {% if active_tab == 'company' %}show active{% endif %}" id="pane-company" role="tabpanel">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-profit" id="tableCompanyWise">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Pharma Company / Manufacturer</th>
+                                    <th class="text-center">Products Sold</th>
+                                    <th class="text-center">Bills Count</th>
+                                    <th class="text-center">Billed Qty</th>
+                                    <th class="text-center">Free Qty</th>
+                                    <th class="text-center">Total Packs</th>
+                                    <th class="text-end">Total Sales (₹)</th>
+                                    <th class="text-end">Total Cost (₹)</th>
+                                    <th class="text-end">Gross Profit (₹)</th>
+                                    <th class="text-end">Margin %</th>
+                                    <th class="text-end pe-4">Profit Share %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in company_report %}
+                                    <tr>
+                                        <td class="ps-4">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <i class="bi bi-building text-info"></i>
+                                                <strong class="text-dark">{{ row.company_name }}</strong>
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border">{{ row.products_count }} Prods</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-light text-dark border">{{ row.bills_count }} Bills</span>
+                                        </td>
+                                        <td class="text-center">{{ row.billed_qty|floatformat:0 }}</td>
+                                        <td class="text-center text-muted">{% if row.free_qty > 0 %}+{{ row.free_qty|floatformat:0 }}{% else %}-{% endif %}</td>
+                                        <td class="text-center fw-semibold">{{ row.total_qty|floatformat:0 }}</td>
+                                        <td class="text-end font-monospace">₹{{ row.total_sales|floatformat:2 }}</td>
+                                        <td class="text-end font-monospace text-secondary">₹{{ row.total_cost|floatformat:2 }}</td>
+                                        <td class="text-end font-monospace fw-bold {% if row.total_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            ₹{{ row.total_profit|floatformat:2 }}
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="badge {% if row.margin_pct >= 15 %}badge-margin-high{% elif row.margin_pct >= 5 %}badge-margin-mid{% else %}badge-margin-low{% endif %} font-monospace">
+                                                {{ row.margin_pct|floatformat:2 }}%
+                                            </span>
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <div class="d-flex align-items-center justify-content-end gap-2">
+                                                <span class="font-monospace fw-semibold">{{ row.profit_share|floatformat:1 }}%</span>
+                                                <div class="progress flex-grow-1" style="height: 6px; max-width: 60px;">
+                                                    <div class="progress-bar bg-info" role="progressbar" style="width: {{ row.profit_share|floatformat:0 }}%;"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="11" class="text-center py-5 text-muted">
+                                            <i class="bi bi-building-x display-4 d-block mb-3 text-secondary"></i>
+                                            No company sales data available in this range.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            {% if company_report %}
+                            <tfoot class="table-light fw-bold">
+                                <tr class="border-top border-2">
+                                    <td class="ps-4" colspan="2">TOTALS ({{ company_report|length }} Companies)</td>
+                                    <td class="text-center">{{ overall_bills_count }} Bills</td>
+                                    <td class="text-center">{{ overall_billed_qty|floatformat:0 }}</td>
+                                    <td class="text-center">+{{ overall_free_qty|floatformat:0 }}</td>
+                                    <td class="text-center">{{ overall_total_qty|floatformat:0 }}</td>
+                                    <td class="text-end font-monospace">₹{{ overall_sales|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace text-secondary">₹{{ overall_cost|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace text-success">₹{{ overall_profit|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace">{{ overall_margin|floatformat:2 }}%</td>
+                                    <td class="text-end pe-4 font-monospace">100.0%</td>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function setTabParam(tabName) {
+        const input = document.getElementById('activeTabInput');
+        if (input) {
+            input.value = tabName;
+        }
+        // Update URL query string without reloading
+        const url = new URL(window.location);
+        url.searchParams.set('tab', tabName);
+        window.history.replaceState({}, '', url);
+    }
+
+    function applyDatePreset(preset) {
+        const now = new Date();
+        const startInput = document.getElementById('filterStartDate');
+        const endInput = document.getElementById('filterEndDate');
+        
+        function formatDate(d) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        let startDate = new Date();
+        let endDate = new Date();
+
+        if (preset === 'today') {
+            startDate = new Date();
+            endDate = new Date();
+        } else if (preset === 'yesterday') {
+            startDate.setDate(now.getDate() - 1);
+            endDate.setDate(now.getDate() - 1);
+        } else if (preset === 'this_month') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = new Date();
+        } else if (preset === 'last_month') {
+            startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (preset === 'last_30_days') {
+            startDate.setDate(now.getDate() - 30);
+            endDate = new Date();
+        }
+
+        startInput.value = formatDate(startDate);
+        endInput.value = formatDate(endDate);
+        document.getElementById('profitFilterForm').submit();
+    }
+
+    function exportCurrentActiveTableCSV() {
+        const activeTab = document.getElementById('activeTabInput').value || 'date';
+        let tableId = 'tableDateWise';
+        let fileName = 'Profit_Report_DateWise.csv';
+
+        if (activeTab === 'bill') {
+            tableId = 'tableBillWise';
+            fileName = 'Profit_Report_BillWise.csv';
+        } else if (activeTab === 'customer') {
+            tableId = 'tableCustomerWise';
+            fileName = 'Profit_Report_CustomerWise.csv';
+        } else if (activeTab === 'company') {
+            tableId = 'tableCompanyWise';
+            fileName = 'Profit_Report_CompanyWise.csv';
+        }
+
+        const table = document.getElementById(tableId);
+        if (!table) return;
+
+        let csv = [];
+        const rows = table.querySelectorAll('tr');
+        for (let i = 0; i < rows.length; i++) {
+            // Ignore nested breakdown rows in CSV export
+            if (rows[i].classList.contains('collapse')) continue;
+            
+            let row = [], cols = rows[i].querySelectorAll('td, th');
+            for (let j = 0; j < cols.length; j++) {
+                // Remove buttons and extra icons
+                if (cols[j].classList.contains('d-print-none') && cols[j].querySelector('button')) continue;
+                let text = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, ' ').replace(/\s+/g, ' ').trim();
+                text = text.replace(/"/g, '""');
+                row.push('"' + text + '"');
+            }
+            if (row.length > 0) {
+                csv.push(row.join(','));
+            }
+        }
+
+        const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+        const downloadLink = document.createElement('a');
+        downloadLink.download = fileName;
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        downloadLink.style.display = 'none';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    }
+</script>
+{% endblock %}

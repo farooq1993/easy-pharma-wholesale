@@ -552,3 +552,339 @@ def report_gst(request):
     }
     return render(request, 'reports/gst_report.html', context)
 
+
+@login_required
+def report_profit(request):
+    """Profit & Margins Report across Date-wise, Bill-wise, Customer-wise, and Company-wise tabs."""
+    from wholesaleApp.views.security_helpers import has_feature_access
+    if not (request.user.is_superuser or has_feature_access(request.user, 'view_margins') or has_feature_access(request.user, 'sales_view')):
+        from django.contrib import messages
+        messages.error(request, "Access Denied: You do not have permission to view Profit Margins.")
+        return redirect('home')
+
+    today = timezone.now().date()
+    
+    # Date filters (default current month)
+    default_start = today.replace(day=1)
+    start_date_str = request.GET.get('start_date', default_start.strftime('%Y-%m-%d'))
+    end_date_str = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    
+    customer_id = request.GET.get('customer', 'all')
+    company_id = request.GET.get('company', 'all')
+    active_tab = request.GET.get('tab', 'date')
+    if active_tab not in ['date', 'bill', 'customer', 'company']:
+        active_tab = 'date'
+        
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        start_date = default_start
+        start_date_str = default_start.strftime('%Y-%m-%d')
+        
+    try:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        end_date = today
+        end_date_str = today.strftime('%Y-%m-%d')
+
+    customers = CustomerMaster.objects.filter(is_deleted=False).order_by('name')
+    companies = CompanyMaster.objects.filter(is_deleted=False).order_by('name')
+    
+    # Base query for sold invoice items
+    items_qs = SalesInvoiceItem.objects.filter(
+        sales_invoice__invoice_date__range=[start_date, end_date]
+    ).select_related(
+        'sales_invoice',
+        'sales_invoice__customer',
+        'sales_invoice__customer__area',
+        'product',
+        'product__company',
+        'batch'
+    )
+    
+    if customer_id != 'all' and customer_id:
+        items_qs = items_qs.filter(sales_invoice__customer_id=customer_id)
+        
+    if company_id != 'all' and company_id:
+        items_qs = items_qs.filter(product__company_id=company_id)
+        
+    items_qs = items_qs.order_by('-sales_invoice__invoice_date', '-sales_invoice__id')
+    
+    # In-memory fast aggregations
+    date_dict = defaultdict(lambda: {
+        'date': None,
+        'invoice_ids': set(),
+        'billed_qty': Decimal('0.00'),
+        'free_qty': Decimal('0.00'),
+        'total_qty': Decimal('0.00'),
+        'total_sales': Decimal('0.00'),
+        'total_cost': Decimal('0.00'),
+        'total_profit': Decimal('0.00'),
+    })
+    
+    bill_dict = defaultdict(lambda: {
+        'invoice': None,
+        'items_count': 0,
+        'billed_qty': Decimal('0.00'),
+        'free_qty': Decimal('0.00'),
+        'total_qty': Decimal('0.00'),
+        'total_sales': Decimal('0.00'),
+        'total_cost': Decimal('0.00'),
+        'total_profit': Decimal('0.00'),
+        'items': []
+    })
+    
+    customer_dict = defaultdict(lambda: {
+        'customer_name': '',
+        'city': '',
+        'area': '',
+        'invoice_ids': set(),
+        'billed_qty': Decimal('0.00'),
+        'free_qty': Decimal('0.00'),
+        'total_qty': Decimal('0.00'),
+        'total_sales': Decimal('0.00'),
+        'total_cost': Decimal('0.00'),
+        'total_profit': Decimal('0.00'),
+    })
+    
+    company_dict = defaultdict(lambda: {
+        'company_name': '',
+        'product_ids': set(),
+        'invoice_ids': set(),
+        'billed_qty': Decimal('0.00'),
+        'free_qty': Decimal('0.00'),
+        'total_qty': Decimal('0.00'),
+        'total_sales': Decimal('0.00'),
+        'total_cost': Decimal('0.00'),
+        'total_profit': Decimal('0.00'),
+    })
+    
+    overall_sales = Decimal('0.00')
+    overall_cost = Decimal('0.00')
+    overall_billed_qty = Decimal('0.00')
+    overall_free_qty = Decimal('0.00')
+    overall_invoices_set = set()
+    total_line_items = 0
+
+    for item in items_qs:
+        inv = item.sales_invoice
+        prod = item.product
+        batch = item.batch
+        
+        b_qty = Decimal(item.quantity or 0)
+        f_qty = Decimal(item.free_quantity or 0)
+        tot_qty = b_qty + f_qty
+        
+        s_rate = Decimal(item.sale_rate or 0)
+        disc_pct = Decimal(item.discount_percentage or 0)
+        
+        # Item Taxable Sales Revenue
+        base_amt = b_qty * s_rate
+        disc_amt = base_amt * (disc_pct / Decimal('100.00'))
+        sale_val = base_amt - disc_amt
+        
+        # Item Purchase Cost (Cost of Goods Sold - including free quantities issued)
+        p_rate = Decimal(batch.purchase_rate or 0) if batch else Decimal('0.00')
+        cost_val = tot_qty * p_rate
+        
+        item_profit = sale_val - cost_val
+        item_margin = (item_profit / sale_val * Decimal('100.00')) if sale_val > 0 else Decimal('0.00')
+        
+        # Accumulate Overall
+        overall_sales += sale_val
+        overall_cost += cost_val
+        overall_billed_qty += b_qty
+        overall_free_qty += f_qty
+        overall_invoices_set.add(inv.id)
+        total_line_items += 1
+        
+        # 1. Accumulate Date-wise
+        dt = inv.invoice_date
+        d_row = date_dict[dt]
+        d_row['date'] = dt
+        d_row['invoice_ids'].add(inv.id)
+        d_row['billed_qty'] += b_qty
+        d_row['free_qty'] += f_qty
+        d_row['total_qty'] += tot_qty
+        d_row['total_sales'] += sale_val
+        d_row['total_cost'] += cost_val
+        d_row['total_profit'] += item_profit
+        
+        # 2. Accumulate Bill-wise
+        b_row = bill_dict[inv.id]
+        b_row['invoice'] = inv
+        b_row['items_count'] += 1
+        b_row['billed_qty'] += b_qty
+        b_row['free_qty'] += f_qty
+        b_row['total_qty'] += tot_qty
+        b_row['total_sales'] += sale_val
+        b_row['total_cost'] += cost_val
+        b_row['total_profit'] += item_profit
+        b_row['items'].append({
+            'product_name': prod.name,
+            'batch_number': batch.batch_number if batch else '-',
+            'expiry_date': batch.expiry_date if batch else None,
+            'billed_qty': b_qty,
+            'free_qty': f_qty,
+            'total_qty': tot_qty,
+            'sale_rate': s_rate,
+            'purchase_rate': p_rate,
+            'discount_pct': disc_pct,
+            'sale_val': sale_val,
+            'cost_val': cost_val,
+            'profit': item_profit,
+            'margin_pct': item_margin
+        })
+        
+        # 3. Accumulate Customer-wise
+        cust = inv.customer
+        cust_key = cust.id if cust else f"retail_{inv.patient_name or 'counter'}"
+        c_row = customer_dict[cust_key]
+        if not c_row['customer_name']:
+            if cust:
+                c_row['customer_name'] = cust.name
+                c_row['city'] = cust.city or (cust.area.city if cust.area else '')
+                c_row['area'] = cust.subarea.name if cust.subarea else (cust.area.city if cust.area else '')
+            else:
+                c_row['customer_name'] = f"{inv.patient_name or 'Walk-in Retail'}"
+                c_row['city'] = 'Retail Counter'
+                c_row['area'] = '-'
+        c_row['invoice_ids'].add(inv.id)
+        c_row['billed_qty'] += b_qty
+        c_row['free_qty'] += f_qty
+        c_row['total_qty'] += tot_qty
+        c_row['total_sales'] += sale_val
+        c_row['total_cost'] += cost_val
+        c_row['total_profit'] += item_profit
+        
+        # 4. Accumulate Company-wise
+        comp = prod.company if prod else None
+        comp_key = comp.id if comp else 'no_company'
+        cp_row = company_dict[comp_key]
+        if not cp_row['company_name']:
+            cp_row['company_name'] = comp.name if comp else 'Generic / Unassigned'
+        cp_row['product_ids'].add(prod.id)
+        cp_row['invoice_ids'].add(inv.id)
+        cp_row['billed_qty'] += b_qty
+        cp_row['free_qty'] += f_qty
+        cp_row['total_qty'] += tot_qty
+        cp_row['total_sales'] += sale_val
+        cp_row['total_cost'] += cost_val
+        cp_row['total_profit'] += item_profit
+
+    overall_profit = overall_sales - overall_cost
+    overall_margin = (overall_profit / overall_sales * Decimal('100.00')) if overall_sales > 0 else Decimal('0.00')
+
+    # Post-process and sort collections
+    date_report = []
+    for dt, data in date_dict.items():
+        sales = data['total_sales']
+        profit = data['total_profit']
+        margin = (profit / sales * Decimal('100.00')) if sales > 0 else Decimal('0.00')
+        date_report.append({
+            'date': dt,
+            'bills_count': len(data['invoice_ids']),
+            'billed_qty': data['billed_qty'],
+            'free_qty': data['free_qty'],
+            'total_qty': data['total_qty'],
+            'total_sales': sales,
+            'total_cost': data['total_cost'],
+            'total_profit': profit,
+            'margin_pct': margin
+        })
+    date_report.sort(key=lambda x: x['date'], reverse=True)
+    
+    bill_report = []
+    for inv_id, data in bill_dict.items():
+        sales = data['total_sales']
+        profit = data['total_profit']
+        margin = (profit / sales * Decimal('100.00')) if sales > 0 else Decimal('0.00')
+        bill_report.append({
+            'invoice': data['invoice'],
+            'items_count': data['items_count'],
+            'billed_qty': data['billed_qty'],
+            'free_qty': data['free_qty'],
+            'total_qty': data['total_qty'],
+            'total_sales': sales,
+            'total_cost': data['total_cost'],
+            'total_profit': profit,
+            'margin_pct': margin,
+            'items': data['items']
+        })
+    bill_report.sort(key=lambda x: (x['invoice'].invoice_date, x['invoice'].id), reverse=True)
+    
+    customer_report = []
+    for cust_k, data in customer_dict.items():
+        sales = data['total_sales']
+        profit = data['total_profit']
+        margin = (profit / sales * Decimal('100.00')) if sales > 0 else Decimal('0.00')
+        share = (profit / overall_profit * Decimal('100.00')) if overall_profit > 0 else Decimal('0.00')
+        customer_report.append({
+            'customer_name': data['customer_name'],
+            'city': data['city'],
+            'area': data['area'],
+            'bills_count': len(data['invoice_ids']),
+            'billed_qty': data['billed_qty'],
+            'free_qty': data['free_qty'],
+            'total_qty': data['total_qty'],
+            'total_sales': sales,
+            'total_cost': data['total_cost'],
+            'total_profit': profit,
+            'margin_pct': margin,
+            'profit_share': share
+        })
+    customer_report.sort(key=lambda x: x['total_profit'], reverse=True)
+    
+    company_report = []
+    for comp_k, data in company_dict.items():
+        sales = data['total_sales']
+        profit = data['total_profit']
+        margin = (profit / sales * Decimal('100.00')) if sales > 0 else Decimal('0.00')
+        share = (profit / overall_profit * Decimal('100.00')) if overall_profit > 0 else Decimal('0.00')
+        company_report.append({
+            'company_name': data['company_name'],
+            'products_count': len(data['product_ids']),
+            'bills_count': len(data['invoice_ids']),
+            'billed_qty': data['billed_qty'],
+            'free_qty': data['free_qty'],
+            'total_qty': data['total_qty'],
+            'total_sales': sales,
+            'total_cost': data['total_cost'],
+            'total_profit': profit,
+            'margin_pct': margin,
+            'profit_share': share
+        })
+    company_report.sort(key=lambda x: x['total_profit'], reverse=True)
+
+    context = {
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'selected_customer': customer_id,
+        'selected_company': company_id,
+        'active_tab': active_tab,
+        'customers': customers,
+        'companies': companies,
+        
+        # Summary Totals
+        'overall_sales': overall_sales,
+        'overall_cost': overall_cost,
+        'overall_profit': overall_profit,
+        'overall_margin': overall_margin,
+        'overall_bills_count': len(overall_invoices_set),
+        'overall_billed_qty': overall_billed_qty,
+        'overall_free_qty': overall_free_qty,
+        'overall_total_qty': overall_billed_qty + overall_free_qty,
+        'total_line_items': total_line_items,
+        
+        # Tab Datasets
+        'date_report': date_report,
+        'bill_report': bill_report,
+        'customer_report': customer_report,
+        'company_report': company_report,
+        
+        'page_title': 'Profit & Margins Report',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'reports/profit_report.html', context)
+
+

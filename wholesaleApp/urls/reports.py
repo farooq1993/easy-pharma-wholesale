@@ -7,11 +7,13 @@ from wholesaleApp.views.reports_views import (
     report_outstanding,
     report_company_sales,
     report_customer_sales,
-    report_gst
+    report_gst,
+    report_profit
 )
 
 urlpatterns = [
     path('reports/dashboard/', reports_dashboard, name='reports_dashboard'),
+    path('reports/profit/', report_profit, name='report_profit'),
     path('reports/sales/', report_sales, name='report_sales'),
     path('reports/expiry/', report_expiry, name='report_expiry'),
     path('reports/stock/', report_stock, name='report_stock'),

@@ -61,7 +61,8 @@ def customer_create(request):
         messages.error(request, "Access Denied: You do not have permission to create Customers.")
         return redirect('home')
         
-    areas = AreaMaster.objects.filter(is_active=True)
+    areas = AreaMaster.objects.filter(is_active=True).order_by('city')
+    subareas = SubareaMaster.objects.filter(is_active=True).select_related('area').order_by('name')
     if request.method == 'POST':
         # Form handling
         mobile = request.POST.get('mobile', '').strip()
@@ -79,6 +80,7 @@ def customer_create(request):
             messages.error(request, error_message)
             return redirect('createcustomer')
         area_id = request.POST.get('area')
+        subarea_id = request.POST.get('subarea') or None
         city = request.POST.get('city', '').strip()
         state = request.POST.get('state', '').strip()
         if not city and area_id:
@@ -99,6 +101,7 @@ def customer_create(request):
             dl_number_2=request.POST.get('dl_number_2', ''),
             dl_number_3=request.POST.get('dl_number_3', ''),
             area_id=area_id,
+            subarea_id=subarea_id if subarea_id and subarea_id.isdigit() else None,
             address=request.POST.get('address', ''),
             city=city,
             state=state,
@@ -126,6 +129,7 @@ def customer_create(request):
     
     context = {
         'areas': areas, 
+        'subareas': subareas,
         'page_title': 'Add New Customer',
         'user_perms': get_user_permissions_context(request.user)
     }
@@ -139,7 +143,8 @@ def customer_edit(request, pk):
         return redirect('home')
         
     customer = get_object_or_404(CustomerMaster, pk=pk, is_deleted=False)
-    areas = AreaMaster.objects.filter(is_active=True)
+    areas = AreaMaster.objects.filter(is_active=True).order_by('city')
+    subareas = SubareaMaster.objects.filter(is_active=True).select_related('area').order_by('name')
     
     if request.method == 'POST':
         dl_number_1 = request.POST.get('dl_number_1', '').strip()
@@ -156,6 +161,7 @@ def customer_edit(request, pk):
         customer.dl_number_2 = request.POST.get('dl_number_2', '')
         customer.dl_number_3 = request.POST.get('dl_number_3', '')
         area_id = request.POST.get('area')
+        subarea_id = request.POST.get('subarea') or None
         city = request.POST.get('city', '').strip()
         if not city and area_id:
             try:
@@ -165,6 +171,7 @@ def customer_edit(request, pk):
                 pass
 
         customer.area_id = area_id
+        customer.subarea_id = subarea_id if subarea_id and subarea_id.isdigit() else None
         customer.address = request.POST.get('address', '')
         customer.city = city
         customer.state = request.POST.get('state', '')
@@ -181,6 +188,7 @@ def customer_edit(request, pk):
     context = {
         'customer': customer, 
         'areas': areas, 
+        'subareas': subareas,
         'page_title': 'Edit Customer',
         'user_perms': get_user_permissions_context(request.user)
     }
@@ -210,8 +218,8 @@ def area_list(request):
         messages.error(request, "Access Denied: You do not have permission to view Areas.")
         return redirect('home')
         
-    areas = AreaMaster.objects.filter(is_active=True)
-    subareas = SubareaMaster.objects.filter(is_active=True).select_related('area')
+    areas = AreaMaster.objects.filter(is_active=True).order_by('city')
+    subareas = SubareaMaster.objects.filter(is_active=True).select_related('area').order_by('name')
     context = {
         'areas': areas,
         'subareas': subareas,
@@ -223,20 +231,47 @@ def area_list(request):
 @login_required
 def area_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.POST.get('ajax') == '1'
+    
     if not has_feature_access(request.user, 'area_create'):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': "Access Denied: You do not have permission to create Areas."}, status=403)
         messages.error(request, "Access Denied: You do not have permission to create Areas.")
         return redirect('home')
         
     if request.method == 'POST':
-        city = request.POST['city']
-        code = request.POST.get('code', '')
+        city = request.POST.get('city', '').strip()
+        code = request.POST.get('code', '').strip()
         
+        if not city:
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': "Area / City name is required."}, status=400)
+            messages.error(request, "Area / City name is required.")
+            return render(request, 'customers/area_form.html', {'page_title': 'Add New Area'})
+
         # Check if already exists
         if AreaMaster.objects.filter(city__iexact=city).exists():
+            existing = AreaMaster.objects.filter(city__iexact=city).first()
+            if is_ajax:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': f"Area / City '{city}' already exists.",
+                    'id': existing.id,
+                    'city': existing.city,
+                    'code': existing.code or ''
+                }, status=400)
             messages.error(request, f"Area for city '{city}' already exists.")
         else:
             area = AreaMaster(city=city, code=code)
             area.save()
+            if is_ajax:
+                return JsonResponse({
+                    'status': 'success',
+                    'message': f"Area / City '{city}' created successfully!",
+                    'id': area.id,
+                    'city': area.city,
+                    'code': area.code or ''
+                })
             messages.success(request, 'Area created successfully!')
             return redirect('area_list')
             
@@ -286,20 +321,48 @@ def area_delete(request, pk):
 @login_required
 def subarea_create(request):
     from wholesaleApp.views.security_helpers import has_feature_access, get_user_permissions_context
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.POST.get('ajax') == '1'
+    
     if not has_feature_access(request.user, 'area_create'):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': "Access Denied: You do not have permission to create Subareas."}, status=403)
         messages.error(request, "Access Denied: You do not have permission to create Subareas.")
         return redirect('home')
         
-    areas = AreaMaster.objects.filter(is_active=True)
+    areas = AreaMaster.objects.filter(is_active=True).order_by('city')
     if request.method == 'POST':
-        area_id = request.POST['area']
-        name = request.POST['name']
+        area_id = request.POST.get('area')
+        name = request.POST.get('name', '').strip()
         
+        if not name or not area_id:
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': "Parent Area and Subarea name are required."}, status=400)
+            messages.error(request, "Area and Subarea name are required.")
+            return render(request, 'customers/subarea_form.html', {'areas': areas, 'page_title': 'Add New Subarea'})
+
         if SubareaMaster.objects.filter(area_id=area_id, name__iexact=name).exists():
+            existing = SubareaMaster.objects.filter(area_id=area_id, name__iexact=name).first()
+            if is_ajax:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': f"Subarea '{name}' already exists in this area.",
+                    'id': existing.id,
+                    'name': existing.name,
+                    'area_id': existing.area_id
+                }, status=400)
             messages.error(request, f"Subarea '{name}' already exists in this area.")
         else:
             subarea = SubareaMaster(area_id=area_id, name=name)
             subarea.save()
+            if is_ajax:
+                return JsonResponse({
+                    'status': 'success',
+                    'message': f"Subarea '{name}' created successfully!",
+                    'id': subarea.id,
+                    'name': subarea.name,
+                    'area_id': subarea.area_id,
+                    'area_city': subarea.area.city
+                })
             messages.success(request, 'Subarea created successfully!')
             return redirect('area_list')
             
