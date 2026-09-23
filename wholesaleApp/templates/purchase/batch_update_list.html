@@ -1,0 +1,509 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}Batch MRP & Expiry Change{% endblock %}
+{% block page_title %}Batch MRP & Expiry Change{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-1 text-dark">
+            <i class="bi bi-pencil-square text-primary me-2"></i>Batch MRP &amp; Expiry Change
+        </h4>
+        <p class="text-muted small mb-0">
+            Real-time batch stock management: Update Batch Numbers, Expiry Dates, MRP, and Multi-Tier Selling Rates via secure PUT API.
+        </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill fw-semibold">
+            <i class="bi bi-box-seam text-primary me-1"></i> Total Batches: <strong>{{ total_count }}</strong>
+        </span>
+    </div>
+</div>
+
+<!-- Search & Filters Strip -->
+<div class="card shadow-sm border-0 rounded-4 mb-4 bg-white">
+    <div class="card-body p-3">
+        <form method="GET" class="row g-2 align-items-center">
+            <!-- Search Query -->
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" name="q" class="form-control border-start-0" placeholder="Search product name, batch no, HSN..." value="{{ q }}">
+                </div>
+            </div>
+
+            <!-- Company Filter -->
+            <div class="col-md-3">
+                <select name="company" class="form-select" onchange="this.form.submit()">
+                    <option value="">All Companies / Manufacturers</option>
+                    {% for comp in companies %}
+                    <option value="{{ comp.id }}" {% if company_id == comp.id|stringformat:"s" %}selected{% endif %}>{{ comp.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Stock Status -->
+            <div class="col-md-2">
+                <select name="stock" class="form-select" onchange="this.form.submit()">
+                    <option value="in_stock" {% if stock_filter == 'in_stock' %}selected{% endif %}>In-Stock Only (&gt;0)</option>
+                    <option value="all" {% if stock_filter == 'all' %}selected{% endif %}>All Batches (Including 0)</option>
+                    <option value="out_of_stock" {% if stock_filter == 'out_of_stock' %}selected{% endif %}>Out of Stock (=0)</option>
+                </select>
+            </div>
+
+            <!-- Expiry Filter -->
+            <div class="col-md-2">
+                <select name="expiry" class="form-select" onchange="this.form.submit()">
+                    <option value="all" {% if expiry_filter == 'all' %}selected{% endif %}>All Expiries</option>
+                    <option value="near_expiry" {% if expiry_filter == 'near_expiry' %}selected{% endif %}>Near Expiry (&le; 90 Days)</option>
+                    <option value="expired" {% if expiry_filter == 'expired' %}selected{% endif %}>Expired Batches</option>
+                </select>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="col-md-1 d-flex gap-1">
+                <button type="submit" class="btn btn-primary w-100 rounded-3 px-2" title="Apply Filter">
+                    <i class="bi bi-funnel-fill"></i>
+                </button>
+                {% if q or company_id or stock_filter != 'in_stock' or expiry_filter != 'all' %}
+                <a href="{% url 'batch_update_list' %}" class="btn btn-outline-secondary rounded-3 px-2" title="Reset Filters">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Batches Table Card -->
+<div class="card shadow-sm border-0 rounded-4 overflow-hidden mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="batchesTable">
+                <thead class="table-light">
+                    <tr class="text-uppercase small text-muted">
+                        <th class="ps-4">Product / Item</th>
+                        <th>Company</th>
+                        <th class="text-center">Batch No</th>
+                        <th class="text-center">Expiry (MM/YY)</th>
+                        <th class="text-center">Available Stock</th>
+                        <th class="text-end">M.R.P. (₹)</th>
+                        <th class="text-end">Pur. Rate (₹)</th>
+                        <th class="text-end">Rate A (S.Rate)</th>
+                        <th class="text-end">Rate B (W.Rate)</th>
+                        <th class="text-end">Rate C (Spl)</th>
+                        <th class="text-center pe-4">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in page_obj %}
+                    <tr id="batch-row-{{ b.id }}" class="batch-row transition-all">
+                        <!-- Product Title -->
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark text-truncate" style="max-width: 220px;" title="{{ b.product.name }}">{{ b.product.name }}</div>
+                            <small class="badge bg-secondary-subtle text-secondary rounded-pill px-2 py-0.5">{{ b.product.pack_size }}</small>
+                            {% if b.product.hsn_code %}
+                            <small class="text-muted ms-1" style="font-size: 0.72rem;">HSN: {{ b.product.hsn_code }}</small>
+                            {% endif %}
+                        </td>
+
+                        <!-- Company -->
+                        <td>
+                            <span class="text-muted small text-truncate d-inline-block" style="max-width: 130px;">
+                                {{ b.product.company.name|default:"-" }}
+                            </span>
+                        </td>
+
+                        <!-- Batch Number -->
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark border px-2.5 py-1.5 fw-bold font-monospace batch-no-badge" id="disp-batch-{{ b.id }}">
+                                {{ b.batch_number }}
+                            </span>
+                        </td>
+
+                        <!-- Expiry Date -->
+                        <td class="text-center">
+                            {% if b.expiry_date < today %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill fw-bold" id="disp-exp-{{ b.id }}" title="Expired: {{ b.expiry_date|date:'d-M-Y' }}">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ b.expiry_date|date:"m/y" }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-semibold" id="disp-exp-{{ b.id }}" title="{{ b.expiry_date|date:'d-M-Y' }}">
+                                    {{ b.expiry_date|date:"m/y" }}
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Stock Qty -->
+                        <td class="text-center">
+                            {% if b.quantity > 0 %}
+                                <span class="fw-bold text-success fs-6">{{ b.quantity|floatformat:0 }}</span>
+                                <small class="text-muted">packs</small>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-muted">0 packs</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- MRP -->
+                        <td class="text-end fw-bold text-dark" id="disp-mrp-{{ b.id }}">₹{{ b.mrp|floatformat:2 }}</td>
+
+                        <!-- Purchase Rate -->
+                        <td class="text-end text-muted fw-semibold" id="disp-pur-{{ b.id }}">₹{{ b.purchase_rate|floatformat:2 }}</td>
+
+                        <!-- Rate A (S.Rate) -->
+                        <td class="text-end fw-bold text-primary" id="disp-srate-{{ b.id }}">₹{{ b.sale_rate|floatformat:2 }}</td>
+
+                        <!-- Rate B (W.Rate) -->
+                        <td class="text-end text-info fw-semibold" id="disp-wrate-{{ b.id }}">₹{{ b.wholesale_rate|floatformat:2 }}</td>
+
+                        <!-- Rate C (Special Rate) -->
+                        <td class="text-end text-success fw-semibold" id="disp-ratec-{{ b.id }}">₹{{ b.rate_c|floatformat:2 }}</td>
+
+                        <!-- Action Edit Button -->
+                        <td class="text-center pe-4">
+                            <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm fw-semibold" 
+                                    onclick="openEditBatchModal('{{ b.id }}', '{{ b.product.name|escapejs }}', '{{ b.product.pack_size|escapejs }}', '{{ b.batch_number|escapejs }}', '{{ b.expiry_date|date:'Y-m-d' }}', '{{ b.mrp }}', '{{ b.purchase_rate }}', '{{ b.sale_rate }}', '{{ b.wholesale_rate }}', '{{ b.rate_c }}', '{{ b.quantity }}')">
+                                <i class="bi bi-pencil-square me-1"></i> Edit
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+                            <h6 class="fw-bold">No batches matching criteria found</h6>
+                            <p class="small mb-0">Try clearing your search filters above.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if paginator.num_pages > 1 %}
+{% include 'includes/pagination.html' %}
+{% endif %}
+
+<!-- ==================== MODAL: EDIT BATCH DETAILS (HTTP PUT UPDATE) ==================== -->
+<div class="modal fade" id="editBatchModal" tabindex="-1" aria-labelledby="editBatchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow-lg overflow-hidden">
+            <!-- Modal Header -->
+            <div class="modal-header text-white border-0 py-3" style="background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-white bg-opacity-25 p-2 d-flex align-items-center justify-content-center" style="width:38px;height:38px;">
+                        <i class="bi bi-pencil-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" id="editBatchModalLabel">Update Batch Stock &amp; Rates</h5>
+                        <small class="text-white-50">HTTP PUT Request Real-Time Updater</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body p-4 bg-light">
+                <!-- Product Overview Banner -->
+                <div class="card border-0 shadow-sm rounded-3 mb-3 bg-white">
+                    <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <span class="text-muted small text-uppercase fw-semibold">Product / Medicine:</span>
+                            <h5 class="fw-bold text-dark mb-0" id="modalBatchProdName">-</h5>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary-subtle text-secondary px-3 py-2 rounded-pill fw-semibold" id="modalBatchPackBadge">Pack: -</span>
+                            <span class="badge bg-success-subtle text-success px-3 py-2 rounded-pill fw-bold" id="modalBatchStockBadge">Stock: 0 Packs</span>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="editBatchForm" onsubmit="submitBatchPutUpdate(event)">
+                    <input type="hidden" id="editBatchId" value="">
+
+                    <!-- Batch No & Expiry Row -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                                <label class="form-label fw-bold text-dark small text-uppercase">
+                                    <i class="bi bi-upc-scan text-primary me-1"></i> Batch Number <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="modalInputBatchNo" class="form-control fw-bold font-monospace fs-6" required placeholder="e.g. 458-10, B2026">
+                                <small class="text-muted">Batch identifier assigned by manufacturer.</small>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                                <label class="form-label fw-bold text-dark small text-uppercase">
+                                    <i class="bi bi-calendar-event text-danger me-1"></i> Expiry Date <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" id="modalInputExpiryDate" class="form-control fw-bold text-center fs-6" required>
+                                <small class="text-muted">Full expiry date (FEFO billing uses this date).</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Multi-Tier Pricing Cards Row -->
+                    <h6 class="fw-bold text-dark text-uppercase small tracking-wider mb-2">
+                        <i class="bi bi-tag-fill me-1 text-primary"></i> Rates &amp; Pricing Setup (Per Pack)
+                    </h6>
+                    <div class="row g-3 mb-3">
+                        <!-- Purchase Rate -->
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                                <label class="form-label text-muted fw-bold small mb-1">Purchase Rate (Cost)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">₹</span>
+                                    <input type="number" id="modalInputPurRate" class="form-control fw-bold text-end" step="0.01" min="0" placeholder="0.00" required oninput="calcBatchLiveMargins()">
+                                </div>
+                                <small class="text-muted">Your acquisition cost</small>
+                            </div>
+                        </div>
+
+                        <!-- MRP -->
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100">
+                                <label class="form-label text-dark fw-bold small mb-1">M.R.P. (Max Retail)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">₹</span>
+                                    <input type="number" id="modalInputMrp" class="form-control fw-bold text-end" step="0.01" min="0" placeholder="0.00" required oninput="calcBatchLiveMargins()">
+                                </div>
+                                <small class="text-muted">Retail price printed on pack</small>
+                            </div>
+                        </div>
+
+                        <!-- Rate A (Sale Rate) -->
+                        <div class="col-md-4">
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 border-start border-4 border-primary">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label text-primary fw-bold small mb-0">Rate A (S.Rate)</label>
+                                    <span class="badge bg-primary-subtle text-primary" style="font-size:0.65rem;">Default</span>
+                                </div>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">₹</span>
+                                    <input type="number" id="modalInputRateA" class="form-control fw-bold text-end text-primary" step="0.01" min="0" placeholder="0.00" required oninput="calcBatchLiveMargins()">
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1 small">
+                                    <span class="text-muted" style="font-size:0.75rem;">Markup:</span>
+                                    <span class="badge bg-success-subtle text-success fw-bold" id="modalBatchMarkupA">+0.0%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rate B (Wholesale Rate) -->
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 border-start border-4 border-info">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label text-info fw-bold small mb-0">Rate B (Wholesale / Bulk Rate)</label>
+                                    <span class="badge bg-info-subtle text-info" style="font-size:0.65rem;">Bulk/WS</span>
+                                </div>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">₹</span>
+                                    <input type="number" id="modalInputRateB" class="form-control fw-bold text-end text-info" step="0.01" min="0" placeholder="0.00" oninput="calcBatchLiveMargins()">
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1 small">
+                                    <span class="text-muted" style="font-size:0.75rem;">Markup:</span>
+                                    <span class="badge bg-info-subtle text-info fw-bold" id="modalBatchMarkupB">+0.0%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rate C (Special Rate) -->
+                        <div class="col-md-6">
+                            <div class="card border-0 shadow-sm rounded-3 p-3 bg-white h-100 border-start border-4 border-success">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label text-success fw-bold small mb-0">Rate C (Special / Hospital Rate)</label>
+                                    <span class="badge bg-success-subtle text-success" style="font-size:0.65rem;">Tier 3</span>
+                                </div>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">₹</span>
+                                    <input type="number" id="modalInputRateC" class="form-control fw-bold text-end text-success" step="0.01" min="0" placeholder="0.00" oninput="calcBatchLiveMargins()">
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-1 small">
+                                    <span class="text-muted" style="font-size:0.75rem;">Markup:</span>
+                                    <span class="badge bg-success-subtle text-success fw-bold" id="modalBatchMarkupC">+0.0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Actions -->
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="saveBatchPutBtn" class="btn btn-primary rounded-pill px-5 fw-bold shadow">
+                            <i class="bi bi-cloud-arrow-up-fill me-1"></i> Update Batch (PUT)
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.batch-row {
+    transition: background-color 0.8s ease, transform 0.2s ease;
+}
+.batch-row-updated {
+    background-color: #dcfce7 !important; /* Soft green flash */
+}
+</style>
+
+<script>
+function openEditBatchModal(id, prodName, packSize, batchNo, expDate, mrp, purRate, rateA, rateB, rateC, stockQty) {
+    document.getElementById('editBatchId').value = id;
+    document.getElementById('modalBatchProdName').textContent = prodName;
+    document.getElementById('modalBatchPackBadge').textContent = 'Pack: ' + (packSize || '-');
+    document.getElementById('modalBatchStockBadge').textContent = 'Stock: ' + parseFloat(stockQty || 0).toFixed(0) + ' Packs';
+
+    document.getElementById('modalInputBatchNo').value = batchNo || '';
+    document.getElementById('modalInputExpiryDate').value = expDate || '';
+    document.getElementById('modalInputMrp').value = parseFloat(mrp || 0).toFixed(2);
+    document.getElementById('modalInputPurRate').value = parseFloat(purRate || 0).toFixed(2);
+    document.getElementById('modalInputRateA').value = parseFloat(rateA || 0).toFixed(2);
+    document.getElementById('modalInputRateB').value = parseFloat(rateB || 0).toFixed(2);
+    document.getElementById('modalInputRateC').value = parseFloat(rateC || 0).toFixed(2);
+
+    calcBatchLiveMargins();
+
+    const modalEl = document.getElementById('editBatchModal');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+}
+
+function calcBatchLiveMargins() {
+    const cost = parseFloat(document.getElementById('modalInputPurRate').value) || 0;
+    const rA = parseFloat(document.getElementById('modalInputRateA').value) || 0;
+    const rB = parseFloat(document.getElementById('modalInputRateB').value) || 0;
+    const rC = parseFloat(document.getElementById('modalInputRateC').value) || 0;
+
+    const updateMarkup = (badgeId, rateVal) => {
+        const badge = document.getElementById(badgeId);
+        if (!badge) return;
+        if (cost > 0 && rateVal > 0) {
+            const markup = (((rateVal - cost) / cost) * 100).toFixed(1);
+            badge.textContent = `${markup >= 0 ? '+' : ''}${markup}%`;
+            badge.className = markup >= 0 ? 'badge bg-success-subtle text-success fw-bold' : 'badge bg-danger-subtle text-danger fw-bold';
+        } else {
+            badge.textContent = '+0.0%';
+            badge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+        }
+    };
+
+    updateMarkup('modalBatchMarkupA', rA);
+    updateMarkup('modalBatchMarkupB', rB);
+    updateMarkup('modalBatchMarkupC', rC);
+}
+
+function getCsrfToken() {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, 10) === ('csrftoken=')) {
+                cookieValue = decodeURIComponent(cookie.substring(10));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function submitBatchPutUpdate(e) {
+    e.preventDefault();
+    const batchId = document.getElementById('editBatchId').value;
+    const submitBtn = document.getElementById('saveBatchPutBtn');
+    if (!batchId) return;
+
+    const payload = {
+        batch_number: document.getElementById('modalInputBatchNo').value.trim(),
+        expiry_date: document.getElementById('modalInputExpiryDate').value,
+        mrp: parseFloat(document.getElementById('modalInputMrp').value) || 0,
+        purchase_rate: parseFloat(document.getElementById('modalInputPurRate').value) || 0,
+        sale_rate: parseFloat(document.getElementById('modalInputRateA').value) || 0,
+        wholesale_rate: parseFloat(document.getElementById('modalInputRateB').value) || 0,
+        rate_c: parseFloat(document.getElementById('modalInputRateC').value) || 0,
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Updating (PUT)...';
+
+    // HTTP PUT request execution
+    fetch(`/api/purchase/batch/${batchId}/update/`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-1"></i> Update Batch (PUT)';
+
+        if (data.status === 'success') {
+            // Close modal
+            const modalEl = document.getElementById('editBatchModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+
+            // Update DOM row values in real-time
+            const b = data.batch;
+            const batchBadge = document.getElementById(`disp-batch-${batchId}`);
+            if (batchBadge) batchBadge.textContent = b.batch_number;
+
+            const expBadge = document.getElementById(`disp-exp-${batchId}`);
+            if (expBadge) {
+                expBadge.textContent = b.expiry_display;
+                expBadge.title = b.expiry_date;
+            }
+
+            const mrpEl = document.getElementById(`disp-mrp-${batchId}`);
+            if (mrpEl) mrpEl.textContent = `₹${b.mrp}`;
+
+            const purEl = document.getElementById(`disp-pur-${batchId}`);
+            if (purEl) purEl.textContent = `₹${b.purchase_rate}`;
+
+            const srateEl = document.getElementById(`disp-srate-${batchId}`);
+            if (srateEl) srateEl.textContent = `₹${b.sale_rate}`;
+
+            const wrateEl = document.getElementById(`disp-wrate-${batchId}`);
+            if (wrateEl) wrateEl.textContent = `₹${b.wholesale_rate}`;
+
+            const ratecEl = document.getElementById(`disp-ratec-${batchId}`);
+            if (ratecEl) ratecEl.textContent = `₹${b.rate_c}`;
+
+            // Visual feedback flash
+            const row = document.getElementById(`batch-row-${batchId}`);
+            if (row) {
+                row.classList.add('batch-row-updated');
+                setTimeout(() => {
+                    row.classList.remove('batch-row-updated');
+                }, 2500);
+            }
+
+            if (typeof showToast === 'function') {
+                showToast(data.message, 'success');
+            } else {
+                alert(data.message);
+            }
+        } else {
+            alert('Error updating batch: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(err => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-1"></i> Update Batch (PUT)';
+        alert('Network or server error while executing PUT request: ' + err);
+    });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom-0">
+                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-wallet2 text-warning me-2"></i>{{ page_title }}</h5>
+                <a href="{% url 'expense_list' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                    <i class="bi bi-arrow-left"></i> Back to Expenses
+                </a>
+            </div>
+            <div class="card-body p-4 pt-0">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">Expense Date <span class="text-danger">*</span></label>
+                            <input type="date" name="expense_date" class="form-control" value="{{ expense.expense_date|date:'Y-m-d'|default:today }}" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">Expense Category Head <span class="text-danger">*</span></label>
+                            <select name="category" class="form-select" required>
+                                <option value="">Select Category Head</option>
+                                {% for c in categories %}
+                                <option value="{{ c.id }}" {% if expense.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">Amount (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light fw-bold">₹</span>
+                                <input type="number" step="0.01" name="amount" class="form-control fs-5 font-monospace fw-bold text-danger" value="{{ expense.amount|default:'' }}" required placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">Payment Mode <span class="text-danger">*</span></label>
+                            <select name="payment_mode" class="form-select" required>
+                                <option value="Cash" {% if expense.payment_mode == 'Cash' %}selected{% endif %}>Cash</option>
+                                <option value="UPI/Online" {% if expense.payment_mode == 'UPI/Online' %}selected{% endif %}>UPI / Online</option>
+                                <option value="Bank Transfer" {% if expense.payment_mode == 'Bank Transfer' %}selected{% endif %}>Bank Transfer / NEFT</option>
+                                <option value="Cheque" {% if expense.payment_mode == 'Cheque' %}selected{% endif %}>Cheque</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">Paid To / Payee Name</label>
+                            <input type="text" name="paid_to" class="form-control" value="{{ expense.paid_to|default:'' }}" placeholder="e.g. Landlord, Tea Vendor, Staff name">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small fw-bold">Receipt / Ref / Voucher No</label>
+                            <input type="text" name="reference_no" class="form-control" value="{{ expense.reference_no|default:'' }}" placeholder="e.g. BILL-102, UPI-REF-4421">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-bold">Remarks / Description</label>
+                            <textarea name="remarks" class="form-control" rows="3" placeholder="Enter details or purpose of this expense...">{{ expense.remarks|default:'' }}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-top d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg px-5 rounded-pill shadow-sm fw-bold" style="background-color: #d97706; border-color: #d97706;">
+                            <i class="bi bi-check-circle me-1"></i> Save Expense Voucher
+                        </button>
+                        <a href="{% url 'expense_list' %}" class="btn btn-outline-secondary btn-lg px-4 rounded-pill">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

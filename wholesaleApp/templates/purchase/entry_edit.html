@@ -527,6 +527,7 @@
                 </div>
 
                 <!-- 3 Selling Rates + MRP Cards -->
+                <!-- 3 Selling Rates + MRP Cards -->
                 <h6 class="fw-bold text-dark text-uppercase small tracking-wider mb-2">
                     <i class="bi bi-tag-fill me-1 text-primary"></i> Multi-Tier Selling Rates Definition
                 </h6>
@@ -543,9 +544,19 @@
                                     <span class="input-group-text bg-light border-end-0">₹</span>
                                     <input type="number" id="modalRateA" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center small">
-                                    <span class="text-muted" style="font-size:0.75rem;">Margin:</span>
-                                    <span class="badge bg-success-subtle text-success fw-bold" id="marginRateA">0.0%</span>
+                                <div class="bg-light p-2 rounded-2 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.75rem;">
+                                        <span class="text-muted fw-semibold" title="Markup on Purchase Cost: (Rate - Cost) / Cost">Profit / Markup:</span>
+                                        <span class="badge bg-success-subtle text-success fw-bold" id="markupRateA">+0.0%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.72rem;">
+                                        <span class="text-muted">₹ Profit / Unit:</span>
+                                        <span class="fw-bold text-dark" id="profitAmtRateA">₹0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.70rem;">
+                                        <span class="text-muted" title="Gross Margin on Sale Price: (Rate - Cost) / Rate">Sale Margin:</span>
+                                        <span class="text-secondary fw-semibold" id="marginRateA">0.0%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -563,9 +574,19 @@
                                     <span class="input-group-text bg-light border-end-0">₹</span>
                                     <input type="number" id="modalRateB" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center small">
-                                    <span class="text-muted" style="font-size:0.75rem;">Margin:</span>
-                                    <span class="badge bg-info-subtle text-info fw-bold" id="marginRateB">0.0%</span>
+                                <div class="bg-light p-2 rounded-2 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.75rem;">
+                                        <span class="text-muted fw-semibold" title="Markup on Purchase Cost">Profit / Markup:</span>
+                                        <span class="badge bg-info-subtle text-info fw-bold" id="markupRateB">+0.0%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.72rem;">
+                                        <span class="text-muted">₹ Profit / Unit:</span>
+                                        <span class="fw-bold text-dark" id="profitAmtRateB">₹0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.70rem;">
+                                        <span class="text-muted" title="Gross Margin on Sale Price">Sale Margin:</span>
+                                        <span class="text-secondary fw-semibold" id="marginRateB">0.0%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -583,9 +604,19 @@
                                     <span class="input-group-text bg-light border-end-0">₹</span>
                                     <input type="number" id="modalRateC" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center small">
-                                    <span class="text-muted" style="font-size:0.75rem;">Margin:</span>
-                                    <span class="badge bg-success-subtle text-success fw-bold" id="marginRateC">0.0%</span>
+                                <div class="bg-light p-2 rounded-2 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.75rem;">
+                                        <span class="text-muted fw-semibold" title="Markup on Purchase Cost">Profit / Markup:</span>
+                                        <span class="badge bg-success-subtle text-success fw-bold" id="markupRateC">+0.0%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.72rem;">
+                                        <span class="text-muted">₹ Profit / Unit:</span>
+                                        <span class="fw-bold text-dark" id="profitAmtRateC">₹0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.70rem;">
+                                        <span class="text-muted" title="Gross Margin on Sale Price">Sale Margin:</span>
+                                        <span class="text-secondary fw-semibold" id="marginRateC">0.0%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -603,9 +634,19 @@
                                     <span class="input-group-text bg-light border-end-0">₹</span>
                                     <input type="number" id="modalMrp" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center small">
-                                    <span class="text-muted" style="font-size:0.75rem;">Retailer:</span>
-                                    <span class="badge bg-dark-subtle text-dark fw-bold" id="marginRetailer">0.0%</span>
+                                <div class="bg-light p-2 rounded-2 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.75rem;">
+                                        <span class="text-muted fw-semibold" title="Chemist Margin on MRP: (MRP - Rate A) / MRP">Retailer Margin:</span>
+                                        <span class="badge bg-dark-subtle text-dark fw-bold" id="marginRetailer">0.0%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.72rem;">
+                                        <span class="text-muted">₹ Retailer Profit:</span>
+                                        <span class="fw-bold text-dark" id="profitAmtRetailer">₹0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.70rem;">
+                                        <span class="text-muted" title="Retailer Markup on Cost (Rate A)">Retailer Markup:</span>
+                                        <span class="text-secondary fw-semibold" id="markupRetailer">+0.0%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -742,7 +783,7 @@
         id: id,
         name: prod.name,
         pack: prod.pack
-    }));
+    })).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base', numeric: true }));
 
     let itemRowCounter = 0;
 
@@ -885,7 +926,19 @@
         function renderSuggestions(query) {
             activeIdx = -1;
             menu.innerHTML = "";
-            const filtered = dataset.filter(item => item.name.toLowerCase().includes(query.toLowerCase()));
+            const q = (query || "").toLowerCase().trim();
+            let filtered = dataset.filter(item => (item.name || "").toLowerCase().includes(q));
+            filtered.sort((a, b) => {
+                const aName = (a.name || '').toLowerCase();
+                const bName = (b.name || '').toLowerCase();
+                if (q) {
+                    const aStarts = aName.startsWith(q);
+                    const bStarts = bName.startsWith(q);
+                    if (aStarts && !bStarts) return -1;
+                    if (!aStarts && bStarts) return 1;
+                }
+                return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base', numeric: true });
+            });
             if (filtered.length > 0) {
                 filtered.forEach(item => {
                     const li = document.createElement("li");
@@ -1492,33 +1545,78 @@
         const rateC = parseFloat(document.getElementById("modalRateC").value) || 0;
         const mrp = parseFloat(document.getElementById("modalMrp").value) || 0;
 
-        const updateBadge = (elId, rateVal) => {
-            const badge = document.getElementById(elId);
-            if (!badge) return;
+        const updateRateMetrics = (markupId, profitId, marginId, rateVal, defaultBadgeClass) => {
+            const markupBadge = document.getElementById(markupId);
+            const profitSpan = document.getElementById(profitId);
+            const marginSpan = document.getElementById(marginId);
+
             if (rateVal > 0 && effCost > 0) {
-                const margin = (((rateVal - effCost) / rateVal) * 100).toFixed(1);
-                badge.textContent = `${margin >= 0 ? '+' : ''}${margin}%`;
-                badge.className = margin >= 0 ? 'badge bg-success-subtle text-success fw-bold' : 'badge bg-danger-subtle text-danger fw-bold';
+                const profitAmt = rateVal - effCost;
+                const markupPct = ((profitAmt / effCost) * 100).toFixed(1);
+                const marginPct = ((profitAmt / rateVal) * 100).toFixed(1);
+
+                if (markupBadge) {
+                    markupBadge.textContent = `${markupPct >= 0 ? '+' : ''}${markupPct}%`;
+                    markupBadge.className = markupPct >= 0 ? `badge ${defaultBadgeClass} fw-bold` : 'badge bg-danger-subtle text-danger fw-bold';
+                }
+                if (profitSpan) {
+                    profitSpan.textContent = `₹${profitAmt.toFixed(2)}`;
+                    profitSpan.className = profitAmt >= 0 ? 'fw-bold text-dark' : 'fw-bold text-danger';
+                }
+                if (marginSpan) {
+                    marginSpan.textContent = `${marginPct}%`;
+                }
             } else {
-                badge.textContent = '0.0%';
-                badge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+                if (markupBadge) {
+                    markupBadge.textContent = '+0.0%';
+                    markupBadge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+                }
+                if (profitSpan) {
+                    profitSpan.textContent = '₹0.00';
+                    profitSpan.className = 'fw-bold text-muted';
+                }
+                if (marginSpan) {
+                    marginSpan.textContent = '0.0%';
+                }
             }
         };
 
-        updateBadge('marginRateA', rateA);
-        updateBadge('marginRateB', rateB);
-        updateBadge('marginRateC', rateC);
+        updateRateMetrics('markupRateA', 'profitAmtRateA', 'marginRateA', rateA, 'bg-success-subtle text-success');
+        updateRateMetrics('markupRateB', 'profitAmtRateB', 'marginRateB', rateB, 'bg-info-subtle text-info');
+        updateRateMetrics('markupRateC', 'profitAmtRateC', 'marginRateC', rateC, 'bg-success-subtle text-success');
 
-        // Retailer margin on MRP
-        const retBadge = document.getElementById('marginRetailer');
-        if (retBadge) {
-            if (mrp > 0 && rateA > 0) {
-                const retMargin = (((mrp - rateA) / mrp) * 100).toFixed(1);
-                retBadge.textContent = `${retMargin >= 0 ? '+' : ''}${retMargin}%`;
-                retBadge.className = retMargin >= 0 ? 'badge bg-dark-subtle text-dark fw-bold' : 'badge bg-danger-subtle text-danger fw-bold';
-            } else {
-                retBadge.textContent = '0.0%';
-                retBadge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+        // Retailer metrics on MRP (calculated against Rate A)
+        const retMarginBadge = document.getElementById('marginRetailer');
+        const retProfitSpan = document.getElementById('profitAmtRetailer');
+        const retMarkupSpan = document.getElementById('markupRetailer');
+
+        if (mrp > 0 && rateA > 0) {
+            const retProfitAmt = mrp - rateA;
+            const retMarginPct = ((retProfitAmt / mrp) * 100).toFixed(1);
+            const retMarkupPct = ((retProfitAmt / rateA) * 100).toFixed(1);
+
+            if (retMarginBadge) {
+                retMarginBadge.textContent = `${retMarginPct >= 0 ? '+' : ''}${retMarginPct}%`;
+                retMarginBadge.className = retMarginPct >= 0 ? 'badge bg-dark-subtle text-dark fw-bold' : 'badge bg-danger-subtle text-danger fw-bold';
+            }
+            if (retProfitSpan) {
+                retProfitSpan.textContent = `₹${retProfitAmt.toFixed(2)}`;
+                retProfitSpan.className = retProfitAmt >= 0 ? 'fw-bold text-dark' : 'fw-bold text-danger';
+            }
+            if (retMarkupSpan) {
+                retMarkupSpan.textContent = `${retMarkupPct >= 0 ? '+' : ''}${retMarkupPct}%`;
+            }
+        } else {
+            if (retMarginBadge) {
+                retMarginBadge.textContent = '0.0%';
+                retMarginBadge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+            }
+            if (retProfitSpan) {
+                retProfitSpan.textContent = '₹0.00';
+                retProfitSpan.className = 'fw-bold text-muted';
+            }
+            if (retMarkupSpan) {
+                retMarkupSpan.textContent = '+0.0%';
             }
         }
     }

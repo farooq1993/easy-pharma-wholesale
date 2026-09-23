@@ -1,0 +1,67 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-shield-shaded text-primary me-2"></i>{{ page_title }}</h5>
+                <a href="{% url 'schedule_list' %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Drug Schedules
+                </a>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <div class="row g-4">
+                        <!-- Schedule Name -->
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Schedule Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" value="{{ schedule.name|default:'' }}" placeholder="e.g. Schedule H, Schedule H1, Schedule X, OTC" required>
+                            <div class="form-text text-muted">Full title of the drug schedule classification.</div>
+                        </div>
+
+                        <!-- Schedule Code -->
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Schedule Short Code <span class="text-danger">*</span></label>
+                            <input type="text" name="code" class="form-control fw-bold text-uppercase" value="{{ schedule.code|default:'' }}" placeholder="e.g. H, H1, X, OTC" required>
+                            <div class="form-text text-muted">Short code printed on bills & invoices.</div>
+                        </div>
+
+                        <!-- Prescription Required Switch -->
+                        <div class="col-12">
+                            <div class="form-check form-switch p-3 bg-light rounded-3 border">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" role="switch" id="rxSwitch" name="requires_prescription" {% if schedule.requires_prescription or not schedule %}checked{% endif %}>
+                                <label class="form-check-label fw-bold text-dark" for="rxSwitch">
+                                    <i class="bi bi-prescription2 text-danger me-1"></i> Requires Doctor Prescription (Rx Required)
+                                </label>
+                                <div class="text-muted small mt-1 ms-5">Alerts operators during sales billing that a doctor prescription & consultant details are required.</div>
+                            </div>
+                        </div>
+
+                        <!-- Statutory Warning Text -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Statutory Warning / Prescription Note</label>
+                            <textarea name="warning_text" class="form-control" rows="3" placeholder="e.g. Warning: To be sold by retail on the prescription of a Registered Medical Practitioner only.">{{ schedule.warning_text|default:'' }}</textarea>
+                            <div class="form-text text-muted">This statutory note will be printed on sales invoice headers when this drug is billed.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-3 border-top d-flex gap-2">
+                        <button type="submit" class="btn btn-primary px-4 py-2 rounded-pill fw-semibold">
+                            <i class="bi bi-check-circle me-1"></i> Save Drug Schedule
+                        </button>
+                        <a href="{% url 'schedule_list' %}" class="btn btn-secondary px-4 py-2 rounded-pill">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

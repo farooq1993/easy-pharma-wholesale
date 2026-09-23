@@ -1,0 +1,91 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}Schedule Master (Drug Schedules){% endblock %}
+{% block page_title %}Schedule Master (Drug Schedules){% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-1"><i class="bi bi-shield-shaded text-primary me-2"></i>Schedule Master (Drug Schedules)</h4>
+        <p class="text-muted small mb-0">Manage pharmaceutical regulatory drug schedules (Schedule H, H1, X, G, OTC) with prescription compliance.</p>
+    </div>
+    <a href="{% url 'schedule_create' %}" class="btn btn-primary rounded-pill px-4 shadow-sm fw-semibold">
+        <i class="bi bi-plus-circle me-1"></i> Add New Drug Schedule
+    </a>
+</div>
+
+<div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr class="text-uppercase small text-muted">
+                        <th class="ps-4">Schedule Name</th>
+                        <th class="text-center">Code</th>
+                        <th>Rx Required</th>
+                        <th>Statutory Warning Note</th>
+                        <th>Status</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for schedule in schedules %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">{{ schedule.name }}</div>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary-subtle text-primary px-3 py-1.5 rounded-pill fw-bold fs-6">{{ schedule.code }}</span>
+                        </td>
+                        <td>
+                            {% if schedule.requires_prescription %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill fw-semibold">
+                                    <i class="bi bi-prescription2 me-1"></i> Prescription (Rx)
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-semibold">
+                                    <i class="bi bi-check-circle me-1"></i> Non-Rx / OTC
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if schedule.warning_text %}
+                            <small class="text-muted text-wrap" style="max-width: 320px; display: block;">{{ schedule.warning_text }}</small>
+                            {% else %}
+                            <span class="text-muted small">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if schedule.status %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="{% url 'schedule_edit' schedule.pk %}" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 me-1" title="Edit Schedule">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                            <a href="{% url 'schedule_delete' schedule.pk %}" class="btn btn-sm btn-outline-danger rounded-pill px-2.5" title="Delete Schedule" onclick="return confirm('Are you sure you want to delete {{ schedule.name }}?')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-shield-x fs-1 text-muted d-block mb-2"></i>
+                            <h6 class="fw-bold">No Drug Schedules defined yet</h6>
+                            <p class="small mb-3">Click below to create your first drug schedule.</p>
+                            <a href="{% url 'schedule_create' %}" class="btn btn-primary btn-sm rounded-pill px-4">Create Schedule</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

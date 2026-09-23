@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, F, Q
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from decimal import Decimal
 from collections import defaultdict
 from wholesaleApp.models import (
@@ -557,9 +557,9 @@ def report_gst(request):
 def report_profit(request):
     """Profit & Margins Report across Date-wise, Bill-wise, Customer-wise, and Company-wise tabs."""
     from wholesaleApp.views.security_helpers import has_feature_access
-    if not (request.user.is_superuser or has_feature_access(request.user, 'view_margins') or has_feature_access(request.user, 'sales_view')):
+    if not (request.user.is_superuser or has_feature_access(request.user, 'view_margins') or has_feature_access(request.user, 'sales_view') or has_feature_access(request.user, 'customer_ledger') or has_feature_access(request.user, 'report_outstanding') or has_feature_access(request.user, 'expense_view')):
         from django.contrib import messages
-        messages.error(request, "Access Denied: You do not have permission to view Profit Margins.")
+        messages.error(request, "Access Denied: You do not have permission to view Profit Margins & P&L.")
         return redirect('home')
 
     today = timezone.now().date()
@@ -572,6 +572,8 @@ def report_profit(request):
     customer_id = request.GET.get('customer', 'all')
     company_id = request.GET.get('company', 'all')
     active_tab = request.GET.get('tab', 'date')
+    if active_tab == 'pl':
+        return redirect(f"/accounts/profit-loss/?start_date={start_date_str}&end_date={end_date_str}")
     if active_tab not in ['date', 'bill', 'customer', 'company']:
         active_tab = 'date'
         
@@ -856,6 +858,19 @@ def report_profit(request):
         })
     company_report.sort(key=lambda x: x['total_profit'], reverse=True)
 
+    # 5. Calculate Operating Expenses & Net Profit (P&L) for the period
+    from wholesaleApp.models.expense import Expense
+    expenses_qs = Expense.objects.filter(expense_date__range=[start_date, end_date]).select_related('category').order_by('-expense_date')
+    total_expenses = expenses_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    net_profit = overall_profit - total_expenses
+    net_margin = (net_profit / overall_sales * Decimal('100.00')) if overall_sales > 0 else Decimal('0.00')
+
+    expenses_by_cat = (
+        expenses_qs.values('category__name')
+        .annotate(cat_total=Sum('amount'))
+        .order_by('-cat_total')
+    )
+
     context = {
         'start_date': start_date_str,
         'end_date': end_date_str,
@@ -865,7 +880,7 @@ def report_profit(request):
         'customers': customers,
         'companies': companies,
         
-        # Summary Totals
+        # Gross & Trading Summary Totals
         'overall_sales': overall_sales,
         'overall_cost': overall_cost,
         'overall_profit': overall_profit,
@@ -875,6 +890,13 @@ def report_profit(request):
         'overall_free_qty': overall_free_qty,
         'overall_total_qty': overall_billed_qty + overall_free_qty,
         'total_line_items': total_line_items,
+
+        # Net Profit (P&L) & Operating Expenses
+        'total_expenses': total_expenses,
+        'net_profit': net_profit,
+        'net_margin': net_margin,
+        'expenses_by_cat': expenses_by_cat,
+        'period_expenses_list': expenses_qs[:100],
         
         # Tab Datasets
         'date_report': date_report,
@@ -882,9 +904,226 @@ def report_profit(request):
         'customer_report': customer_report,
         'company_report': company_report,
         
-        'page_title': 'Profit & Margins Report',
+        'page_title': 'Profit & Margins Report (P&L)',
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'reports/profit_report.html', context)
+
+
+@login_required(login_url='login')
+def report_profit_loss(request):
+    """
+    Standard Accounting Trading and Profit & Loss Account (Tally Prime / ERP Format).
+    Two-sided balancing statement: Left (Debit / Expenses & Cost) vs Right (Credit / Revenue & Incomes).
+    """
+    from wholesaleApp.views.security_helpers import has_feature_access
+    if not (request.user.is_superuser or has_feature_access(request.user, 'view_margins') or has_feature_access(request.user, 'sales_view') or has_feature_access(request.user, 'customer_ledger') or has_feature_access(request.user, 'report_outstanding') or has_feature_access(request.user, 'expense_view')):
+        from django.contrib import messages
+        messages.error(request, "Access Denied: You do not have permission to view Profit & Loss Account.")
+        return redirect('home')
+
+    today = timezone.now().date()
+    
+    # Financial Year Calculation
+    if today.month >= 4:
+        fy_start = date(today.year, 4, 1)
+        fy_end = date(today.year + 1, 3, 31)
+    else:
+        fy_start = date(today.year - 1, 4, 1)
+        fy_end = date(today.year, 3, 31)
+
+    default_start = today.replace(day=1)
+    start_date_str = request.GET.get('start_date', default_start.strftime('%Y-%m-%d'))
+    end_date_str = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        start_date = default_start
+        start_date_str = default_start.strftime('%Y-%m-%d')
+        
+    try:
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        end_date = today
+        end_date_str = today.strftime('%Y-%m-%d')
+
+    # 1. SALES ACCOUNTS (Credit Side of Trading A/c)
+    items_qs = SalesInvoiceItem.objects.filter(
+        sales_invoice__invoice_date__range=[start_date, end_date]
+    ).select_related('sales_invoice', 'product', 'batch')
+
+    gross_sales = Decimal('0.00')
+    cogs = Decimal('0.00')
+    sales_invoices_set = set()
+
+    for item in items_qs:
+        b_qty = Decimal(item.quantity or 0)
+        f_qty = Decimal(item.free_quantity or 0)
+        tot_qty = b_qty + f_qty
+        s_rate = Decimal(item.sale_rate or 0)
+        disc_pct = Decimal(item.discount_percentage or 0)
+        
+        base_amt = b_qty * s_rate
+        disc_amt = base_amt * (disc_pct / Decimal('100.00'))
+        sale_val = base_amt - disc_amt
+        gross_sales += sale_val
+        
+        p_rate = Decimal(item.batch.purchase_rate or 0) if item.batch else Decimal('0.00')
+        cogs += tot_qty * p_rate
+        sales_invoices_set.add(item.sales_invoice_id)
+
+    from wholesaleApp.models.sales import SalesReturn
+    sales_returns_qs = SalesReturn.objects.filter(return_date__range=[start_date, end_date])
+    sales_returns_total = sales_returns_qs.aggregate(total=Sum('gross_amount'))['total'] or Decimal('0.00')
+    sales_returns_count = sales_returns_qs.count()
+
+    net_sales = gross_sales - sales_returns_total
+    if net_sales < Decimal('0.00'):
+        net_sales = Decimal('0.00')
+
+    # 2. PURCHASE ACCOUNTS (Debit Side of Trading A/c)
+    from wholesaleApp.models.purchase import PurchaseEntry, PurchaseReturn
+    purchases_qs = PurchaseEntry.objects.filter(invoice_date__range=[start_date, end_date])
+    gross_purchases = purchases_qs.aggregate(total=Sum('gross_amount'))['total'] or Decimal('0.00')
+    purchases_count = purchases_qs.count()
+
+    purchase_returns_qs = PurchaseReturn.objects.filter(return_date__range=[start_date, end_date])
+    purchase_returns_total = purchase_returns_qs.aggregate(total=Sum('gross_amount'))['total'] or Decimal('0.00')
+    purchase_returns_count = purchase_returns_qs.count()
+
+    net_purchases = gross_purchases - purchase_returns_total
+    if net_purchases < Decimal('0.00'):
+        net_purchases = Decimal('0.00')
+
+    # 3. STOCK VALUATION (Closing Stock)
+    from wholesaleApp.models.purchase import ProductBatch
+    active_batches = ProductBatch.objects.filter(quantity__gt=0)
+    closing_stock_valuation = sum((Decimal(b.quantity) * Decimal(b.purchase_rate) for b in active_batches), Decimal('0.00'))
+    opening_stock_valuation = Decimal('0.00')
+    direct_expenses = Decimal('0.00')
+
+    # GROSS PROFIT (Trading A/c Result)
+    gross_trading_profit = net_sales - cogs
+    is_gross_profit = gross_trading_profit >= Decimal('0.00')
+    gross_profit_amount = abs(gross_trading_profit)
+
+    # Trading A/c Balancing Totals
+    if is_gross_profit:
+        trading_dr_total = cogs + gross_profit_amount
+        trading_cr_total = net_sales
+    else:
+        trading_dr_total = cogs
+        trading_cr_total = net_sales + gross_profit_amount
+
+    # 4. INDIRECT EXPENSES (Debit Side of Profit & Loss A/c)
+    from wholesaleApp.models.expense import Expense, ExpenseCategory
+    all_categories = list(ExpenseCategory.objects.filter(is_active=True).order_by('name'))
+    period_expenses = Expense.objects.filter(expense_date__range=[start_date, end_date]).select_related('category')
+    
+    expenses_by_cat_map = defaultdict(lambda: {'total': Decimal('0.00'), 'count': 0, 'vouchers': []})
+    for exp in period_expenses:
+        cat_name = exp.category.name if exp.category else 'Miscellaneous'
+        expenses_by_cat_map[cat_name]['total'] += exp.amount
+        expenses_by_cat_map[cat_name]['count'] += 1
+        expenses_by_cat_map[cat_name]['vouchers'].append(exp)
+
+    expense_heads_list = []
+    total_indirect_expenses = Decimal('0.00')
+
+    for cat in all_categories:
+        cat_data = expenses_by_cat_map.get(cat.name, {'total': Decimal('0.00'), 'count': 0, 'vouchers': []})
+        total_indirect_expenses += cat_data['total']
+        expense_heads_list.append({
+            'name': cat.name,
+            'description': cat.description,
+            'amount': cat_data['total'],
+            'count': cat_data['count'],
+            'vouchers': cat_data['vouchers'][:10]
+        })
+
+    # Sort so heads with spending appear first
+    expense_heads_list.sort(key=lambda x: (x['amount'] == 0, -x['amount'], x['name']))
+
+    # 5. INDIRECT INCOMES (Credit Side of Profit & Loss A/c)
+    discounts_received = purchases_qs.aggregate(total=Sum('discount_amount'))['total'] or Decimal('0.00')
+    other_indirect_income = Decimal('0.00')
+    total_indirect_income = discounts_received + other_indirect_income
+
+    # 6. NET PROFIT / LOSS (Final Accounting Result)
+    if is_gross_profit:
+        net_result = gross_profit_amount + total_indirect_income - total_indirect_expenses
+    else:
+        net_result = Decimal('0.00') + total_indirect_income - gross_profit_amount - total_indirect_expenses
+
+    is_net_profit = (net_result >= Decimal('0.00'))
+    final_net_profit = abs(net_result)
+
+    # P&L Balancing Totals
+    if is_net_profit:
+        pl_dr_total = total_indirect_expenses + final_net_profit
+        pl_cr_total = (gross_profit_amount if is_gross_profit else Decimal('0.00')) + total_indirect_income
+    else:
+        pl_dr_total = total_indirect_expenses + (gross_profit_amount if not is_gross_profit else Decimal('0.00'))
+        pl_cr_total = (gross_profit_amount if is_gross_profit else Decimal('0.00')) + total_indirect_income + final_net_profit
+
+    # Margins %
+    net_margin_pct = (net_result / net_sales * Decimal('100.00')) if net_sales > 0 else Decimal('0.00')
+    gross_margin_pct = (gross_trading_profit / net_sales * Decimal('100.00')) if net_sales > 0 else Decimal('0.00')
+
+    context = {
+        'page_title': 'Profit & Loss A/c',
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'fy_start': fy_start.strftime('%Y-%m-%d'),
+        'fy_end': fy_end.strftime('%Y-%m-%d'),
+        
+        # Trading Debit
+        'opening_stock': opening_stock_valuation,
+        'gross_purchases': gross_purchases,
+        'purchases_count': purchases_count,
+        'purchase_returns': purchase_returns_total,
+        'purchase_returns_count': purchase_returns_count,
+        'net_purchases': net_purchases,
+        'cogs': cogs,
+        'direct_expenses': direct_expenses,
+        
+        # Trading Credit
+        'gross_sales': gross_sales,
+        'sales_invoices_count': len(sales_invoices_set),
+        'sales_returns': sales_returns_total,
+        'sales_returns_count': sales_returns_count,
+        'net_sales': net_sales,
+        'closing_stock': closing_stock_valuation,
+        
+        # Gross Result
+        'is_gross_profit': is_gross_profit,
+        'gross_profit': gross_profit_amount,
+        'gross_margin_pct': gross_margin_pct,
+        'trading_dr_total': trading_dr_total,
+        'trading_cr_total': trading_cr_total,
+        
+        # P&L Debit
+        'expense_heads': expense_heads_list,
+        'total_indirect_expenses': total_indirect_expenses,
+        'total_expenses_count': period_expenses.count(),
+        
+        # P&L Credit
+        'discounts_received': discounts_received,
+        'other_indirect_income': other_indirect_income,
+        'total_indirect_income': total_indirect_income,
+        
+        # Final Net Result
+        'is_net_profit': is_net_profit,
+        'net_profit': final_net_profit,
+        'net_margin_pct': net_margin_pct,
+        'pl_dr_total': pl_dr_total,
+        'pl_cr_total': pl_cr_total,
+        
+        'active_tenant': (request.user.profile.tenant if hasattr(request.user, 'profile') else None),
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'reports/profit_loss_account.html', context)
+
 
 

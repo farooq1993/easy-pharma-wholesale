@@ -1,0 +1,529 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<style>
+    .kpi-expense-card {
+        border-radius: 16px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .kpi-expense-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    }
+    .table-expense thead th {
+        font-size: 0.88rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+        background-color: #f8fafc;
+        color: #475569;
+        padding: 12px 14px;
+    }
+    .table-expense tbody td {
+        font-size: 0.95rem;
+        vertical-align: middle;
+        padding: 12px 14px;
+    }
+</style>
+
+<!-- Top Header & Action Bar -->
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h4 class="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+            <span class="p-2 rounded-3 text-white" style="background: linear-gradient(135deg, #d97706 0%, #b45309 100%);">
+                <i class="bi bi-wallet2"></i>
+            </span>
+            Daily Expense Management
+        </h4>
+        <p class="text-muted small mb-0">Record and track day-to-day shop operational expenses, rent, salaries, refreshments, and petty cash.</p>
+    </div>
+    <div class="d-flex gap-2 d-print-none flex-wrap">
+        <a href="{% url 'report_profit_loss' %}" class="btn btn-outline-success rounded-pill px-3 shadow-sm fw-semibold">
+            <i class="bi bi-graph-up-arrow me-1"></i> Net P&amp;L Statement
+        </a>
+        <button type="button" class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold" style="background-color: #d97706; border-color: #d97706;" data-bs-toggle="modal" data-bs-target="#quickExpenseModal" title="Shortcut: Alt+E">
+            <i class="bi bi-plus-circle me-1"></i> Record Expense <kbd class="small ms-1 text-white bg-dark bg-opacity-25 border-0">Alt+E</kbd>
+        </button>
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i> Print
+        </button>
+        <button type="button" class="btn btn-outline-success rounded-pill px-3 shadow-sm" onclick="exportTableToCSV('expenseReportArea', 'Daily_Expenses.csv')">
+            <i class="bi bi-file-spreadsheet me-1"></i> Export CSV
+        </button>
+    </div>
+</div>
+
+<!-- KPI Summary Metrics -->
+<div class="row g-3 mb-4">
+    <!-- Filtered Total Expense -->
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card kpi-expense-card shadow-sm border-0 bg-white p-3 h-100 border-start border-4 border-warning">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-muted small text-uppercase fw-bold">Period Expenses</span>
+                    <h3 class="fw-bold text-dark mb-0 mt-1 font-monospace">₹{{ filtered_total|floatformat:2 }}</h3>
+                    <span class="text-muted small">{{ total_count }} Entries Recorded</span>
+                </div>
+                <div class="p-2.5 rounded-3 bg-warning bg-opacity-10 text-warning fs-5">
+                    <i class="bi bi-receipt"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Expenses -->
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card kpi-expense-card shadow-sm border-0 bg-white p-3 h-100 border-start border-4 border-danger">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-muted small text-uppercase fw-bold">Today's Expenses</span>
+                    <h3 class="fw-bold text-danger mb-0 mt-1 font-monospace">₹{{ today_total|floatformat:2 }}</h3>
+                    <span class="text-muted small">Current Day Spending</span>
+                </div>
+                <div class="p-2.5 rounded-3 bg-danger bg-opacity-10 text-danger fs-5">
+                    <i class="bi bi-calendar-check"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cash Expenses -->
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card kpi-expense-card shadow-sm border-0 bg-white p-3 h-100 border-start border-4 border-success">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-muted small text-uppercase fw-bold">Cash Spending</span>
+                    <h3 class="fw-bold text-success mb-0 mt-1 font-monospace">₹{{ cash_total|floatformat:2 }}</h3>
+                    <span class="text-muted small">Petty Cash &amp; Hand Payments</span>
+                </div>
+                <div class="p-2.5 rounded-3 bg-success bg-opacity-10 text-success fs-5">
+                    <i class="bi bi-cash"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Digital / Bank Expenses -->
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card kpi-expense-card shadow-sm border-0 bg-white p-3 h-100 border-start border-4 border-info">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <span class="text-muted small text-uppercase fw-bold">UPI / Bank Spending</span>
+                    <h3 class="fw-bold text-info mb-0 mt-1 font-monospace">₹{{ digital_total|floatformat:2 }}</h3>
+                    <span class="text-muted small">Online &amp; Cheque Payments</span>
+                </div>
+                <div class="p-2.5 rounded-3 bg-info bg-opacity-10 text-info fs-5">
+                    <i class="bi bi-credit-card-2-front"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters Panel -->
+<div class="card shadow-sm border-0 rounded-4 mb-4 d-print-none">
+    <div class="card-body p-4">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label text-muted small fw-bold mb-1">From Date</label>
+                <input type="date" name="from_date" class="form-control" value="{{ from_date }}">
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label text-muted small fw-bold mb-1">To Date</label>
+                <input type="date" name="to_date" class="form-control" value="{{ to_date }}">
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label text-muted small fw-bold mb-1">Category Head</label>
+                <select name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for c in categories %}
+                        <option value="{{ c.id }}" {% if selected_category == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label text-muted small fw-bold mb-1">Payment Mode</label>
+                <select name="payment_mode" class="form-select">
+                    <option value="">All Modes</option>
+                    <option value="Cash" {% if selected_payment_mode == 'Cash' %}selected{% endif %}>Cash</option>
+                    <option value="UPI/Online" {% if selected_payment_mode == 'UPI/Online' %}selected{% endif %}>UPI / Online</option>
+                    <option value="Bank Transfer" {% if selected_payment_mode == 'Bank Transfer' %}selected{% endif %}>Bank Transfer</option>
+                    <option value="Cheque" {% if selected_payment_mode == 'Cheque' %}selected{% endif %}>Cheque</option>
+                </select>
+            </div>
+            <div class="col-lg-3 col-md-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 shadow-sm" style="background-color: #d97706; border-color: #d97706;">
+                    <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+                </button>
+                <a href="{% url 'expense_list' %}" class="btn btn-light rounded-pill px-3 py-2 border" title="Reset Filters">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Main Expenses Ledger -->
+<div id="expenseReportArea">
+    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+        <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-list-check me-2 text-warning"></i> Expense Vouchers List</h5>
+            <span class="badge bg-light text-dark border fs-6 font-monospace">Total: ₹{{ filtered_total|floatformat:2 }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 table-expense">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Date</th>
+                            <th>Expense Category</th>
+                            <th class="text-end">Amount (₹)</th>
+                            <th class="text-center">Mode</th>
+                            <th>Paid To / Payee</th>
+                            <th>Ref / Voucher No</th>
+                            <th>Remarks</th>
+                            <th class="text-center pe-4 d-print-none">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exp in expenses %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-dark">
+                                    {{ exp.expense_date|date:"d M Y" }}
+                                    <span class="text-muted small fw-normal d-block">({{ exp.expense_date|date:"D" }})</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-warning bg-opacity-10 text-dark border border-warning-subtle fs-6">
+                                        <i class="bi bi-tag-fill me-1 text-warning"></i> {{ exp.category.name }}
+                                    </span>
+                                </td>
+                                <td class="text-end font-monospace fw-bold text-danger fs-5">
+                                    ₹{{ exp.amount|floatformat:2 }}
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge {% if exp.payment_mode == 'Cash' %}bg-success-subtle text-success border border-success-subtle{% else %}bg-primary-subtle text-primary border border-primary-subtle{% endif %}">
+                                        {{ exp.payment_mode }}
+                                    </span>
+                                </td>
+                                <td>{{ exp.paid_to|default:"-" }}</td>
+                                <td><code>{{ exp.reference_no|default:"-" }}</code></td>
+                                <td><span class="text-muted">{{ exp.remarks|default:"-" }}</span></td>
+                                <td class="text-center pe-4 d-print-none">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <a href="{% url 'expense_edit' exp.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-2.5" title="Edit Expense">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{% url 'expense_delete' exp.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-2.5" onclick="return confirm('Are you sure you want to delete this expense of ₹{{ exp.amount }}?')" title="Delete Expense">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="bi bi-wallet display-4 d-block mb-3 text-secondary"></i>
+                                    No expense records found for the selected period.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if expenses %}
+                    <tfoot class="table-light fw-bold">
+                        <tr class="border-top border-2">
+                            <td class="ps-4" colspan="2">TOTAL EXPENSES</td>
+                            <td class="text-end font-monospace text-danger fs-5">₹{{ filtered_total|floatformat:2 }}</td>
+                            <td colspan="5"></td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated or paginator.num_pages > 1 %}
+                <div class="p-3 border-top">
+                    {% include 'includes/pagination.html' %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL: QUICK ADD EXPENSE ==================== -->
+<div class="modal fade" id="quickExpenseModal" tabindex="-1" aria-labelledby="quickExpenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-light border-0 py-3 px-4">
+                <h5 class="modal-title fw-bold text-dark" id="quickExpenseModalLabel">
+                    <i class="bi bi-wallet2 text-warning me-2"></i>Record New Expense Voucher
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="quickExpenseForm" onsubmit="submitQuickExpense(event)">
+                <div class="modal-body p-4">
+                    <div id="quickExpenseAlert" class="alert alert-danger d-none py-2 small mb-3"></div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Expense Date <span class="text-danger">*</span></label>
+                            <input type="date" id="expDate" class="form-control form-control-lg fs-6" value="{{ today|default:from_date }}" required>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label fw-bold small text-muted mb-0">Expense Category <span class="text-danger">*</span></label>
+                                <button type="button" class="btn btn-link p-0 text-primary small text-decoration-none fw-semibold" onclick="openCategoryModalFromExpense()">
+                                    <i class="bi bi-plus-circle"></i> + New Category
+                                </button>
+                            </div>
+                            <select id="expCategory" class="form-select form-select-lg fs-6" required>
+                                <option value="">Select Category Head</option>
+                                {% for c in categories %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Amount (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light fw-bold">₹</span>
+                                <input type="number" step="0.01" id="expAmount" class="form-control form-control-lg fs-5 font-monospace fw-bold text-danger" required placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Payment Mode <span class="text-danger">*</span></label>
+                            <select id="expMode" class="form-select form-select-lg fs-6" required>
+                                <option value="Cash" selected>Cash (Petty Cash)</option>
+                                <option value="UPI/Online">UPI / GPay / PhonePe / Online</option>
+                                <option value="Bank Transfer">Bank Transfer / NEFT / RTGS</option>
+                                <option value="Cheque">Cheque</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Paid To / Payee Name</label>
+                            <input type="text" id="expPaidTo" class="form-control form-control-lg fs-6" placeholder="e.g. Landlord, Tea Vendor, Staff name">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Receipt / Ref / Voucher No</label>
+                            <input type="text" id="expRefNo" class="form-control form-control-lg fs-6" placeholder="e.g. BILL-991, UPI-Ref-1234">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold small text-muted">Remarks / Description</label>
+                            <textarea id="expRemarks" class="form-control" rows="2" placeholder="Enter purpose or details of this expense..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 py-3 px-4 d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="saveExpenseBtn" class="btn btn-primary rounded-pill px-5 shadow-sm fw-bold" style="background-color: #d97706; border-color: #d97706;">
+                        <span id="saveExpenseSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                        <i class="bi bi-check-lg me-1"></i> Save Expense
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL: ADD EXPENSE CATEGORY ==================== -->
+<div class="modal fade" id="quickCategoryModal" tabindex="-1" aria-labelledby="quickCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-light border-0 py-3">
+                <h5 class="modal-title fw-bold text-dark" id="quickCategoryModalLabel">
+                    <i class="bi bi-tag-fill text-warning me-2"></i>Add Expense Category Head
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="quickCategoryForm" onsubmit="submitQuickCategory(event)">
+                <div class="modal-body p-4">
+                    <div id="quickCatAlert" class="alert alert-danger d-none py-2 small mb-3"></div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Category Head Name <span class="text-danger">*</span></label>
+                        <input type="text" id="newCatName" class="form-control form-control-lg fs-6" required placeholder="e.g. Audit Fees, Software Renewal">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small text-muted">Description (Optional)</label>
+                        <input type="text" id="newCatDesc" class="form-control" placeholder="Short description of this expense head">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 py-3 d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="saveCatBtn" class="btn btn-primary rounded-pill px-4 shadow-sm" style="background-color: #d97706; border-color: #d97706;">
+                        <span id="saveCatSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+                        <i class="bi bi-check-lg me-1"></i> Save Category
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function getCSRFToken() {
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='))
+            ?.split('=')[1];
+        if (cookieValue) return cookieValue;
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        return csrfInput ? csrfInput.value : '';
+    }
+
+    function submitQuickExpense(event) {
+        event.preventDefault();
+        const date = document.getElementById('expDate').value;
+        const category = document.getElementById('expCategory').value;
+        const amount = document.getElementById('expAmount').value;
+        const mode = document.getElementById('expMode').value;
+        const paidTo = document.getElementById('expPaidTo').value;
+        const refNo = document.getElementById('expRefNo').value;
+        const remarks = document.getElementById('expRemarks').value;
+        const alertBox = document.getElementById('quickExpenseAlert');
+        const submitBtn = document.getElementById('saveExpenseBtn');
+        const spinner = document.getElementById('saveExpenseSpinner');
+
+        if (!date || !category || !amount || parseFloat(amount) <= 0) {
+            alertBox.textContent = 'Please fill all required fields with a valid positive amount.';
+            alertBox.classList.remove('d-none');
+            return;
+        }
+
+        alertBox.classList.add('d-none');
+        submitBtn.disabled = true;
+        spinner.classList.remove('d-none');
+
+        const formData = new FormData();
+        formData.append('expense_date', date);
+        formData.append('category', category);
+        formData.append('amount', amount);
+        formData.append('payment_mode', mode);
+        formData.append('paid_to', paidTo);
+        formData.append('reference_no', refNo);
+        formData.append('remarks', remarks);
+        formData.append('ajax', '1');
+
+        fetch("{% url 'expense_create' %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json().then(data => ({ status: response.status, data })))
+        .then(({ status, data }) => {
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+
+            if (data.status === 'success') {
+                window.location.reload();
+            } else {
+                alertBox.textContent = data.message || 'Error recording expense.';
+                alertBox.classList.remove('d-none');
+            }
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+            console.error('Expense error:', err);
+            alertBox.textContent = 'Server communication error. Please try again.';
+            alertBox.classList.remove('d-none');
+        });
+    }
+
+    function openCategoryModalFromExpense() {
+        const catModal = new bootstrap.Modal(document.getElementById('quickCategoryModal'));
+        catModal.show();
+    }
+
+    function submitQuickCategory(event) {
+        event.preventDefault();
+        const name = document.getElementById('newCatName').value.trim();
+        const desc = document.getElementById('newCatDesc').value.trim();
+        const alertBox = document.getElementById('quickCatAlert');
+        const submitBtn = document.getElementById('saveCatBtn');
+        const spinner = document.getElementById('saveCatSpinner');
+
+        if (!name) {
+            alertBox.textContent = 'Category Name is required.';
+            alertBox.classList.remove('d-none');
+            return;
+        }
+
+        alertBox.classList.add('d-none');
+        submitBtn.disabled = true;
+        spinner.classList.remove('d-none');
+
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('description', desc);
+        formData.append('ajax', '1');
+
+        fetch("{% url 'expense_category_create' %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json().then(data => ({ status: response.status, data })))
+        .then(({ status, data }) => {
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+
+            if (data.status === 'success') {
+                const expCategory = document.getElementById('expCategory');
+                const opt = document.createElement('option');
+                opt.value = data.id;
+                opt.textContent = data.name;
+                opt.selected = true;
+                expCategory.appendChild(opt);
+
+                const modalEl = document.getElementById('quickCategoryModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+
+                document.getElementById('newCatName').value = '';
+                document.getElementById('newCatDesc').value = '';
+            } else {
+                alertBox.textContent = data.message || 'Error creating category.';
+                alertBox.classList.remove('d-none');
+            }
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+            alertBox.textContent = 'Server error.';
+            alertBox.classList.remove('d-none');
+        });
+    }
+
+    // Keyboard Shortcuts: Alt+E for Record Expense, Alt+C for Category
+    document.addEventListener('keydown', function(e) {
+        if (e.altKey && (e.key === 'e' || e.key === 'E')) {
+            e.preventDefault();
+            const modalEl = document.getElementById('quickExpenseModal');
+            if (modalEl) {
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
+        }
+    });
+
+    document.getElementById('quickExpenseModal')?.addEventListener('shown.bs.modal', function() {
+        document.getElementById('expAmount')?.focus();
+    });
+</script>
+{% endblock %}

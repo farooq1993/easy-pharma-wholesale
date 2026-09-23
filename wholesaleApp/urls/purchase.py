@@ -16,7 +16,9 @@ from wholesaleApp.views.purchase_views import (
     purchase_return_create,
     purchase_return_delete,
     scan_purchase_bill,
-    check_purchase_invoice_number
+    check_purchase_invoice_number,
+    batch_update_list,
+    api_batch_update
 )
 
 urlpatterns = [
@@ -32,6 +34,9 @@ urlpatterns = [
     path('purchase/entry/<int:pk>/delete/', purchase_entry_delete, name='purchase_entry_delete'),
     path('purchase/entry/<int:pk>/print/', purchase_entry_print, name='purchase_entry_print'),
 
+    # Batch Stock Management & Rate/Expiry Correction
+    path('purchase/batch-update/', batch_update_list, name='batch_update_list'),
+
     # Supplier Payments
     path('purchase/payment/list/', supplier_payment_list, name='supplier_payment_list'),
     path('purchase/payment/create/', supplier_payment_create, name='supplier_payment_create'),
@@ -46,5 +51,6 @@ urlpatterns = [
     path('api/product/<int:pk>/details/', get_product_details, name='api_product_details'),
     path('api/purchase/scan-bill/', scan_purchase_bill, name='scan_purchase_bill'),
     path('api/purchase/check-invoice-number/', check_purchase_invoice_number, name='check_purchase_invoice_number'),
+    path('api/purchase/batch/<int:pk>/update/', api_batch_update, name='api_batch_update'),
 ]
 

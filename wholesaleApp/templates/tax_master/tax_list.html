@@ -1,0 +1,90 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}Tax Master (GST Slabs){% endblock %}
+{% block page_title %}Tax Master (GST Slabs){% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h4 class="fw-bold mb-1"><i class="bi bi-percent text-primary me-2"></i>Tax Master (GST Slabs)</h4>
+        <p class="text-muted small mb-0">Define and manage dynamic GST percentages applicable across purchase and sales billing.</p>
+    </div>
+    <a href="{% url 'tax_create' %}" class="btn btn-primary rounded-pill px-4 shadow-sm fw-semibold">
+        <i class="bi bi-plus-circle me-1"></i> Add New Tax Slab
+    </a>
+</div>
+
+<div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr class="text-uppercase small text-muted">
+                        <th class="ps-4">Tax Slab Name</th>
+                        <th class="text-center">Total GST %</th>
+                        <th class="text-center">CGST %</th>
+                        <th class="text-center">SGST %</th>
+                        <th class="text-center">IGST %</th>
+                        <th>Type / Default</th>
+                        <th>Status</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tax in taxes %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">{{ tax.name }}</div>
+                            {% if tax.description %}
+                            <small class="text-muted">{{ tax.description }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary px-3 py-2 fs-6 rounded-pill fw-bold">{{ tax.rate }}%</span>
+                        </td>
+                        <td class="text-center text-muted fw-semibold">{{ tax.cgst_rate }}%</td>
+                        <td class="text-center text-muted fw-semibold">{{ tax.sgst_rate }}%</td>
+                        <td class="text-center text-muted fw-semibold">{{ tax.igst_rate }}%</td>
+                        <td>
+                            {% if tax.is_default %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Default Slab
+                                </span>
+                            {% else %}
+                                <span class="badge bg-light text-muted border px-2.5 py-1 rounded-pill">Standard</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tax.status %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="{% url 'tax_edit' tax.pk %}" class="btn btn-sm btn-outline-primary rounded-pill px-2.5 me-1" title="Edit Tax Slab">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                            <a href="{% url 'tax_delete' tax.pk %}" class="btn btn-sm btn-outline-danger rounded-pill px-2.5" title="Delete Tax Slab" onclick="return confirm('Are you sure you want to delete tax slab {{ tax.name }}?')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-percent fs-1 text-muted d-block mb-2"></i>
+                            <h6 class="fw-bold">No Tax Slabs defined yet</h6>
+                            <p class="small mb-3">Click below to create your first dynamic GST tax slab.</p>
+                            <a href="{% url 'tax_create' %}" class="btn btn-primary btn-sm rounded-pill px-4">Create Tax Slab</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

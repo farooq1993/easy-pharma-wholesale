@@ -44,6 +44,8 @@
                         <li class="nav-item"><a href="{% url 'company_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Company Master</span></a></li>
                         <li class="nav-item"><a href="{% url 'drug_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Drug Composition</span></a></li>
                         <li class="nav-item"><a href="{% url 'type_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Product Type / Form</span></a></li>
+                        <li class="nav-item"><a href="{% url 'tax_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Tax Master (GST Slabs)</span></a></li>
+                        <li class="nav-item"><a href="{% url 'schedule_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Schedule Master</span></a></li>
                         {% endif %}
                         {% if 'supplier_view' in user_perms %}
                         <li class="nav-item"><a href="{% url 'supplier_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Supplier Master</span></a></li>
@@ -77,6 +79,7 @@
                         {% endif %}
                         {% if 'purchase_view' in user_perms %}
                         <li class="nav-item"><a href="{% url 'purchase_entry_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Purchase Entry (Bill)</span></a></li>
+                        <li class="nav-item"><a href="{% url 'batch_update_list' %}" class="nav-link text-light py-1.5"><span class="menu-text text-warning fw-semibold"><i class="bi bi-pencil-square me-1"></i> Batch MRP &amp; Exp Change</span></a></li>
                         {% endif %}
                         {% if 'purchase_return_view' in user_perms %}
                         <li class="nav-item"><a href="{% url 'purchase_return_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Purchase Return</span></a></li>
@@ -136,7 +139,7 @@
                 </div>
             </li>
 
-            {% if 'customer_ledger' in user_perms or 'report_outstanding' in user_perms or 'payment_collection_view' in user_perms %}
+            {% if 'customer_ledger' in user_perms or 'report_outstanding' in user_perms or 'payment_collection_view' in user_perms or 'expense_view' in user_perms or 'view_margins' in user_perms %}
             <!-- Accounts / Ledger -->
             <li class="nav-item">
                 <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#accountsCollapse" role="button" title="Accounts">
@@ -148,6 +151,10 @@
                 </a>
                 <div class="collapse ms-3" id="accountsCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
+                        <li class="nav-item"><a href="{% url 'report_profit_loss' %}" class="nav-link text-light py-1.5"><span class="menu-text text-success fw-semibold"><i class="bi bi-graph-up-arrow me-1"></i> Net Profit &amp; Loss (P&amp;L)</span></a></li>
+                        {% if 'customer_ledger' in user_perms or 'expense_view' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'expense_list' %}" class="nav-link text-light py-1.5"><span class="menu-text text-warning fw-semibold"><i class="bi bi-wallet2 me-1"></i> Daily Expenses</span></a></li>
+                        {% endif %}
                         {% if 'payment_collection_view' in user_perms %}
                         <li class="nav-item"><a href="{% url 'customer_payment_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Payment Collection</span></a></li>
                         {% endif %}

@@ -74,16 +74,44 @@
                             <input type="text" name="hsn_code" class="form-control" value="{{ product.hsn_code|default:'' }}" placeholder="e.g., 3004">
                         </div>
 
-                        <!-- GST Rate -->
+                        <!-- Dynamic GST Rate (Tax Master) -->
                         <div class="col-md-4">
-                            <label class="form-label">GST Rate (%) <span class="text-danger">*</span></label>
-                            <select name="gst_rate" class="form-select" required>
-                                <option value="0.00" {% if product.gst_rate == 0.00 %}selected{% endif %}>0% Exempted</option>
-                                <option value="5.00" {% if product.gst_rate == 5.00 %}selected{% endif %}>5%</option>
-                                <option value="12.00" {% if product.gst_rate == 12.00 or not product %}selected{% endif %}>12% (Standard Pharma)</option>
-                                <option value="18.00" {% if product.gst_rate == 18.00 %}selected{% endif %}>18%</option>
-                                <option value="28.00" {% if product.gst_rate == 28.00 %}selected{% endif %}>28%</option>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label mb-0">GST Tax Slab <span class="text-danger">*</span></label>
+                                <a href="{% url 'tax_create' %}" target="_blank" class="small text-decoration-none fw-semibold" title="Add new GST slab in Tax Master">
+                                    <i class="bi bi-plus-circle"></i> New Slab
+                                </a>
+                            </div>
+                            <select name="tax_slab" id="taxSlabSelect" class="form-select" required>
+                                <option value="">Select GST Rate Slab</option>
+                                {% for tax in tax_slabs %}
+                                <option value="{{ tax.id }}" data-rate="{{ tax.rate }}" {% if product.tax_slab_id == tax.id or (not product and tax.is_default) or (product and not product.tax_slab_id and product.gst_rate == tax.rate) %}selected{% endif %}>
+                                    {{ tax.name }} ({{ tax.rate }}%)
+                                </option>
+                                {% empty %}
+                                <option value="" selected>12% (Standard Pharma)</option>
+                                {% endfor %}
                             </select>
+                            <div class="form-text text-muted">Dynamically pulled from Tax Master.</div>
+                        </div>
+
+                        <!-- Drug Schedule Master -->
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label mb-0">Drug Schedule (Rx Classification)</label>
+                                <a href="{% url 'schedule_create' %}" target="_blank" class="small text-decoration-none fw-semibold" title="Add new Schedule in Schedule Master">
+                                    <i class="bi bi-plus-circle"></i> New Schedule
+                                </a>
+                            </div>
+                            <select name="schedule" class="form-select">
+                                <option value="">Select Drug Schedule (Optional)</option>
+                                {% for s in schedules %}
+                                <option value="{{ s.id }}" {% if product.schedule_id == s.id %}selected{% endif %}>
+                                    {{ s.name }} ({{ s.code }}) {% if s.requires_prescription %}[Rx]{% else %}[OTC]{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text text-muted">Statutory warning &amp; Rx requirement.</div>
                         </div>
 
                         <!-- Min Stock Alert -->

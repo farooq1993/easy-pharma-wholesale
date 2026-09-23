@@ -1,0 +1,607 @@
+{% extends 'includes/base.html' %}
+
+{% block title %}Trading & Profit & Loss A/c - Easy Pharma{% endblock %}
+{% block page_title %}Trading & Profit & Loss A/c{% endblock %}
+
+{% block content %}
+<style>
+    /* Classic Accounting / Tally Typography & Table Styles */
+    .tally-sheet-card {
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    .tally-table {
+        font-family: 'Consolas', 'Courier New', 'Segoe UI', monospace;
+        font-size: 1.02rem;
+        margin-bottom: 0;
+        border-collapse: collapse;
+        width: 100%;
+    }
+    .tally-table th {
+        background-color: #f1f5f9;
+        color: #1e293b;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.90rem;
+        letter-spacing: 0.5px;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+    }
+    .tally-table td {
+        padding: 8px 14px;
+        vertical-align: middle;
+        border-left: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-top: none;
+        border-bottom: none;
+    }
+    .tally-row-header {
+        font-weight: 700;
+        color: #0f172a;
+        background-color: #f8fafc;
+    }
+    .tally-sub-row td {
+        padding-top: 4px;
+        padding-bottom: 4px;
+        font-size: 0.95rem;
+        color: #475569;
+    }
+    .tally-total-row td {
+        border-top: 1px solid #334155 !important;
+        border-bottom: 3px double #0f172a !important;
+        font-weight: 800;
+        font-size: 1.10rem;
+        background-color: #f8fafc;
+        color: #0f172a;
+        padding: 10px 14px;
+    }
+    .tally-section-divider td {
+        border-top: 2px solid #94a3b8 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        background-color: #f1f5f9;
+        font-weight: 700;
+        font-size: 0.92rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #334155;
+        padding: 6px 14px;
+    }
+    .amount-cell {
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-weight: 700;
+        text-align: right;
+        white-space: nowrap;
+    }
+    .inner-amount {
+        color: #64748b;
+        font-weight: 500;
+        font-size: 0.92rem;
+    }
+    .net-profit-badge {
+        background-color: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+        font-weight: 800;
+    }
+    .net-loss-badge {
+        background-color: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+        font-weight: 800;
+    }
+    
+    /* Print Styles for Authentic Accounting Statement */
+    @media print {
+        body {
+            background-color: #ffffff !important;
+            font-size: 12pt;
+        }
+        .d-print-none, .sidebar, .navbar, .btn, .breadcrumb, form {
+            display: none !important;
+        }
+        .container-fluid, .content-wrapper, main {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .tally-sheet-card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .tally-table th, .tally-table td {
+            border-color: #000000 !important;
+        }
+        .tally-total-row td {
+            border-top: 1px solid #000 !important;
+            border-bottom: 3px double #000 !important;
+        }
+        .print-header {
+            display: block !important;
+        }
+    }
+</style>
+
+<!-- Main Statement Container -->
+<div class="container-fluid px-0">
+
+    <!-- Top Action & Filter Toolbar -->
+    <div class="card tally-sheet-card mb-3 d-print-none">
+        <div class="card-body p-3">
+            <form method="get" action="{% url 'report_profit_loss' %}" id="plFilterForm">
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-md-auto d-flex align-items-center gap-2">
+                        <span class="badge bg-dark px-3 py-2 fs-6 fw-bold">
+                            <i class="bi bi-calendar3 me-1"></i> Period
+                        </span>
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <label class="form-label small fw-bold text-muted mb-1">From Date</label>
+                        <input type="date" name="start_date" id="startDateInput" class="form-control form-control-sm fw-bold" value="{{ start_date }}">
+                    </div>
+                    <div class="col-6 col-sm-4 col-md-2">
+                        <label class="form-label small fw-bold text-muted mb-1">To Date</label>
+                        <input type="date" name="end_date" id="endDateInput" class="form-control form-control-sm fw-bold" value="{{ end_date }}">
+                    </div>
+                    <div class="col-12 col-sm-4 col-md-auto d-flex align-items-end gap-2">
+                        <button type="submit" class="btn btn-sm btn-primary px-3 fw-bold shadow-sm">
+                            <i class="bi bi-funnel-fill me-1"></i> Apply Filter
+                        </button>
+                    </div>
+
+                    <!-- Quick Preset Buttons -->
+                    <div class="col-12 col-lg-auto ms-auto d-flex flex-wrap gap-1 align-items-center justify-content-end pt-2 pt-lg-0">
+                        <span class="text-muted small me-1 d-none d-xl-inline">Presets:</span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2" onclick="setPeriod('today')">Today</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2" onclick="setPeriod('this_month')">This Month</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2" onclick="setPeriod('last_month')">Last Month</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0.5 px-2" onclick="setPeriod('this_fy')">This FY</button>
+
+                        <div class="vr mx-2 d-none d-md-block"></div>
+
+                        <!-- View Controls -->
+                        <button type="button" class="btn btn-sm btn-outline-dark px-2 fw-semibold" id="toggleDetailedBtn" onclick="toggleDetailedView()" title="Shortcut: Alt+F1">
+                            <i class="bi bi-arrows-expand me-1"></i> <span id="detailedBtnText">Detailed View</span> <kbd class="small ms-1 bg-secondary text-white border-0">Alt+F1</kbd>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success px-2 fw-semibold" onclick="exportPLToCSV()" title="Shortcut: Ctrl+E">
+                            <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-dark px-2 fw-semibold" onclick="window.print()" title="Shortcut: Ctrl+P">
+                            <i class="bi bi-printer me-1"></i> Print
+                        </button>
+                        <a href="{% url 'expense_list' %}" class="btn btn-sm btn-warning px-2 fw-bold text-dark" title="Manage shop expenses">
+                            <i class="bi bi-wallet2 me-1"></i> Record Expense
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Statement Card -->
+    <div class="card tally-sheet-card border-0 shadow-sm" id="plStatementArea">
+        <div class="card-body p-4">
+
+            <!-- Formal Accounting Header -->
+            <div class="text-center pb-3 mb-3 border-bottom border-dark border-opacity-25">
+                <h3 class="fw-bold text-dark text-uppercase tracking-wide mb-1" style="letter-spacing: 1px;">
+                    {{ active_tenant.company_name|default:user_profile.tenant.company_name|default:"SAHARA PHARMA" }}
+                </h3>
+                <h5 class="fw-bold text-primary mb-1">
+                    Trading and Profit &amp; Loss Account
+                </h5>
+                <p class="text-muted mb-0 fw-semibold" style="font-size: 1.05rem;">
+                    For the Period : <span class="text-dark fw-bold">{{ start_date }}</span> to <span class="text-dark fw-bold">{{ end_date }}</span>
+                </p>
+            </div>
+
+            <!-- T-Account Statement Table (Debit / Left vs Credit / Right) -->
+            <div class="table-responsive">
+                <table class="table tally-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">Particulars (Debit / Dr.)</th>
+                            <th style="width: 15%;" class="text-end">Amount (₹)</th>
+                            <th style="width: 35%;">Particulars (Credit / Cr.)</th>
+                            <th style="width: 15%;" class="text-end">Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <!-- ==================== 1. TRADING ACCOUNT SECTION ==================== -->
+                        <tr class="tally-section-divider">
+                            <td colspan="2"><i class="bi bi-box-seam me-1"></i> TRADING ACCOUNT (DIRECT COSTS)</td>
+                            <td colspan="2"><i class="bi bi-graph-up me-1"></i> TRADING ACCOUNT (DIRECT REVENUE)</td>
+                        </tr>
+
+                        <!-- Row: Opening Stock vs Sales Accounts -->
+                        <tr>
+                            <!-- Left: Opening Stock -->
+                            <td>
+                                <span class="fw-bold text-dark">To Opening Stock</span>
+                            </td>
+                            <td class="amount-cell">
+                                {{ opening_stock|floatformat:2 }}
+                            </td>
+                            <!-- Right: Sales Accounts -->
+                            <td>
+                                <span class="fw-bold text-dark">By Sales Accounts</span>
+                            </td>
+                            <td class="amount-cell text-primary">
+                                {{ net_sales|floatformat:2 }}
+                            </td>
+                        </tr>
+
+                        <!-- Sub-row: Detailed Sales & Purchase Breakdown -->
+                        <tr class="tally-sub-row detailed-row d-none bg-light bg-opacity-50">
+                            <!-- Left: Purchases Breakdown -->
+                            <td class="ps-4">
+                                <span class="fw-semibold text-secondary">To Purchase Accounts</span><br>
+                                <span class="small text-muted ps-2">Gross Purchases ({{ purchases_count }} bills): ₹{{ gross_purchases|floatformat:2 }}</span><br>
+                                <span class="small text-muted ps-2">Less: Returns ({{ purchase_returns_count }} returns): ₹{{ purchase_returns|floatformat:2 }}</span>
+                            </td>
+                            <td class="amount-cell align-top pt-2">
+                                <span class="inner-amount">₹{{ cogs|floatformat:2 }}</span>
+                            </td>
+                            <!-- Right: Sales Breakdown -->
+                            <td class="ps-4">
+                                <span class="small text-muted">Gross Sales ({{ sales_invoices_count }} invoices): ₹{{ gross_sales|floatformat:2 }}</span><br>
+                                <span class="small text-muted">Less: Returns ({{ sales_returns_count }} returns): ₹{{ sales_returns|floatformat:2 }}</span>
+                            </td>
+                            <td class="amount-cell align-top pt-2">
+                                <span class="inner-amount">₹{{ net_sales|floatformat:2 }}</span>
+                            </td>
+                        </tr>
+
+                        <!-- Row: Purchases / COGS vs Direct Incomes -->
+                        <tr>
+                            <!-- Left: Cost of Goods Sold -->
+                            <td>
+                                <span class="fw-bold text-dark">To Cost of Goods Sold (Purchase Cost)</span>
+                            </td>
+                            <td class="amount-cell">
+                                {{ cogs|floatformat:2 }}
+                            </td>
+                            <!-- Right: Direct Incomes -->
+                            <td>
+                                <span class="fw-bold text-dark">By Direct Incomes</span>
+                            </td>
+                            <td class="amount-cell">
+                                0.00
+                            </td>
+                        </tr>
+
+                        <!-- Row: Direct Expenses vs Closing Stock -->
+                        <tr>
+                            <!-- Left: Direct Expenses -->
+                            <td>
+                                <span class="fw-bold text-dark">To Direct Expenses / Inward Freight</span>
+                            </td>
+                            <td class="amount-cell">
+                                {{ direct_expenses|floatformat:2 }}
+                            </td>
+                            <!-- Right: Closing Stock Valuation -->
+                            <td>
+                                <span class="fw-bold text-dark">By Closing Stock (Valuation)</span>
+                                <span class="badge bg-light text-secondary border ms-1 small fw-normal">On-hand</span>
+                            </td>
+                            <td class="amount-cell text-secondary">
+                                {{ closing_stock|floatformat:2 }}
+                            </td>
+                        </tr>
+
+                        <!-- Row: Gross Profit c/o or Gross Loss c/o -->
+                        <tr>
+                            <!-- Left: Gross Profit c/o (if Profit) -->
+                            <td>
+                                {% if is_gross_profit %}
+                                <span class="fw-bold text-success">
+                                    To Gross Profit c/o <span class="small text-muted">(Carried to P&amp;L A/c)</span>
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="amount-cell {% if is_gross_profit %}text-success{% endif %}">
+                                {% if is_gross_profit %}{{ gross_profit|floatformat:2 }}{% else %}0.00{% endif %}
+                            </td>
+
+                            <!-- Right: Gross Loss c/o (if Loss) -->
+                            <td>
+                                {% if not is_gross_profit %}
+                                <span class="fw-bold text-danger">
+                                    By Gross Loss c/o <span class="small text-muted">(Carried to P&amp;L A/c)</span>
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="amount-cell {% if not is_gross_profit %}text-danger{% endif %}">
+                                {% if not is_gross_profit %}{{ gross_profit|floatformat:2 }}{% else %}0.00{% endif %}
+                            </td>
+                        </tr>
+
+                        <!-- TRADING ACCOUNT BALANCING TOTAL -->
+                        <tr class="tally-total-row">
+                            <td>Total (Trading Account)</td>
+                            <td class="amount-cell">{{ trading_dr_total|floatformat:2 }}</td>
+                            <td>Total (Trading Account)</td>
+                            <td class="amount-cell">{{ trading_cr_total|floatformat:2 }}</td>
+                        </tr>
+
+
+                        <!-- ==================== 2. PROFIT & LOSS ACCOUNT SECTION ==================== -->
+                        <tr class="tally-section-divider">
+                            <td colspan="2"><i class="bi bi-wallet2 me-1"></i> PROFIT &amp; LOSS ACCOUNT (INDIRECT EXPENSES)</td>
+                            <td colspan="2"><i class="bi bi-cash-stack me-1"></i> PROFIT &amp; LOSS ACCOUNT (INDIRECT INCOMES)</td>
+                        </tr>
+
+                        <!-- Row: Gross Loss b/f vs Gross Profit b/f -->
+                        <tr>
+                            <!-- Left: Gross Loss b/f (if any) -->
+                            <td>
+                                {% if not is_gross_profit %}
+                                <span class="fw-bold text-danger">To Gross Loss b/f</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="amount-cell">
+                                {% if not is_gross_profit %}{{ gross_profit|floatformat:2 }}{% else %}0.00{% endif %}
+                            </td>
+
+                            <!-- Right: Gross Profit b/f -->
+                            <td>
+                                {% if is_gross_profit %}
+                                <span class="fw-bold text-success">By Gross Profit b/f</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="amount-cell text-success">
+                                {% if is_gross_profit %}{{ gross_profit|floatformat:2 }}{% else %}0.00{% endif %}
+                            </td>
+                        </tr>
+
+                        <!-- Row: Indirect Expenses Group Header vs Indirect Incomes Header -->
+                        <tr class="tally-row-header">
+                            <td>
+                                <i class="bi bi-caret-down-fill text-muted small me-1"></i>
+                                <span>To Indirect Expenses</span>
+                                <span class="badge bg-secondary bg-opacity-25 text-dark ms-1 small">{{ total_expenses_count }} vouchers</span>
+                            </td>
+                            <td class="amount-cell text-danger">
+                                {{ total_indirect_expenses|floatformat:2 }}
+                            </td>
+
+                            <td>
+                                <i class="bi bi-caret-down-fill text-muted small me-1"></i>
+                                <span>By Indirect Incomes</span>
+                            </td>
+                            <td class="amount-cell text-success">
+                                {{ total_indirect_income|floatformat:2 }}
+                            </td>
+                        </tr>
+
+                        <!-- Itemized Indirect Expense Categories -->
+                        {% for head in expense_heads %}
+                        <tr class="{% if head.amount == 0 %}detailed-row d-none text-muted{% endif %}">
+                            <!-- Left: Category Line Item -->
+                            <td class="ps-4">
+                                <span class="fw-semibold text-dark">{{ head.name }}</span>
+                                {% if head.count > 0 %}
+                                <span class="badge bg-light text-secondary border ms-1 small fw-normal">{{ head.count }} vouchers</span>
+                                {% endif %}
+                            </td>
+                            <td class="amount-cell {% if head.amount > 0 %}text-dark{% else %}text-muted{% endif %}">
+                                {{ head.amount|floatformat:2 }}
+                            </td>
+
+                            <!-- Right: Matched Indirect Income Lines (Discounts on purchases, etc.) -->
+                            {% if forloop.first %}
+                            <td class="ps-4">
+                                <span class="fw-semibold text-dark">Discounts Received from Suppliers</span>
+                            </td>
+                            <td class="amount-cell text-dark">
+                                {{ discounts_received|floatformat:2 }}
+                            </td>
+                            {% elif forloop.counter == 2 %}
+                            <td class="ps-4">
+                                <span class="fw-semibold text-dark">Other Non-Operating Income</span>
+                            </td>
+                            <td class="amount-cell text-dark">
+                                {{ other_indirect_income|floatformat:2 }}
+                            </td>
+                            {% else %}
+                            <td></td>
+                            <td></td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+
+                        <!-- Row: Nett Profit vs Nett Loss (The Ultimate Balancing Item) -->
+                        <tr class="{% if is_net_profit %}net-profit-badge{% else %}net-loss-badge{% endif %}">
+                            <!-- Left: Nett Profit (Dr side if Profit) -->
+                            <td style="padding: 14px 14px;">
+                                {% if is_net_profit %}
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="fw-bold fs-5 text-success">
+                                        <i class="bi bi-check-circle-fill me-1"></i> To Nett Profit (Transferred to Capital A/c)
+                                    </span>
+                                    <span class="badge bg-success text-white px-2 py-1">Net Margin: {{ net_margin_pct|floatformat:2 }}%</span>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="amount-cell text-success fs-5 fw-bold" style="padding: 14px 14px;">
+                                {% if is_net_profit %}{{ net_profit|floatformat:2 }}{% else %}0.00{% endif %}
+                            </td>
+
+                            <!-- Right: Nett Loss (Cr side if Loss) -->
+                            <td style="padding: 14px 14px;">
+                                {% if not is_net_profit %}
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="fw-bold fs-5 text-danger">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i> By Nett Loss
+                                    </span>
+                                    <span class="badge bg-danger text-white px-2 py-1">Net Margin: {{ net_margin_pct|floatformat:2 }}%</span>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="amount-cell text-danger fs-5 fw-bold" style="padding: 14px 14px;">
+                                {% if not is_net_profit %}{{ net_profit|floatformat:2 }}{% else %}0.00{% endif %}
+                            </td>
+                        </tr>
+
+                        <!-- PROFIT & LOSS FINAL BALANCING TOTAL -->
+                        <tr class="tally-total-row">
+                            <td>Total (Profit &amp; Loss A/c)</td>
+                            <td class="amount-cell">{{ pl_dr_total|floatformat:2 }}</td>
+                            <td>Total (Profit &amp; Loss A/c)</td>
+                            <td class="amount-cell">{{ pl_cr_total|floatformat:2 }}</td>
+                        </tr>
+
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Footer Summary Badges (Clean Marg / Tally Strip) -->
+            <div class="row g-2 mt-4 pt-3 border-top border-dark border-opacity-10 d-print-none align-items-center">
+                <div class="col-12 col-md-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-muted small fw-bold">GROSS MARGIN:</span>
+                        <span class="badge bg-primary bg-opacity-10 text-primary fs-6 fw-bold border border-primary border-opacity-25 px-2 py-1">
+                            {{ gross_margin_pct|floatformat:2 }}%
+                        </span>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 text-md-center">
+                    <div class="d-flex align-items-center justify-content-md-center gap-2">
+                        <span class="text-muted small fw-bold">NET PROFIT (SHUDH NAFA):</span>
+                        <span class="badge {% if is_net_profit %}bg-success{% else %}bg-danger{% endif %} text-white fs-6 fw-bold px-3 py-1">
+                            ₹{{ net_profit|floatformat:2 }} ({{ net_margin_pct|floatformat:2 }}%)
+                        </span>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 text-md-end text-muted small">
+                    <i class="bi bi-info-circle me-1"></i> Press <kbd class="bg-light text-dark border">Alt+F1</kbd> to toggle Detailed view.
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- JavaScript for Tally Period Filters, Alt+F1 Detailed View, and Excel Export -->
+<script>
+    let isDetailed = false;
+
+    function toggleDetailedView() {
+        isDetailed = !isDetailed;
+        const detailedRows = document.querySelectorAll('.detailed-row');
+        detailedRows.forEach(row => {
+            if (isDetailed) {
+                row.classList.remove('d-none');
+            } else {
+                row.classList.add('d-none');
+            }
+        });
+
+        const btnText = document.getElementById('detailedBtnText');
+        if (btnText) {
+            btnText.innerText = isDetailed ? 'Condensed View' : 'Detailed View';
+        }
+    }
+
+    function setPeriod(type) {
+        const today = new Date();
+        let start = new Date();
+        let end = new Date();
+
+        if (type === 'today') {
+            start = today;
+            end = today;
+        } else if (type === 'this_month') {
+            start = new Date(today.getFullYear(), today.getMonth(), 1);
+            end = today;
+        } else if (type === 'last_month') {
+            start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            end = new Date(today.getFullYear(), today.getMonth(), 0);
+        } else if (type === 'this_fy') {
+            const curMonth = today.getMonth(); // 0 = Jan, 3 = Apr
+            const curYear = today.getFullYear();
+            if (curMonth >= 3) {
+                start = new Date(curYear, 3, 1);
+                end = new Date(curYear + 1, 2, 31);
+            } else {
+                start = new Date(curYear - 1, 3, 1);
+                end = new Date(curYear, 2, 31);
+            }
+        }
+
+        const formatDate = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        document.getElementById('startDateInput').value = formatDate(start);
+        document.getElementById('endDateInput').value = formatDate(end);
+        document.getElementById('plFilterForm').submit();
+    }
+
+    // Export Tally P&L Statement to CSV / Excel
+    function exportPLToCSV() {
+        let csv = [];
+        csv.push(['EASY PHARMA WHOLESALE - TRADING & PROFIT & LOSS ACCOUNT']);
+        csv.push([`Period: ${document.getElementById('startDateInput').value} to ${document.getElementById('endDateInput').value}`]);
+        csv.push([]);
+        csv.push(['Particulars (Debit / Dr)', 'Amount (Rs)', 'Particulars (Credit / Cr)', 'Amount (Rs)']);
+        
+        const rows = document.querySelectorAll('#plStatementArea table tbody tr');
+        rows.forEach(tr => {
+            if (tr.classList.contains('d-none')) return;
+            const cells = tr.querySelectorAll('th, td');
+            let rowData = [];
+            cells.forEach(td => {
+                let text = td.innerText.replace(/(\r\n|\n|\r)/gm, ' ').trim();
+                text = text.replace(/"/g, '""');
+                rowData.push(`"${text}"`);
+            });
+            if (rowData.length > 0) {
+                csv.push(rowData.join(','));
+            }
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," + csv.join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Profit_and_Loss_${document.getElementById('startDateInput').value}_to_${document.getElementById('endDateInput').value}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Keyboard Shortcuts (Alt+F1 for Detailed, Alt+E for Expense, Ctrl+P for Print, Ctrl+E for Export)
+    document.addEventListener('keydown', function(e) {
+        if (e.altKey && (e.key === 'F1' || e.code === 'F1')) {
+            e.preventDefault();
+            toggleDetailedView();
+        }
+        if (e.altKey && (e.key === 'e' || e.key === 'E')) {
+            e.preventDefault();
+            window.location.href = "{% url 'expense_list' %}";
+        }
+        if (e.ctrlKey && (e.key === 'e' || e.key === 'E')) {
+            e.preventDefault();
+            exportPLToCSV();
+        }
+    });
+</script>
+{% endblock %}

@@ -287,10 +287,10 @@
                 </div>
             </div>
 
-            <!-- Two Column Layout: Left table/totals, Right docked stock inspector -->
-            <!-- Full Width Billing Area -->
+            <!-- Two Column Layout: Left (Item entry & Table) / Right (Sticky Order Summary) -->
             <div class="row g-4 border-top pt-4">
-                <div class="col-12">
+                <!-- Left Column: Item Entry & Table (col-lg-8 col-xl-9) -->
+                <div class="col-lg-8 col-xl-9">
                     <!-- STEP 2: FAST PRODUCT SEARCH & ENTRY BAR -->
                     <div class="card shadow-sm border-0 rounded-4 mb-4 bg-light">
                         <div class="card-body p-3.5">
@@ -301,7 +301,6 @@
                                     </span>
                                     <div>
                                         <h6 class="fw-bold text-dark mb-0 text-uppercase tracking-wider" style="font-size: 0.88rem;">Fast Product Search & Entry Bar</h6>
-                            
                                     </div>
                                 </div>
                                 <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-semibold shadow-xs" onclick="openProductModal()" style="font-size: 0.78rem;">
@@ -312,7 +311,7 @@
                             <!-- Medicine Search Combobox & Live Badges -->
                             <div class="mb-3">
                                 <label class="form-label text-muted fw-bold mb-1 d-flex align-items-center justify-content-between" style="font-size: 0.86rem;">
-                                    <span><i class="bi bi-capsule text-primary me-1"></i> SEARCH MEDICINE <span class="text-danger">*</span></span>
+                                    <span><i class="bi bi-capsule text-primary me-1"></i> SEARCH PRODUCT <span class="text-danger">*</span></span>
                                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace" style="font-size: 0.72rem;"><i class="bi bi-keyboard me-1"></i>Press F2 to Focus</span>
                                 </label>
                                 <div class="combobox-container">
@@ -384,6 +383,7 @@
                         </div>
                     </div>
 
+                    <!-- Product Sales History Panel -->
                     <div class="card shadow-sm border rounded-4 mb-4" id="productHistoryPanel">
                         <div class="card-header text-white py-2" style="background-color: #0f766e;">
                             <h6 class="mb-0 fw-bold"><i class="bi bi-clock-history me-1"></i> Product Sales History</h6>
@@ -399,12 +399,18 @@
                         </div>
                     </div>
 
+                    <!-- Invoice Items Table Header & Table -->
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-list-check text-primary me-2"></i>Invoice Items Table</h5>
-                        <span class="badge bg-secondary-subtle text-secondary px-3 py-1.5 rounded-pill small fw-semibold" id="itemsCountBadge">0 items added</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary-subtle text-secondary px-3 py-1.5 rounded-pill small fw-semibold" id="itemsCountBadge">0 items added</span>
+                            <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" onclick="clearInvoiceForm()">
+                                <i class="bi bi-trash3 me-1"></i> Clear All Items
+                            </button>
+                        </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered align-middle" id="invoiceTable" style="min-width: 1100px;">
+                        <table class="table table-bordered align-middle" id="invoiceTable" style="min-width: 1000px;">
                             <thead class="table-light text-center">
                                 <tr>
                                     <th style="width: 20%;">Product Name <span class="text-danger">*</span></th>
@@ -430,64 +436,88 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
 
-                    <!-- Summaries Row -->
-                    <div class="row justify-content-end mb-4 border-top pt-4">
-                        <div class="col-md-6">
-                            <table class="table table-borderless">
-                                <tr>
-                                    <td class="text-muted fw-bold">Gross Taxable Value:</td>
-                                    <td class="text-end fw-bold">₹<span id="summaryGross">0.00</span></td>
-                                    <input type="hidden" name="gross_amount" id="inputGross" value="0.00">
-                                </tr>
-                                <tr>
-                                    <td class="text-muted fw-bold">Product Discounts:</td>
-                                    <td class="text-end text-danger fw-bold">-₹<span id="summaryDiscount">0.00</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="text-muted fw-bold">Bill Discount (Discount on Total Bill):</td>
-                                    <td class="text-end text-danger fw-bold">
-                                        <div class="d-flex justify-content-end align-items-center gap-2">
-                                            <input type="number" id="billDiscountPct" class="form-control form-control-sm text-end fw-bold" style="width: 85px;" step="0.01" min="0" max="100" placeholder="0.0%" aria-label="Bill discount percentage" oninput="onBillDiscountPctChange()">
-                                            <input type="number" id="billDiscountAmt" class="form-control form-control-sm text-end fw-bold" style="width: 110px;" step="0.01" min="0" placeholder="₹0.00" aria-label="Bill discount amount" oninput="onBillDiscountAmtChange()">
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="text-muted fw-bold">Total GST Tax:</td>
-                                    <td class="text-end text-success fw-bold">+₹<span id="summaryGst">0.00</span></td>
-                                    <input type="hidden" name="gst_amount" id="inputGst" value="0.00">
-                                </tr>
-                                <tr id="cnAdjustRow">
-                                    <td class="text-muted fw-bold">
-                                        <div class="d-flex align-items-center justify-content-between gap-2">
-                                            <span>Credit Note Adjustment (CN):</span>
-                                        </div>
-                                        <select id="cnSelect" name="adjusted_cn_id" class="form-select form-select-sm mt-1 border-info" style="max-width: 280px; font-size: 0.82rem;" onchange="onCreditNoteSelectChange()">
-                                            <option value="">-- Select Credit Note to Adjust --</option>
-                                        </select>
-                                    </td>
-                                    <td class="text-end text-info fw-bold align-bottom">
-                                        -₹<input type="number" name="cn_adjusted" id="cnAdjustInput" class="form-control form-control-sm text-end d-inline-block fw-bold" style="width: 110px;" step="0.01" min="0" placeholder="0.00" value="0.00" oninput="recalculateInvoiceSummary()">
-                                    </td>
-                                </tr>
-                                <tr class="border-top">
-                                    <td class="fw-bold fs-5 text-primary">Grand Net Receivable:</td>
-                                    <td class="text-end fw-bold fs-5 text-primary">₹<span id="summaryNet">0.00</span></td>
-                                    <input type="hidden" name="net_amount" id="inputNet" value="0.00">
-                                </tr>
+                <!-- Right Column: Sticky Order Summary Card (col-lg-4 col-xl-3) -->
+                <div class="col-lg-4 col-xl-3">
+                    <div class="card shadow-sm border-0 rounded-4 sticky-top" style="top: 20px; z-index: 100;">
+                        <div class="card-body p-4">
+                            <h6 class="fw-bold text-dark border-bottom pb-3 mb-3"><i class="bi bi-receipt me-2"></i> Order Summary</h6>
+
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small">Gross Taxable Value</span>
+                                <span class="fw-bold text-dark">₹<span id="summaryGross">0.00</span></span>
+                                <input type="hidden" name="gross_amount" id="inputGross" value="0.00">
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small">Product Discounts</span>
+                                <span class="text-danger fw-semibold">-₹<span id="summaryDiscount">0.00</span></span>
                                 <input type="hidden" name="discount_amount" id="inputDiscount" value="0.00">
-                            </table>
+                            </div>
+
+                            <!-- Tax breakdown -->
+                            <div class="ps-2 border-start border-3 border-primary my-2" id="taxBreakdownBlock">
+                                <div class="d-flex justify-content-between align-items-center text-muted small mb-1" id="taxLine1">
+                                    <span id="taxLabel1">CGST</span>
+                                    <span>₹<span id="summaryTax1">0.00</span></span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center text-muted small mb-1" id="taxLine2">
+                                    <span id="taxLabel2">SGST</span>
+                                    <span>₹<span id="summaryTax2">0.00</span></span>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="text-muted small">Total GST Tax</span>
+                                <span class="fw-semibold text-success">+₹<span id="summaryGst">0.00</span></span>
+                                <input type="hidden" name="gst_amount" id="inputGst" value="0.00">
+                            </div>
+
+                            <div class="border-top border-bottom py-3 my-3">
+                                <label class="form-label text-muted small fw-bold mb-2">BILL DISCOUNT</label>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <input type="number" id="billDiscountPct" class="form-control billing-input text-center" placeholder="Disc %" step="0.01" min="0" max="100" oninput="onBillDiscountPctChange()">
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="number" id="billDiscountAmt" class="form-control billing-input text-end" placeholder="₹0.00" step="0.01" min="0" oninput="onBillDiscountAmtChange()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Credit Note Adjustment Row -->
+                            <div class="border-bottom pb-3 mb-3" id="cnAdjustRow">
+                                <label class="form-label text-muted small fw-bold mb-1">CREDIT NOTE ADJUSTMENT (CN)</label>
+                                <select id="cnSelect" name="adjusted_cn_id" class="form-select form-select-sm mb-2 border-info" style="font-size: 0.82rem;" onchange="onCreditNoteSelectChange()">
+                                    <option value="">-- Select Credit Note to Adjust --</option>
+                                </select>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted small">CN Deduct</span>
+                                    <div class="d-flex align-items-center">
+                                        <span class="text-info fw-bold me-1">-₹</span>
+                                        <input type="number" name="cn_adjusted" id="cnAdjustInput" class="form-control form-control-sm text-end fw-bold" style="width: 100px;" step="0.01" min="0" placeholder="0.00" value="0.00" oninput="recalculateInvoiceSummary()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Grand Total Highlight Box -->
+                            <div class="grand-total-box mb-4 text-center p-3 rounded-3" style="background-color: #f0fdf4; border: 1px dashed #22c55e;">
+                                <div class="text-muted small fw-bold mb-1 text-uppercase">Grand Net Receivable</div>
+                                <div class="fs-2 fw-bold text-success">₹<span id="summaryNet">0.00</span></div>
+                                <input type="hidden" name="net_amount" id="inputNet" value="0.00">
+                            </div>
+
+                            <!-- Submission Actions -->
+                            <div class="d-grid gap-2">
+                                <button type="submit" id="submitBtn" class="btn btn-success btn-lg rounded-pill fw-bold py-3 shadow">
+                                    <i class="bi bi-check-circle-fill me-2"></i> Save Invoice &amp; Print
+                                </button>
+                                <a href="{% url 'invoice_list' %}" class="btn btn-outline-secondary rounded-pill py-2 text-center">Cancel</a>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Submission Actions -->
-            <div class="d-flex justify-content-end align-items-center gap-2 border-top pt-4 mt-3">
-                <button type="button" class="btn btn-outline-danger btn-lg px-4 rounded-3 me-auto" onclick="clearInvoiceForm()"><i class="bi bi-trash3 me-1"></i> Clear All</button>
-                <a href="{% url 'invoice_list' %}" class="btn btn-secondary btn-lg px-5 rounded-3">Cancel</a>
-                <button type="submit" id="submitBtn" class="btn btn-success btn-lg px-5 rounded-3 fw-bold"><i class="bi bi-check-circle-fill me-1"></i> Save Invoice &amp; Print</button>
             </div>
         </form>
     </div>
@@ -745,10 +775,11 @@
         {% endfor %}
     ];
 
-    // Pre-calculate cached search tokens for ultra-fast customer filtering (<0.2ms)
+    // Pre-calculate cached search tokens for ultra-fast customer filtering (<0.2ms) and sort alphabetically
     customerList.forEach(c => {
         c._searchIndex = `${c.name} ${c.address || ''} ${c.area || ''} ${c.city || ''} ${c.mobile || ''} ${c.dl || ''}`.toLowerCase();
     });
+    customerList.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base', numeric: true }));
 
     const productCatalog = {
         {% for product in products %}
@@ -774,7 +805,7 @@
         stock: prod.stock,
         isProduct: true,
         _searchIndex: `${prod.name} ${prod.pack || ''}`.toLowerCase()
-    }));
+    })).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base', numeric: true }));
 
     const batchCache = {};
 
@@ -900,11 +931,26 @@
                 return;
             }
             const q = query.trim().toLowerCase();
-            const filtered = dataset.filter(item => {
+            let filtered = dataset.filter(item => {
                 if (!q) return true;
                 if (item._searchIndex) return item._searchIndex.includes(q);
                 return (item.name || "").toLowerCase().includes(q);
-            }).slice(0, 35);
+            });
+
+            // Maintain strict sorted order: prefix matches first, then alphabetical A-Z
+            filtered.sort((a, b) => {
+                const aName = (a.name || '').toLowerCase();
+                const bName = (b.name || '').toLowerCase();
+                if (q) {
+                    const aStarts = aName.startsWith(q);
+                    const bStarts = bName.startsWith(q);
+                    if (aStarts && !bStarts) return -1;
+                    if (!aStarts && bStarts) return 1;
+                }
+                return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base', numeric: true });
+            });
+
+            filtered = filtered.slice(0, 40);
 
             if (filtered.length > 0) {
                 filtered.forEach(item => {
@@ -1952,6 +1998,13 @@
         document.getElementById("summaryGross").textContent = grossTaxableTotal.toFixed(2);
         document.getElementById("summaryDiscount").textContent = discountTotal.toFixed(2);
         document.getElementById("summaryGst").textContent = gstAfterBillDiscount.toFixed(2);
+        
+        const halfGst = (gstAfterBillDiscount / 2).toFixed(2);
+        const tax1El = document.getElementById("summaryTax1");
+        const tax2El = document.getElementById("summaryTax2");
+        if (tax1El) tax1El.textContent = halfGst;
+        if (tax2El) tax2El.textContent = halfGst;
+
         document.getElementById("summaryNet").textContent = finalNetPayable.toFixed(2);
         
         document.getElementById("inputGross").value = grossTaxableTotal.toFixed(2);

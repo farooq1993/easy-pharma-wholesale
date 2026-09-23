@@ -260,7 +260,7 @@ def invoice_create(request):
             Decimal('0'),
             output_field=DecimalField()
         )
-    ).prefetch_related('batches')
+    ).prefetch_related('batches').order_by('name')
     
     if request.method == 'POST':
         customer_id = request.POST.get('customer')
@@ -754,7 +754,7 @@ def invoice_edit(request, pk):
             Decimal('0'),
             output_field=DecimalField()
         )
-    ).prefetch_related('batches')
+    ).prefetch_related('batches').order_by('name')
     
     if request.method == 'POST':
         customer_id = request.POST.get('customer')

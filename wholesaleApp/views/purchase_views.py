@@ -209,8 +209,10 @@ def purchase_entry_create(request):
         messages.error(request, "Access Denied: You do not have permission to record Purchase Entries.")
         return redirect('home')
         
-    suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False)
-    products = ProductMaster.objects.filter(status=True, is_deleted=False)
+    suppliers = SupplierMaster.objects.filter(status=True, is_deleted=False).order_by('name')
+    products = ProductMaster.objects.filter(status=True, is_deleted=False).select_related('company', 'product_type').prefetch_related('batches').order_by('name')
+    companies = CompanyMaster.objects.filter(status=True, is_deleted=False).order_by('name')
+    product_types = ProductTypeMaster.objects.filter(status=True, is_deleted=False).order_by('name')
     
     if request.method == 'POST':
         supplier_id = request.POST.get('supplier')
@@ -332,6 +334,8 @@ def purchase_entry_create(request):
     context = {
         'suppliers': suppliers,
         'products': products,
+        'companies': companies,
+        'product_types': product_types,
         'page_title': 'Add Purchase Entry (Supplier Bill)',
         'user_perms': get_user_permissions_context(request.user)
     }
@@ -1118,5 +1122,187 @@ def check_purchase_invoice_number(request):
         })
 
     return JsonResponse({'exists': False})
+
+
+# ==================== BATCH MRP & EXPIRY CHANGE VIEWS (PUT REQUEST API) ====================
+@login_required
+def batch_update_list(request):
+    """
+    Dedicated view for searching and updating Product Batches (MRP, Expiry, Multi-Tier Rates).
+    Accessible from Purchase Menu: Batch MRP & Exp Change.
+    """
+    from wholesaleApp.views.security_helpers import has_feature_access
+    from wholesaleApp.utils.list_helpers import paginate_queryset
+    from django.db.models import Q
+    from datetime import date, timedelta
+
+    if not has_feature_access(request.user, 'purchase_view') and not has_feature_access(request.user, 'product_view'):
+        messages.error(request, "Access Denied: You do not have permission to access Batch Management.")
+        return redirect('home')
+
+    q = (request.GET.get('q') or '').strip()
+    company_id = (request.GET.get('company') or '').strip()
+    stock_filter = (request.GET.get('stock') or 'in_stock').strip()
+    expiry_filter = (request.GET.get('expiry') or 'all').strip()
+
+    batches = ProductBatch.objects.select_related('product', 'product__company').filter(product__is_deleted=False)
+
+    if stock_filter == 'in_stock':
+        batches = batches.filter(quantity__gt=0)
+    elif stock_filter == 'out_of_stock':
+        batches = batches.filter(quantity__lte=0)
+
+    today = date.today()
+    if expiry_filter == 'expired':
+        batches = batches.filter(expiry_date__lt=today)
+    elif expiry_filter == 'near_expiry':
+        ninety_days = today + timedelta(days=90)
+        batches = batches.filter(expiry_date__gte=today, expiry_date__lte=ninety_days)
+
+    if q:
+        batches = batches.filter(
+            Q(product__name__icontains=q) |
+            Q(batch_number__icontains=q) |
+            Q(product__hsn_code__icontains=q) |
+            Q(product__company__name__icontains=q)
+        )
+
+    if company_id and company_id.isdigit():
+        batches = batches.filter(product__company_id=int(company_id))
+
+    batches = batches.order_by('product__name', 'expiry_date')
+    page_data = paginate_queryset(request, batches, default_per_page=25)
+
+    companies = CompanyMaster.objects.filter(status=True, is_deleted=False).order_by('name')
+
+    context = {
+        'page_obj': page_data['page_obj'],
+        'paginator': page_data['paginator'],
+        'extra_query': page_data['extra_query'],
+        'per_page': page_data['per_page'],
+        'total_count': page_data['total_count'],
+        'companies': companies,
+        'q': q,
+        'company_id': company_id,
+        'stock_filter': stock_filter,
+        'expiry_filter': expiry_filter,
+        'today': today,
+        'page_title': 'Batch MRP & Expiry Change'
+    }
+    return render(request, 'purchase/batch_update_list.html', context)
+
+
+@login_required
+def api_batch_update(request, pk):
+    """
+    RESTful API endpoint to update an existing batch's Batch No, Expiry, MRP, and Rates.
+    Strictly accepts HTTP PUT requests as requested.
+    """
+    from wholesaleApp.views.security_helpers import has_feature_access, log_activity
+    from datetime import datetime
+
+    if not has_feature_access(request.user, 'purchase_edit') and not has_feature_access(request.user, 'product_edit'):
+        return JsonResponse({'status': 'error', 'message': 'Access Denied: You do not have permission to modify batch details.'}, status=403)
+
+    if request.method != 'PUT':
+        return JsonResponse({'status': 'error', 'message': f"Method {request.method} not allowed. Please use HTTP PUT request."}, status=405)
+
+    batch = get_object_or_404(ProductBatch, pk=pk)
+
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f"Invalid JSON payload: {str(e)}"}, status=400)
+
+    old_batch_no = batch.batch_number
+    old_mrp = batch.mrp
+    old_exp = batch.expiry_date
+
+    # Batch Number
+    if 'batch_number' in data and data['batch_number']:
+        batch.batch_number = str(data['batch_number']).strip()
+
+    # Expiry Date (accepts YYYY-MM-DD or MM/YY or MM/YYYY)
+    if 'expiry_date' in data and data['expiry_date']:
+        exp_str = str(data['expiry_date']).strip()
+        try:
+            if len(exp_str) == 5 and '/' in exp_str: # MM/YY
+                m, y = exp_str.split('/')
+                exp_date = datetime.strptime(f"20{y}-{m}-01", "%Y-%m-%d").date()
+            elif len(exp_str) == 7 and '/' in exp_str: # MM/YYYY
+                m, y = exp_str.split('/')
+                exp_date = datetime.strptime(f"{y}-{m}-01", "%Y-%m-%d").date()
+            else:
+                exp_date = datetime.strptime(exp_str, "%Y-%m-%d").date()
+            batch.expiry_date = exp_date
+        except Exception:
+            return JsonResponse({'status': 'error', 'message': f"Invalid expiry date format: '{exp_str}'. Use YYYY-MM-DD or MM/YY."}, status=400)
+
+    # MRP
+    if 'mrp' in data:
+        try:
+            batch.mrp = Decimal(str(data['mrp']))
+        except Exception:
+            pass
+
+    # Purchase Rate
+    if 'purchase_rate' in data:
+        try:
+            batch.purchase_rate = Decimal(str(data['purchase_rate']))
+        except Exception:
+            pass
+
+    # Sale Rate (Rate A)
+    if 'sale_rate' in data:
+        try:
+            batch.sale_rate = Decimal(str(data['sale_rate']))
+        except Exception:
+            pass
+
+    # Wholesale Rate (Rate B)
+    if 'wholesale_rate' in data:
+        try:
+            batch.wholesale_rate = Decimal(str(data['wholesale_rate']))
+        except Exception:
+            pass
+
+    # Special Rate (Rate C)
+    if 'rate_c' in data:
+        try:
+            batch.rate_c = Decimal(str(data['rate_c']))
+        except Exception:
+            pass
+
+    batch.save()
+
+    # Log activity
+    log_activity(
+        request,
+        "UPDATE",
+        "ProductBatch",
+        batch.batch_number,
+        object_id=batch.id,
+        description=f"Batch {batch.batch_number} for {batch.product.name} updated via PUT: MRP ₹{old_mrp}->₹{batch.mrp}, Exp {old_exp}->{batch.expiry_date}, S.Rate ₹{batch.sale_rate}."
+    )
+
+    return JsonResponse({
+        'status': 'success',
+        'message': f"Batch '{batch.batch_number}' updated successfully!",
+        'batch': {
+            'id': batch.id,
+            'product_name': batch.product.name,
+            'product_pack': batch.product.pack_size,
+            'batch_number': batch.batch_number,
+            'expiry_date': batch.expiry_date.strftime('%Y-%m-%d'),
+            'expiry_display': batch.expiry_date.strftime('%m/%y'),
+            'mrp': f"{batch.mrp:.2f}",
+            'purchase_rate': f"{batch.purchase_rate:.2f}",
+            'sale_rate': f"{batch.sale_rate:.2f}",
+            'wholesale_rate': f"{batch.wholesale_rate:.2f}",
+            'rate_c': f"{batch.rate_c:.2f}",
+            'quantity': f"{batch.quantity:.2f}"
+        }
+    })
+
 
 

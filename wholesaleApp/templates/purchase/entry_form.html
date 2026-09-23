@@ -69,33 +69,64 @@
         position: absolute;
         top: 100%;
         left: 0;
-        z-index: 1060;
+        z-index: 1080;
         display: none;
         min-width: 100%;
-        padding: 6px 0;
-        margin-top: 4px;
+        padding: 0;
+        margin-top: 6px;
         background-color: #ffffff;
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        border-radius: 10px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12);
-        max-height: 260px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        box-shadow: 0 14px 35px -5px rgba(0, 0, 0, 0.18), 0 4px 10px rgba(0, 0, 0, 0.06);
+        max-height: 360px;
         overflow-y: auto;
+    }
+    .combobox-header-row {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background-color: #f8fafc;
+        border-bottom: 1px solid #cbd5e1;
+        padding: 8px 14px;
+        font-weight: 700;
+        font-size: 0.78rem;
+        letter-spacing: 0.5px;
+        color: #475569;
     }
     .combobox-menu li a {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 8px 12px;
-        color: #334155;
+        padding: 10px 14px;
+        color: #1e293b;
         text-decoration: none;
-        border-radius: 6px;
-        font-size: 0.88rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.95rem;
         cursor: pointer;
+        transition: background-color 0.15s ease;
     }
     .combobox-menu li a:hover,
     .combobox-menu li.active a {
         color: #ffffff !important;
-        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+        background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
+    }
+    .combobox-menu li a:hover span,
+    .combobox-menu li.active a span,
+    .combobox-menu li a:hover small,
+    .combobox-menu li.active a small {
+        color: #ffffff !important;
+    }
+    .combobox-menu li a:hover .badge,
+    .combobox-menu li.active a .badge {
+        background-color: rgba(255, 255, 255, 0.25) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+    }
+    .entry-live-preview {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px dashed #cbd5e1;
+        border-radius: 10px;
+        padding: 8px 14px;
     }
 </style>
 
@@ -202,55 +233,69 @@
                         </div>
 
                         <!-- Single Horizontal Entry Bar -->
-                        <div class="d-flex flex-nowrap align-items-end gap-2 p-3 bg-light rounded-4 border overflow-x-auto">
-                            <div style="min-width: 110px; flex: 1.2;">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">BATCH NO.</label>
-                                <input type="text" id="entryBatch" class="form-control billing-input text-center" placeholder="e.g. B2401">
-                            </div>
-                            <div style="min-width: 70px; flex: 0.8;">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">EXPIRY</label>
-                                <input type="text" id="entryExpiry" class="form-control billing-input text-center" placeholder="MM/YY" oninput="formatExpiryMask(this)">
-                            </div>
-                            <div style="min-width: 65px; flex: 0.7;">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">QTY</label>
-                                <input type="number" id="entryQty" class="form-control billing-input text-center" value="1" min="1" oninput="recalcEntryBar()">
-                            </div>
-                            <div style="min-width: 60px; flex: 0.6;">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">FREE</label>
-                                <input type="number" id="entryFree" class="form-control billing-input text-center" value="0" min="0">
-                            </div>
-                            <div style="min-width: 85px; flex: 0.9;">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">P. RATE(₹)</label>
-                                <input type="number" id="entryPrate" class="form-control billing-input text-end" placeholder="0.00" step="0.01" min="0" oninput="recalcEntryBar()">
-                            </div>
-                            <div style="min-width: 65px; flex: 0.7;">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">DISC %</label>
-                                <input type="number" id="entryDiscPct" class="form-control billing-input text-center" value="0" step="0.01" min="0" max="100" oninput="recalcEntryBar()">
-                            </div>
-                            <div style="min-width: 65px; flex: 0.6;">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;" title="GST Rate set via Product Master">GST %</label>
-                                <input type="number" id="entryGstPct" class="form-control billing-input text-center bg-secondary-subtle fw-semibold" value="12" step="0.01" min="0" readonly tabindex="-1">
-                            </div>
-                            <div style="min-width: 85px; flex: 0.9;">
-                                <label class="form-label text-muted small fw-bold mb-1 text-primary" style="font-size: 0.72rem;" title="Standard Sale Rate (Rate A)">S. RATE(₹)</label>
-                                <input type="number" id="entrySrate" class="form-control billing-input text-end fw-semibold border-primary-subtle" placeholder="0.00" step="0.01" min="0">
-                            </div>
-                            <div style="min-width: 85px; flex: 0.9;">
-                                <label class="form-label text-muted small fw-bold mb-1 text-info" style="font-size: 0.72rem;" title="Wholesale Rate (Rate B)">W. RATE(₹)</label>
-                                <input type="number" id="entryWrate" class="form-control billing-input text-end fw-semibold border-info-subtle" placeholder="0.00" step="0.01" min="0">
-                            </div>
-                            <div style="min-width: 85px; flex: 0.9;">
-                                <label class="form-label text-muted small fw-bold mb-1 text-success" style="font-size: 0.72rem;" title="Special Rate (Rate C)">RATE C(₹)</label>
-                                <input type="number" id="entryRateC" class="form-control billing-input text-end fw-semibold border-success-subtle" placeholder="0.00" step="0.01" min="0">
-                            </div>
-                            <div style="min-width: 85px; flex: 0.9;">
-                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.72rem;">MRP (₹)</label>
-                                <input type="number" id="entryMrp" class="form-control billing-input text-end" placeholder="0.00" step="0.01" min="0" oninput="onMrpInput()">
+                        <div class="d-flex flex-nowrap align-items-end gap-2 p-3 bg-white rounded-4 border shadow-sm overflow-x-auto">
+                            <div style="min-width: 120px; flex: 1.2;">
+                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.75rem;">BATCH NO.</label>
+                                <input type="text" id="entryBatch" class="form-control billing-input text-center fw-bold font-monospace" placeholder="e.g. B2401">
                             </div>
                             <div style="min-width: 80px; flex: 0.8;">
-                                <button type="button" id="btnAddItem" class="btn btn-purple rounded-3 fw-bold w-100 py-2" onclick="addEntryBarToTable()">
+                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.75rem;">EXPIRY</label>
+                                <input type="text" id="entryExpiry" class="form-control billing-input text-center fw-semibold" placeholder="MM/YY" oninput="formatExpiryMask(this)">
+                            </div>
+                            <div style="min-width: 75px; flex: 0.7;">
+                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.75rem;">QTY</label>
+                                <input type="number" id="entryQty" class="form-control billing-input text-center fw-bold" value="1" min="1" oninput="recalcEntryBar()">
+                            </div>
+                            <div style="min-width: 70px; flex: 0.6;">
+                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.75rem;">FREE</label>
+                                <input type="number" id="entryFree" class="form-control billing-input text-center text-muted" value="0" min="0">
+                            </div>
+                            <div style="min-width: 95px; flex: 0.9;">
+                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.75rem;">PUR. RATE(₹)</label>
+                                <input type="number" id="entryPrate" class="form-control billing-input text-end fw-bold text-dark" placeholder="0.00" step="0.01" min="0" oninput="recalcEntryBar()">
+                            </div>
+                            <div style="min-width: 80px; flex: 0.7;">
+                                <label class="form-label text-danger small fw-bold mb-1" style="font-size: 0.75rem;" title="Item Trade Discount %">DISC %</label>
+                                <input type="number" id="entryDiscPct" class="form-control billing-input text-center fw-semibold text-danger border-danger-subtle" value="0" step="0.01" min="0" max="100" oninput="recalcEntryBar()">
+                            </div>
+                            <div style="min-width: 70px; flex: 0.6;">
+                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.75rem;" title="GST Rate set via Product Master">GST %</label>
+                                <input type="number" id="entryGstPct" class="form-control billing-input text-center bg-secondary-subtle fw-semibold" value="12" step="0.01" min="0" readonly tabindex="-1">
+                            </div>
+                            <div style="min-width: 90px; flex: 0.9;">
+                                <label class="form-label text-muted small fw-bold mb-1 text-primary" style="font-size: 0.75rem;" title="Standard Sale Rate (Rate A)">S. RATE(₹)</label>
+                                <input type="number" id="entrySrate" class="form-control billing-input text-end fw-semibold border-primary-subtle" placeholder="0.00" step="0.01" min="0">
+                            </div>
+                            <div style="min-width: 90px; flex: 0.9;">
+                                <label class="form-label text-muted small fw-bold mb-1 text-info" style="font-size: 0.75rem;" title="Wholesale Rate (Rate B)">W. RATE(₹)</label>
+                                <input type="number" id="entryWrate" class="form-control billing-input text-end fw-semibold border-info-subtle" placeholder="0.00" step="0.01" min="0">
+                            </div>
+                            <div style="min-width: 90px; flex: 0.9;">
+                                <label class="form-label text-muted small fw-bold mb-1 text-success" style="font-size: 0.75rem;" title="Special Rate (Rate C)">RATE C(₹)</label>
+                                <input type="number" id="entryRateC" class="form-control billing-input text-end fw-semibold border-success-subtle" placeholder="0.00" step="0.01" min="0">
+                            </div>
+                            <div style="min-width: 90px; flex: 0.9;">
+                                <label class="form-label text-muted small fw-bold mb-1" style="font-size: 0.75rem;">MRP (₹)</label>
+                                <input type="number" id="entryMrp" class="form-control billing-input text-end" placeholder="0.00" step="0.01" min="0" oninput="onMrpInput()">
+                            </div>
+                            <div style="min-width: 90px; flex: 0.8;">
+                                <button type="button" id="btnAddItem" class="btn btn-purple rounded-3 fw-bold w-100 py-2 shadow-sm" onclick="addEntryBarToTable()">
                                     <i class="bi bi-plus-lg"></i> Add
                                 </button>
+                            </div>
+                        </div>
+
+                        <!-- Live Row GST & Discount Calculation Preview Strip -->
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 px-3 py-2 bg-light border rounded-3 small fw-semibold text-dark entry-live-preview">
+                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                <span class="badge bg-dark bg-opacity-75 text-white"><i class="bi bi-calculator me-1"></i> Row Calculation</span>
+                                <span class="text-muted">Base:</span> <strong id="previewBaseCost">₹0.00</strong>
+                                <span class="text-danger">Less Disc (<span id="previewDiscPct">0</span>%):</span> <strong id="previewDiscAmt" class="text-danger">-₹0.00</strong>
+                                <span class="text-primary fw-bold">Taxable:</span> <strong id="previewTaxable" class="text-primary">₹0.00</strong>
+                            </div>
+                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                <span class="text-success">+ GST (<span id="previewGstPct">12</span>%):</span> <strong id="previewGstAmt" class="text-success">+₹0.00</strong>
+                                <span class="text-dark fw-bold ms-1">Row Total:</span> <strong id="previewRowTotal" class="text-success fs-6 fw-bold">₹0.00</strong>
                             </div>
                         </div>
 
@@ -549,9 +594,19 @@
                                     <span class="input-group-text bg-light border-end-0">₹</span>
                                     <input type="number" id="modalRateA" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center small">
-                                    <span class="text-muted" style="font-size:0.75rem;">Margin:</span>
-                                    <span class="badge bg-success-subtle text-success fw-bold" id="marginRateA">0.0%</span>
+                                <div class="bg-light p-2 rounded-2 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.75rem;">
+                                        <span class="text-muted fw-semibold" title="Markup on Purchase Cost: (Rate - Cost) / Cost">Profit / Markup:</span>
+                                        <span class="badge bg-success-subtle text-success fw-bold" id="markupRateA">+0.0%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.72rem;">
+                                        <span class="text-muted">₹ Profit / Unit:</span>
+                                        <span class="fw-bold text-dark" id="profitAmtRateA">₹0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.70rem;">
+                                        <span class="text-muted" title="Gross Margin on Sale Price: (Rate - Cost) / Rate">Sale Margin:</span>
+                                        <span class="text-secondary fw-semibold" id="marginRateA">0.0%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -569,9 +624,19 @@
                                     <span class="input-group-text bg-light border-end-0">₹</span>
                                     <input type="number" id="modalRateB" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center small">
-                                    <span class="text-muted" style="font-size:0.75rem;">Margin:</span>
-                                    <span class="badge bg-info-subtle text-info fw-bold" id="marginRateB">0.0%</span>
+                                <div class="bg-light p-2 rounded-2 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.75rem;">
+                                        <span class="text-muted fw-semibold" title="Markup on Purchase Cost">Profit / Markup:</span>
+                                        <span class="badge bg-info-subtle text-info fw-bold" id="markupRateB">+0.0%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.72rem;">
+                                        <span class="text-muted">₹ Profit / Unit:</span>
+                                        <span class="fw-bold text-dark" id="profitAmtRateB">₹0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.70rem;">
+                                        <span class="text-muted" title="Gross Margin on Sale Price">Sale Margin:</span>
+                                        <span class="text-secondary fw-semibold" id="marginRateB">0.0%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -589,9 +654,19 @@
                                     <span class="input-group-text bg-light border-end-0">₹</span>
                                     <input type="number" id="modalRateC" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center small">
-                                    <span class="text-muted" style="font-size:0.75rem;">Margin:</span>
-                                    <span class="badge bg-success-subtle text-success fw-bold" id="marginRateC">0.0%</span>
+                                <div class="bg-light p-2 rounded-2 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.75rem;">
+                                        <span class="text-muted fw-semibold" title="Markup on Purchase Cost">Profit / Markup:</span>
+                                        <span class="badge bg-success-subtle text-success fw-bold" id="markupRateC">+0.0%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.72rem;">
+                                        <span class="text-muted">₹ Profit / Unit:</span>
+                                        <span class="fw-bold text-dark" id="profitAmtRateC">₹0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.70rem;">
+                                        <span class="text-muted" title="Gross Margin on Sale Price">Sale Margin:</span>
+                                        <span class="text-secondary fw-semibold" id="marginRateC">0.0%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -609,9 +684,19 @@
                                     <span class="input-group-text bg-light border-end-0">₹</span>
                                     <input type="number" id="modalMrp" class="form-control text-end fw-bold" step="0.01" min="0" placeholder="0.00" oninput="calcModalMargins()">
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center small">
-                                    <span class="text-muted" style="font-size:0.75rem;">Retailer:</span>
-                                    <span class="badge bg-dark-subtle text-dark fw-bold" id="marginRetailer">0.0%</span>
+                                <div class="bg-light p-2 rounded-2 border">
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.75rem;">
+                                        <span class="text-muted fw-semibold" title="Chemist Margin on MRP: (MRP - Rate A) / MRP">Retailer Margin:</span>
+                                        <span class="badge bg-dark-subtle text-dark fw-bold" id="marginRetailer">0.0%</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:0.72rem;">
+                                        <span class="text-muted">₹ Retailer Profit:</span>
+                                        <span class="fw-bold text-dark" id="profitAmtRetailer">₹0.00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.70rem;">
+                                        <span class="text-muted" title="Retailer Markup on Cost (Rate A)">Retailer Markup:</span>
+                                        <span class="text-secondary fw-semibold" id="markupRetailer">+0.0%</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -725,12 +810,18 @@
                             <label class="form-label">Company / Manufacturer <span class="text-danger">*</span></label>
                             <select id="prodCompany" class="form-select" required>
                                 <option value="">Select Company</option>
+                                {% for c in companies %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Dosage Form <span class="text-danger">*</span></label>
                             <select id="prodType" class="form-select" required>
                                 <option value="">Select Type</option>
+                                {% for t in product_types %}
+                                <option value="{{ t.id }}">{{ t.name }}</option>
+                                {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -762,17 +853,20 @@
     // Global datasets
     const supplierList = [
         {% for supplier in suppliers %}
-        { id: "{{ supplier.id }}", name: "{{ supplier.name }}", is_out_state: {% if supplier.is_out_state %}true{% else %}false{% endif %} },
+        { id: "{{ supplier.id }}", name: "{{ supplier.name|escapejs }}", is_out_state: {% if supplier.is_out_state %}true{% else %}false{% endif %} },
         {% endfor %}
     ];
 
     const productCatalog = {
         {% for product in products %}
         "{{ product.id }}": {
-            name: "{{ product.name }}",
-            pack: "{{ product.pack_size }}",
-            hsn: "{{ product.hsn_code|default:'' }}",
-            gst: parseFloat("{{ product.gst_rate }}")
+            name: "{{ product.name|escapejs }}",
+            pack: "{{ product.pack_size|escapejs }}",
+            hsn: "{{ product.hsn_code|default:''|escapejs }}",
+            gst: parseFloat("{{ product.gst_rate }}") || 12.00,
+            company: "{{ product.company.name|default:'Generic'|escapejs }}",
+            type: "{{ product.product_type.name|default:''|escapejs }}",
+            stock: {{ product.total_stock|default:0 }}
         },
         {% endfor %}
     };
@@ -780,8 +874,12 @@
     const productList = Object.entries(productCatalog).map(([id, prod]) => ({
         id: id,
         name: prod.name,
-        pack: prod.pack
-    }));
+        pack: prod.pack,
+        company: prod.company,
+        gst: prod.gst,
+        hsn: prod.hsn,
+        stock: prod.stock
+    })).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base', numeric: true }));
 
     // Setup comboboxes
     function setupCombobox(inputEl, dataset, onSelectCallback, onAddCallback) {
@@ -882,23 +980,81 @@
         function renderSuggestions(query) {
             activeIdx = -1;
             menu.innerHTML = "";
-            const filtered = dataset.filter(item => 
-                item.name.toLowerCase().includes(query.toLowerCase())
+            const q = (query || "").toLowerCase().trim();
+            let filtered = dataset.filter(item => 
+                (item.name && item.name.toLowerCase().includes(q)) ||
+                (item.company && item.company.toLowerCase().includes(q)) ||
+                (item.hsn && item.hsn.toLowerCase().includes(q)) ||
+                (item.pack && item.pack.toLowerCase().includes(q))
             );
 
+            filtered.sort((a, b) => {
+                const aName = (a.name || '').toLowerCase();
+                const bName = (b.name || '').toLowerCase();
+                if (q) {
+                    const aStarts = aName.startsWith(q);
+                    const bStarts = bName.startsWith(q);
+                    if (aStarts && !bStarts) return -1;
+                    if (!aStarts && bStarts) return 1;
+                }
+                return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base', numeric: true });
+            });
+
+            filtered = filtered.slice(0, 50);
+
             if (filtered.length > 0) {
+                // For Medicine Search, show multi-column header
+                if (inputEl.id === "entryProdSearch") {
+                    const headerLi = document.createElement("li");
+                    headerLi.className = "combobox-header-row text-muted fw-bold d-flex justify-content-between align-items-center";
+                    headerLi.innerHTML = `
+                        <span style="flex: 2.4;">PRODUCT NAME &amp; HSN</span>
+                        <span style="flex: 1.1;" class="text-center">PACKING</span>
+                        <span style="flex: 1.5;">COMPANY</span>
+                        <span style="flex: 0.8;" class="text-center">GST %</span>
+                        <span style="flex: 1.0;" class="text-end">STOCK</span>
+                    `;
+                    menu.appendChild(headerLi);
+                }
+
                 filtered.forEach(item => {
                     const li = document.createElement("li");
                     li.dataset.id = item.id;
                     li.dataset.name = item.name + (item.pack ? ` (${item.pack})` : '');
-                    li.innerHTML = `<a class="dropdown-item"><span>${item.name}</span> ${item.pack ? `<span class="badge bg-light text-secondary border ms-2">${item.pack}</span>` : ''}</a>`;
+                    
+                    if (inputEl.id === "entryProdSearch") {
+                        li.innerHTML = `
+                            <a class="dropdown-item d-flex justify-content-between align-items-center">
+                                <div style="flex: 2.4;" class="text-truncate pe-2">
+                                    <span class="fw-bold text-dark fs-6 d-block text-truncate">${item.name}</span>
+                                    ${item.hsn ? `<small class="text-muted" style="font-size: 0.75rem;">HSN: ${item.hsn}</small>` : ''}
+                                </div>
+                                <div style="flex: 1.1;" class="text-center">
+                                    <span class="badge bg-secondary bg-opacity-10 text-dark border px-2 py-1 small fw-semibold">${item.pack || '1 NOS'}</span>
+                                </div>
+                                <div style="flex: 1.5;" class="text-truncate pe-2">
+                                    <span class="text-primary small fw-semibold text-truncate d-block">${item.company || 'GENERIC'}</span>
+                                </div>
+                                <div style="flex: 0.8;" class="text-center">
+                                    <span class="badge bg-warning bg-opacity-25 text-dark fw-bold px-2 py-0.5">${item.gst || 12}%</span>
+                                </div>
+                                <div style="flex: 1.0;" class="text-end">
+                                    <span class="badge ${item.stock > 0 ? 'bg-success bg-opacity-15 text-success border border-success border-opacity-25' : 'bg-light text-muted border'} fw-bold px-2 py-1">
+                                        ${item.stock > 0 ? item.stock + ' pk' : '0 Stock'}
+                                    </span>
+                                </div>
+                            </a>
+                        `;
+                    } else {
+                        li.innerHTML = `<a class="dropdown-item d-flex justify-content-between align-items-center"><span class="fw-bold">${item.name}</span> ${item.is_out_state ? `<span class="badge bg-info text-dark ms-2">Interstate (IGST)</span>` : ''}</a>`;
+                    }
                     li.addEventListener("click", () => selectItem(li));
                     menu.appendChild(li);
                 });
             } else {
                 const li = document.createElement("li");
-                li.className = "text-muted p-3 text-center small";
-                li.textContent = "No matches found";
+                li.className = "text-muted p-4 text-center small";
+                li.innerHTML = `<i class="bi bi-search me-1"></i> No matching products found. Click <strong>Quick Add</strong> to create a new product.`;
                 menu.appendChild(li);
             }
             menu.style.display = "block";
@@ -956,7 +1112,11 @@
     }
 
     function recalcEntryBar() {
+        const qty = parseFloat(document.getElementById("entryQty").value) || 0;
         const prate = parseFloat(document.getElementById("entryPrate").value) || 0;
+        const discPct = parseFloat(document.getElementById("entryDiscPct").value) || 0;
+        const gstPct = parseFloat(document.getElementById("entryGstPct").value) || 0;
+
         const wrateEl = document.getElementById("entryWrate");
         const srateEl = document.getElementById("entrySrate");
         const rateCEl = document.getElementById("entryRateC");
@@ -972,6 +1132,29 @@
                 rateCEl.value = (prate * 1.10).toFixed(2);
             }
         }
+
+        // Live calculation strip
+        const baseCost = qty * prate;
+        const discAmt = baseCost * (discPct / 100);
+        const taxable = Math.max(0, baseCost - discAmt);
+        const gstAmt = taxable * (gstPct / 100);
+        const rowTotal = taxable + gstAmt;
+
+        const elBase = document.getElementById("previewBaseCost");
+        const elDiscPct = document.getElementById("previewDiscPct");
+        const elDiscAmt = document.getElementById("previewDiscAmt");
+        const elTaxable = document.getElementById("previewTaxable");
+        const elGstPct = document.getElementById("previewGstPct");
+        const elGstAmt = document.getElementById("previewGstAmt");
+        const elTotal = document.getElementById("previewRowTotal");
+
+        if (elBase) elBase.textContent = `₹${baseCost.toFixed(2)}`;
+        if (elDiscPct) elDiscPct.textContent = discPct.toFixed(1);
+        if (elDiscAmt) elDiscAmt.textContent = `-₹${discAmt.toFixed(2)}`;
+        if (elTaxable) elTaxable.textContent = `₹${taxable.toFixed(2)}`;
+        if (elGstPct) elGstPct.textContent = gstPct.toFixed(1);
+        if (elGstAmt) elGstAmt.textContent = `+₹${gstAmt.toFixed(2)}`;
+        if (elTotal) elTotal.textContent = `₹${rowTotal.toFixed(2)}`;
     }
 
     function onMrpInput() {
@@ -1037,7 +1220,7 @@
         const rateCVal = parseFloat(document.getElementById("entryRateC").value);
         const rateC = (!isNaN(rateCVal) && rateCVal > 0) ? rateCVal : 0.00;
 
-        // Calc line totals
+        // Calc line totals (GST reduced by discount)
         const baseTaxable = qty * prate;
         const discAmt = baseTaxable * (discPct / 100);
         const taxableAfterDisc = baseTaxable - discAmt;
@@ -1048,30 +1231,30 @@
         const tableBody = document.querySelector("#invoiceTable tbody");
 
         const rowHTML = `
-            <tr id="item-row-${rowId}" data-taxable="${taxableAfterDisc.toFixed(2)}" data-discount="${discAmt.toFixed(2)}" data-gst="${gstAmt.toFixed(2)}" data-total="${lineTotal.toFixed(2)}">
+            <tr id="item-row-${rowId}" data-taxable="${taxableAfterDisc.toFixed(2)}" data-discount="${discAmt.toFixed(2)}" data-gst="${gstAmt.toFixed(2)}" data-total="${lineTotal.toFixed(2)}" data-gstpct="${gstPct}">
                 <td class="text-start fw-bold">
-                    ${prodSearchVal}
+                    <span class="d-block text-dark">${prodSearchVal}</span>
                     <input type="hidden" name="product[]" value="${prodId}">
                 </td>
                 <td>
-                    <code>${batch}</code>
+                    <code class="fw-bold">${batch}</code>
                     <input type="hidden" name="batch_number[]" value="${batch}">
                 </td>
                 <td>
                     ${expiryMask}
                     <input type="hidden" name="expiry_date[]" value="${expiryReal}">
                 </td>
-                <td class="fw-bold">${qty}</td>
-                <td class="text-muted">+${freeQty}</td>
-                <td>${gstPct}%</td>
-                <td>₹${prate.toFixed(2)}</td>
-                <td>${discPct}%</td>
-                <td class="fw-semibold">₹${taxableAfterDisc.toFixed(2)}</td>
+                <td class="fw-bold fs-6">${qty}</td>
+                <td class="text-muted">${freeQty > 0 ? '+' + freeQty : '-'}</td>
+                <td><span class="badge bg-warning bg-opacity-25 text-dark fw-bold">${gstPct}%</span></td>
+                <td class="fw-semibold">₹${prate.toFixed(2)}</td>
+                <td class="text-danger fw-semibold">${discPct > 0 ? discPct + '%' : '-'}</td>
+                <td class="fw-bold text-primary">₹${taxableAfterDisc.toFixed(2)}</td>
                 <td class="fw-semibold text-primary">₹${srate.toFixed(2)}</td>
                 <td class="fw-semibold text-info">₹${wrate.toFixed(2)}</td>
                 <td class="fw-semibold text-success">₹${rateC.toFixed(2)}</td>
                 <td>₹${mrp.toFixed(2)}</td>
-                <td class="fw-bold text-success">₹${lineTotal.toFixed(2)}</td>
+                <td class="fw-bold text-success fs-6">₹${lineTotal.toFixed(2)}</td>
                 <td class="text-nowrap">
                     <!-- Hidden inputs for backend submission -->
                     <input type="hidden" name="mrp[]" value="${mrp.toFixed(2)}">
@@ -1113,6 +1296,7 @@
         document.getElementById("prodLiveBadgeBar").classList.add("d-none");
         document.getElementById("historyDrawerCard").classList.add("d-none");
 
+        recalcEntryBar();
         recalculateOrderSummary();
         document.getElementById("entryProdSearch").focus();
     }
@@ -1156,6 +1340,7 @@
         }
 
         row.remove();
+        recalcEntryBar();
         recalculateOrderSummary();
 
         const rows = document.querySelectorAll("#invoiceTable tbody tr");
@@ -1184,33 +1369,60 @@
 
     function recalculateOrderSummary() {
         let grossTaxable = 0;
-        let discountTotal = 0;
-        let gstTotal = 0;
-        let netTotal = 0;
+        let itemDiscountTotal = 0;
+        let itemsGstTotal = 0;
+        let itemsNetTotal = 0;
         let itemCount = 0;
+
+        let rowsData = [];
 
         document.querySelectorAll("#invoiceTable tbody tr").forEach(row => {
             itemCount++;
-            grossTaxable += parseFloat(row.dataset.taxable) || 0;
-            discountTotal += parseFloat(row.dataset.discount) || 0;
-            gstTotal += parseFloat(row.dataset.gst) || 0;
-            netTotal += parseFloat(row.dataset.total) || 0;
+            const taxable = parseFloat(row.dataset.taxable) || 0;
+            const discount = parseFloat(row.dataset.discount) || 0;
+            const gst = parseFloat(row.dataset.gst) || 0;
+            const total = parseFloat(row.dataset.total) || 0;
+            const gstPct = parseFloat(row.dataset.gstpct) || 12;
+
+            grossTaxable += taxable;
+            itemDiscountTotal += discount;
+            itemsGstTotal += gst;
+            itemsNetTotal += total;
+
+            rowsData.push({ taxable, discount, gst, total, gstPct });
         });
 
         document.getElementById("itemsAddedBadge").textContent = `${itemCount} items`;
 
         // Bill Discount
         const billDiscPct = parseFloat(document.getElementById("billDiscountPct").value) || 0;
-        let billDiscAmt = 0;
-        if (billDiscPct > 0) {
-            billDiscAmt = netTotal * (billDiscPct / 100);
+        let billDiscAmt = parseFloat(document.getElementById("billDiscountAmt").value) || 0;
+
+        if (billDiscPct > 0 && grossTaxable > 0) {
+            billDiscAmt = grossTaxable * (billDiscPct / 100);
             document.getElementById("billDiscountAmt").value = billDiscAmt.toFixed(2);
-        } else {
-            billDiscAmt = parseFloat(document.getElementById("billDiscountAmt").value) || 0;
         }
 
-        const finalNet = netTotal - billDiscAmt;
-        const totalDiscCombined = discountTotal + billDiscAmt;
+        // Under GST Law: Bill discount reduces taxable value, which reduces GST!
+        let effectiveTaxable = Math.max(0, grossTaxable - billDiscAmt);
+        
+        // Compute adjusted GST proportionally across GST slabs
+        let adjustedGstTotal = 0;
+        if (grossTaxable > 0) {
+            const taxFactor = effectiveTaxable / grossTaxable;
+            rowsData.forEach(r => {
+                const adjItemTaxable = r.taxable * taxFactor;
+                const adjItemGst = adjItemTaxable * (r.gstPct / 100);
+                adjustedGstTotal += adjItemGst;
+            });
+        } else {
+            adjustedGstTotal = itemsGstTotal;
+        }
+
+        const rawGrandTotal = effectiveTaxable + adjustedGstTotal;
+        const roundedGrandTotal = Math.round(rawGrandTotal);
+        const roundOff = roundedGrandTotal - rawGrandTotal;
+        const totalDiscCombined = itemDiscountTotal + billDiscAmt;
 
         // Determine if current supplier is out-of-state
         const selectedSuppId = document.getElementById("supplierSelect").value;
@@ -1219,28 +1431,29 @@
 
         if (isOutState) {
             // Interstate: Show IGST (full GST amount)
-            document.getElementById("taxLabel1").textContent = "IGST";
-            document.getElementById("summaryTax1").textContent = gstTotal.toFixed(2);
+            document.getElementById("taxLabel1").textContent = "IGST (Interstate)";
+            document.getElementById("summaryTax1").textContent = adjustedGstTotal.toFixed(2);
             document.getElementById("taxLine2").style.display = "none";
         } else {
             // Intrastate: Show CGST + SGST (50/50 split)
-            const cgst = gstTotal / 2;
-            const sgst = gstTotal / 2;
-            document.getElementById("taxLabel1").textContent = "CGST";
+            const cgst = adjustedGstTotal / 2;
+            const sgst = adjustedGstTotal / 2;
+            document.getElementById("taxLabel1").textContent = "CGST (50%)";
             document.getElementById("summaryTax1").textContent = cgst.toFixed(2);
-            document.getElementById("taxLabel2").textContent = "SGST";
+            document.getElementById("taxLabel2").textContent = "SGST (50%)";
             document.getElementById("summaryTax2").textContent = sgst.toFixed(2);
             document.getElementById("taxLine2").style.display = "";
         }
 
         document.getElementById("summaryGross").textContent = grossTaxable.toFixed(2);
-        document.getElementById("summaryGst").textContent = gstTotal.toFixed(2);
-        document.getElementById("summaryNet").textContent = finalNet.toFixed(2);
+        document.getElementById("summaryGst").textContent = adjustedGstTotal.toFixed(2);
+        document.getElementById("summaryRoundOff").textContent = (roundOff >= 0 ? "+" : "") + roundOff.toFixed(2);
+        document.getElementById("summaryNet").textContent = roundedGrandTotal.toFixed(2);
 
         document.getElementById("inputGross").value = grossTaxable.toFixed(2);
         document.getElementById("inputDiscount").value = totalDiscCombined.toFixed(2);
-        document.getElementById("inputGst").value = gstTotal.toFixed(2);
-        document.getElementById("inputNet").value = finalNet.toFixed(2);
+        document.getElementById("inputGst").value = adjustedGstTotal.toFixed(2);
+        document.getElementById("inputNet").value = roundedGrandTotal.toFixed(2);
     }
 
     function onBillDiscountPctChange() {
@@ -1512,33 +1725,78 @@
         const rateC = parseFloat(document.getElementById("modalRateC").value) || 0;
         const mrp = parseFloat(document.getElementById("modalMrp").value) || 0;
 
-        const updateBadge = (elId, rateVal) => {
-            const badge = document.getElementById(elId);
-            if (!badge) return;
+        const updateRateMetrics = (markupId, profitId, marginId, rateVal, defaultBadgeClass) => {
+            const markupBadge = document.getElementById(markupId);
+            const profitSpan = document.getElementById(profitId);
+            const marginSpan = document.getElementById(marginId);
+
             if (rateVal > 0 && effCost > 0) {
-                const margin = (((rateVal - effCost) / rateVal) * 100).toFixed(1);
-                badge.textContent = `${margin >= 0 ? '+' : ''}${margin}%`;
-                badge.className = margin >= 0 ? 'badge bg-success-subtle text-success fw-bold' : 'badge bg-danger-subtle text-danger fw-bold';
+                const profitAmt = rateVal - effCost;
+                const markupPct = ((profitAmt / effCost) * 100).toFixed(1);
+                const marginPct = ((profitAmt / rateVal) * 100).toFixed(1);
+
+                if (markupBadge) {
+                    markupBadge.textContent = `${markupPct >= 0 ? '+' : ''}${markupPct}%`;
+                    markupBadge.className = markupPct >= 0 ? `badge ${defaultBadgeClass} fw-bold` : 'badge bg-danger-subtle text-danger fw-bold';
+                }
+                if (profitSpan) {
+                    profitSpan.textContent = `₹${profitAmt.toFixed(2)}`;
+                    profitSpan.className = profitAmt >= 0 ? 'fw-bold text-dark' : 'fw-bold text-danger';
+                }
+                if (marginSpan) {
+                    marginSpan.textContent = `${marginPct}%`;
+                }
             } else {
-                badge.textContent = '0.0%';
-                badge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+                if (markupBadge) {
+                    markupBadge.textContent = '+0.0%';
+                    markupBadge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+                }
+                if (profitSpan) {
+                    profitSpan.textContent = '₹0.00';
+                    profitSpan.className = 'fw-bold text-muted';
+                }
+                if (marginSpan) {
+                    marginSpan.textContent = '0.0%';
+                }
             }
         };
 
-        updateBadge('marginRateA', rateA);
-        updateBadge('marginRateB', rateB);
-        updateBadge('marginRateC', rateC);
+        updateRateMetrics('markupRateA', 'profitAmtRateA', 'marginRateA', rateA, 'bg-success-subtle text-success');
+        updateRateMetrics('markupRateB', 'profitAmtRateB', 'marginRateB', rateB, 'bg-info-subtle text-info');
+        updateRateMetrics('markupRateC', 'profitAmtRateC', 'marginRateC', rateC, 'bg-success-subtle text-success');
 
-        // Retailer margin on MRP
-        const retBadge = document.getElementById('marginRetailer');
-        if (retBadge) {
-            if (mrp > 0 && rateA > 0) {
-                const retMargin = (((mrp - rateA) / mrp) * 100).toFixed(1);
-                retBadge.textContent = `${retMargin >= 0 ? '+' : ''}${retMargin}%`;
-                retBadge.className = retMargin >= 0 ? 'badge bg-dark-subtle text-dark fw-bold' : 'badge bg-danger-subtle text-danger fw-bold';
-            } else {
-                retBadge.textContent = '0.0%';
-                retBadge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+        // Retailer metrics on MRP (calculated against Rate A)
+        const retMarginBadge = document.getElementById('marginRetailer');
+        const retProfitSpan = document.getElementById('profitAmtRetailer');
+        const retMarkupSpan = document.getElementById('markupRetailer');
+
+        if (mrp > 0 && rateA > 0) {
+            const retProfitAmt = mrp - rateA;
+            const retMarginPct = ((retProfitAmt / mrp) * 100).toFixed(1);
+            const retMarkupPct = ((retProfitAmt / rateA) * 100).toFixed(1);
+
+            if (retMarginBadge) {
+                retMarginBadge.textContent = `${retMarginPct >= 0 ? '+' : ''}${retMarginPct}%`;
+                retMarginBadge.className = retMarginPct >= 0 ? 'badge bg-dark-subtle text-dark fw-bold' : 'badge bg-danger-subtle text-danger fw-bold';
+            }
+            if (retProfitSpan) {
+                retProfitSpan.textContent = `₹${retProfitAmt.toFixed(2)}`;
+                retProfitSpan.className = retProfitAmt >= 0 ? 'fw-bold text-dark' : 'fw-bold text-danger';
+            }
+            if (retMarkupSpan) {
+                retMarkupSpan.textContent = `${retMarkupPct >= 0 ? '+' : ''}${retMarkupPct}%`;
+            }
+        } else {
+            if (retMarginBadge) {
+                retMarginBadge.textContent = '0.0%';
+                retMarginBadge.className = 'badge bg-secondary-subtle text-secondary fw-bold';
+            }
+            if (retProfitSpan) {
+                retProfitSpan.textContent = '₹0.00';
+                retProfitSpan.className = 'fw-bold text-muted';
+            }
+            if (retMarkupSpan) {
+                retMarkupSpan.textContent = '+0.0%';
             }
         }
     }

@@ -8,7 +8,8 @@ from wholesaleApp.urls.reports import urlpatterns as reportsurl
 from wholesaleApp.urls.scheme import urlpatterns as schemeurl
 from wholesaleApp.urls.financial_year import urlpatterns as fyurl
 from wholesaleApp.urls.tally import urlpatterns as tallyurl
+from wholesaleApp.urls.expense import urlpatterns as expenseurl
 
 
-urlpatterns = masterurl + customerurl + supplierurl + producturl + purchaseurl + salesurl + reportsurl + schemeurl + fyurl + tallyurl
+urlpatterns = masterurl + customerurl + supplierurl + producturl + purchaseurl + salesurl + reportsurl + schemeurl + fyurl + tallyurl + expenseurl
 

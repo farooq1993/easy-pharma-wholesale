@@ -21,6 +21,7 @@ ROLE_DEFAULT_PERMISSIONS = {
         'customer_ledger',
         'payment_collection_view', 'payment_collection_create', 'payment_collection_delete',
         'report_outstanding',
+        'expense_view', 'expense_create', 'expense_edit', 'expense_delete',
         'product_view', 'product_create', 'product_edit', 'product_delete',
         'customer_view', 'customer_create', 'customer_edit', 'customer_delete',
         'supplier_view', 'supplier_create', 'supplier_edit', 'supplier_delete',
@@ -201,6 +202,10 @@ def seed_default_permissions():
             ('payment_collection_create', 'Record / Collect Payments'),
             ('payment_collection_delete', 'Delete Payments Collection'),
             ('report_outstanding', 'View Outstanding dues report'),
+            ('expense_view', 'View Expenses'),
+            ('expense_create', 'Record / Add Expense'),
+            ('expense_edit', 'Edit Expense'),
+            ('expense_delete', 'Delete Expense'),
         ],
         'Master Data Settings': [
             ('product_view', 'View Products'),
@@ -306,8 +311,10 @@ def log_activity(request, action, model_name, object_repr, object_id=None, descr
     """Helper to log user actions both to Python logger and database ActivityLog."""
     from wholesaleApp.models.logs import ActivityLog
     
-    user_str = request.user.username if (request and request.user and request.user.is_authenticated) else "System"
-    logger.info(f"User: {user_str} | Action: {action} | Model: {model_name} | Key: {object_repr} | Details: {description}")
+    try:
+        logger.info(f"User: {user_str} | Action: {action} | Model: {model_name} | Key: {object_repr} | Details: {description}")
+    except Exception:
+        pass
     
     tenant = getattr(request, 'tenant', None) if request else None
     user = request.user if (request and request.user and request.user.is_authenticated) else None
