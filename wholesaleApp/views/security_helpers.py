@@ -289,19 +289,28 @@ def tenant_context_processor(request):
         session_tenant_id = request.session.get('active_tenant_id')
         if session_tenant_id:
             current_tenant = Tenant.objects.filter(id=session_tenant_id, is_active=True).first()
-        if not current_tenant and hasattr(request.user, 'profile') and request.user.profile.tenant:
+        if not current_tenant and hasattr(request.user, 'profile') and request.user.profile.tenant and request.user.profile.tenant.is_active:
             current_tenant = request.user.profile.tenant
         if not current_tenant:
+            current_tenant = Tenant.objects.filter(user=request.user, is_active=True).first()
+        if not current_tenant and (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.is_super_admin)):
             current_tenant = Tenant.objects.filter(is_active=True).first()
 
-    context = {
+    tenants_list = []
+    if hasattr(request, 'user') and request.user.is_authenticated:
+        if request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.is_super_admin):
+            tenants_list = list(Tenant.objects.filter(is_active=True).order_by('company_name'))
+        else:
+            from django.db.models import Q
+            tenants_list = list(Tenant.objects.filter(
+                Q(user=request.user) | Q(user_profiles__user=request.user),
+                is_active=True
+            ).distinct().order_by('company_name'))
+
+    return {
         'current_tenant': current_tenant,
-        'tenants_list': [],
+        'tenants_list': tenants_list,
     }
-    if hasattr(request, 'user') and request.user.is_authenticated and (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.is_super_admin)):
-        from django.db.models import Q
-        context['tenants_list'] = Tenant.objects.filter(Q(user=request.user) | Q(user__isnull=True), is_active=True)
-    return context
 
 
 import logging

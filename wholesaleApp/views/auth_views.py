@@ -27,6 +27,27 @@ def user_login(request):
         if user is not None:
             if user.is_active:
                 auth_login(request, user)
+                
+                # Resolve and set the user's active tenant in session
+                from wholesaleApp.models.tenant import Tenant
+                user_tenant = None
+                profile = getattr(user, 'profile', None)
+                
+                if profile and profile.tenant and profile.tenant.is_active:
+                    user_tenant = profile.tenant
+                elif Tenant.objects.filter(user=user, is_active=True).exists():
+                    user_tenant = Tenant.objects.filter(user=user, is_active=True).first()
+                    if profile:
+                        profile.tenant = user_tenant
+                        profile.save()
+                elif user.is_superuser or (profile and profile.is_super_admin):
+                    user_tenant = Tenant.objects.filter(is_active=True).first()
+
+                if user_tenant:
+                    request.session['active_tenant_id'] = user_tenant.id
+                elif 'active_tenant_id' in request.session:
+                    del request.session['active_tenant_id']
+
                 messages.success(request, f"Welcome back, {user.username}!")
                 log_activity(request, "LOGIN", "User", username, object_id=user.id, description=f"User '{user.username}' logged in successfully.")
                 return redirect('home')

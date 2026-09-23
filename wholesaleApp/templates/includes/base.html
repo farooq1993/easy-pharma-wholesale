@@ -303,13 +303,33 @@
                     <h4 class="mb-0 text-primary fs-5 fs-md-4">{% block page_title %}Dashboard{% endblock %}</h4>
                     
                     <div class="ms-auto d-flex align-items-center gap-2 gap-md-3">
-                        {% if current_tenant %}
-                        <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 rounded-pill d-flex align-items-center gap-2" style="background-color: #dbeafe; color: #1e40af; border-color: #93c5fd !important; font-size: 0.85rem; font-weight: 600;">
-                            <i class="bi bi-building"></i> <span>{{ current_tenant.company_name }}</span>
-                        </span>
+                        {% if tenants_list and tenants_list|length > 1 %}
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light border dropdown-toggle px-3 py-1.5 rounded-pill d-flex align-items-center gap-2 shadow-xs fw-semibold text-primary" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Click to Switch Firm / Tenant">
+                                <i class="bi bi-building-fill text-primary"></i>
+                                <span class="text-truncate" style="max-width: 220px;">{{ current_tenant.company_name|default:current_tenant.name|default:"Select Firm" }}</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-lg py-2 rounded-3 border-0" style="min-width: 240px;">
+                                <li class="dropdown-header text-muted small fw-bold text-uppercase">Switch Firm / Shop</li>
+                                {% for t in tenants_list %}
+                                <li>
+                                    <form method="POST" action="{% url 'switch_tenant' %}" class="m-0">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="tenant_id" value="{{ t.id }}">
+                                        <button type="submit" class="dropdown-item d-flex justify-content-between align-items-center py-2 px-3 {% if current_tenant.id == t.id %}active bg-primary text-white fw-bold{% endif %}">
+                                            <span class="text-truncate">{{ t.company_name|default:t.name }}</span>
+                                            {% if current_tenant.id == t.id %}
+                                            <i class="bi bi-check-lg ms-2"></i>
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                         {% else %}
                         <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 rounded-pill d-flex align-items-center gap-2" style="background-color: #dbeafe; color: #1e40af; border-color: #93c5fd !important; font-size: 0.85rem; font-weight: 600;">
-                            <i class="bi bi-building"></i> <span>SAHARA PHARMA</span>
+                            <i class="bi bi-building"></i> <span>{{ current_tenant.company_name|default:current_tenant.name|default:"Easy Pharma" }}</span>
                         </span>
                         {% endif %}
                         

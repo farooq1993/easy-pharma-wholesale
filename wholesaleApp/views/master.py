@@ -470,33 +470,45 @@ def user_permission_matrix(request):
 
 
 def switch_tenant(request):
-    """View for superuser to switch the active tenant session."""
-    from django.contrib.auth.decorators import login_required
-    from django.contrib import messages
-    from wholesaleApp.models.tenant import Tenant
-    
+    """View to switch active tenant session for authorized users."""
     if not request.user.is_authenticated:
         return redirect('login')
         
-    if not request.user.is_superuser:
-        messages.error(request, "Access Denied: Only administrators can switch tenants.")
-        return redirect('home')
+    profile = getattr(request.user, 'profile', None)
+    is_super = request.user.is_superuser or (profile and profile.is_super_admin)
 
     if request.method == 'POST':
         tenant_id = request.POST.get('tenant_id')
         if tenant_id:
             try:
                 from django.db.models import Q
-                tenant = Tenant.objects.get(Q(user=request.user) | Q(user__isnull=True), id=tenant_id, is_active=True)
+                if is_super:
+                    tenant = Tenant.objects.get(id=tenant_id, is_active=True)
+                else:
+                    tenant = Tenant.objects.get(
+                        Q(user=request.user) | Q(user_profiles__user=request.user),
+                        id=tenant_id, 
+                        is_active=True
+                    )
                 request.session['active_tenant_id'] = tenant.id
+                if profile:
+                    profile.tenant = tenant
+                    profile.save()
                 messages.success(request, f"Switched active firm to: {tenant.company_name}")
             except Tenant.DoesNotExist:
-                messages.error(request, "Selected tenant does not exist or is inactive.")
+                messages.error(request, "Selected firm does not exist, is inactive, or access is not permitted.")
         else:
-            # Switch back to 'All Tenants'
-            if 'active_tenant_id' in request.session:
+            # Fallback to user's primary owned or assigned tenant
+            owned = Tenant.objects.filter(user=request.user, is_active=True).first()
+            if owned:
+                request.session['active_tenant_id'] = owned.id
+                if profile:
+                    profile.tenant = owned
+                    profile.save()
+                messages.success(request, f"Switched active firm to: {owned.company_name}")
+            elif 'active_tenant_id' in request.session:
                 del request.session['active_tenant_id']
-            messages.success(request, "Switched to administrator view (All Tenants).")
+                messages.info(request, "Switched firm view.")
             
     return redirect(request.META.get('HTTP_REFERER', 'home'))
 
