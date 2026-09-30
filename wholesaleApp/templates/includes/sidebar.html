@@ -25,37 +25,30 @@
                 </a>
             </li>
 
-            <!-- Masters -->
-            {% if 'area_view' in user_perms or 'product_view' in user_perms or 'supplier_view' in user_perms or 'customer_view' in user_perms %}
+            <!-- Sales Transactions -->
+            {% if 'sales_view' in user_perms or 'sales_create' in user_perms or 'sales_reprint' in user_perms or 'sales_return_view' in user_perms or 'payment_collection_view' in user_perms %}
             <li class="nav-item">
-                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#mastersCollapse" role="button" title="Masters">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#salesCollapse" role="button" title="Sales / Billing">
                     <div class="d-flex align-items-center">
-                        <i class="bi bi-folder-fill me-2 fs-5"></i>
-                        <span class="menu-text">Masters</span>
+                        <i class="bi bi-cart-fill me-2 fs-5"></i>
+                        <span class="menu-text">Sales / Billing</span>
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="mastersCollapse" data-bs-parent="#sidebarMenuAccordion">
+                <div class="collapse ms-3" id="salesCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
-                        {% if 'area_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'area_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Area Master</span></a></li>
+                        {% if 'sales_create' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'invoice_create' %}" class="nav-link text-light py-1.5"><span class="menu-text">Create Sales Bill</span></a></li>
                         {% endif %}
-                        {% if 'product_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'company_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Company Master</span></a></li>
-                        <li class="nav-item"><a href="{% url 'drug_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Drug Composition</span></a></li>
-                        <li class="nav-item"><a href="{% url 'type_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Product Type / Form</span></a></li>
-                        <li class="nav-item"><a href="{% url 'tax_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Tax Master (GST Slabs)</span></a></li>
-                        <li class="nav-item"><a href="{% url 'schedule_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Schedule Master</span></a></li>
+                        {% if 'sales_view' in user_perms or 'sales_reprint' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'invoice_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Sales Invoices List</span></a></li>
                         {% endif %}
-                        {% if 'supplier_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'supplier_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Supplier Master</span></a></li>
+                        {% if 'sales_view' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'invoice_email_bulk' %}" class="nav-link text-light py-1.5"><span class="menu-text">Email Bills (Bulk)</span></a></li>
+                        <li class="nav-item"><a href="{% url 'delivery_management' %}" class="nav-link text-light py-1.5"><span class="menu-text">Delivery Management</span></a></li>
                         {% endif %}
-                        {% if 'customer_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'customer_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Customer Master</span></a></li>
-                        {% endif %}
-                        {% if 'product_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'product_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Product Master</span></a></li>
-                        <li class="nav-item"><a href="{% url 'scheme_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Scheme / Discount</span></a></li>
+                        {% if 'sales_return_view' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'sales_return_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Sales Return</span></a></li>
                         {% endif %}
                     </ul>
                 </div>
@@ -92,30 +85,38 @@
             </li>
             {% endif %}
 
-            <!-- Sales Transactions -->
-            {% if 'sales_view' in user_perms or 'sales_create' in user_perms or 'sales_reprint' in user_perms or 'sales_return_view' in user_perms or 'payment_collection_view' in user_perms %}
+            <!-- Masters -->
+            {% if 'area_view' in user_perms or 'product_view' in user_perms or 'supplier_view' in user_perms or 'customer_view' in user_perms %}
             <li class="nav-item">
-                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#salesCollapse" role="button" title="Sales / Billing">
+                <a class="nav-link text-white d-flex align-items-center justify-content-between" data-bs-toggle="collapse" href="#mastersCollapse" role="button" title="Masters">
                     <div class="d-flex align-items-center">
-                        <i class="bi bi-cart-fill me-2 fs-5"></i>
-                        <span class="menu-text">Sales / Billing</span>
+                        <i class="bi bi-folder-fill me-2 fs-5"></i>
+                        <span class="menu-text">Masters</span>
                     </div>
                     <i class="bi bi-chevron-down small menu-text opacity-75"></i>
                 </a>
-                <div class="collapse ms-3" id="salesCollapse" data-bs-parent="#sidebarMenuAccordion">
+                <div class="collapse ms-3" id="mastersCollapse" data-bs-parent="#sidebarMenuAccordion">
                     <ul class="nav flex-column">
-                        {% if 'sales_create' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'invoice_create' %}" class="nav-link text-light py-1.5"><span class="menu-text">Create Sales Bill</span></a></li>
+                        {% if 'customer_view' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'customer_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Customer Master</span></a></li>
                         {% endif %}
-                        {% if 'sales_view' in user_perms or 'sales_reprint' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'invoice_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Sales Invoices List</span></a></li>
+                        {% if 'supplier_view' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'supplier_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Supplier Master</span></a></li>
                         {% endif %}
-                        {% if 'sales_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'invoice_email_bulk' %}" class="nav-link text-light py-1.5"><span class="menu-text">Email Bills (Bulk)</span></a></li>
-                        <li class="nav-item"><a href="{% url 'delivery_management' %}" class="nav-link text-light py-1.5"><span class="menu-text">Delivery Management</span></a></li>
+                        {% if 'product_view' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'product_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Product Master</span></a></li>
+                        <li class="nav-item"><a href="{% url 'company_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Company Master</span></a></li>
+                        <li class="nav-item"><a href="{% url 'mr_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">MR Master (Sales Rep)</span></a></li>
                         {% endif %}
-                        {% if 'sales_return_view' in user_perms %}
-                        <li class="nav-item"><a href="{% url 'sales_return_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Sales Return</span></a></li>
+                        {% if 'area_view' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'area_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Area Master</span></a></li>
+                        {% endif %}
+                        {% if 'product_view' in user_perms %}
+                        <li class="nav-item"><a href="{% url 'tax_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Tax Master (GST Slabs)</span></a></li>
+                        <li class="nav-item"><a href="{% url 'drug_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Drug Salt</span></a></li>
+                        <li class="nav-item"><a href="{% url 'type_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Product Type / Form</span></a></li>
+                        <li class="nav-item"><a href="{% url 'schedule_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Schedule Master</span></a></li>
+                        <li class="nav-item"><a href="{% url 'scheme_list' %}" class="nav-link text-light py-1.5"><span class="menu-text">Scheme / Discount</span></a></li>
                         {% endif %}
                     </ul>
                 </div>

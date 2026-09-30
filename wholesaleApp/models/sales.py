@@ -1,13 +1,14 @@
 from django.db import models
 from django.contrib.auth.models import User
 from wholesaleApp.models.customers import CustomerMaster
-from wholesaleApp.models.products import ProductMaster
+from wholesaleApp.models.products import ProductMaster, MedicalRepresentative
 from wholesaleApp.models.purchase import ProductBatch
 from wholesaleApp.models.tenant import TenantModel
 
 class SalesInvoice(TenantModel):
     invoice_number = models.CharField(max_length=50, unique=True, verbose_name="Invoice Number")
     customer = models.ForeignKey(CustomerMaster, on_delete=models.PROTECT, related_name='sales_invoices', verbose_name="Customer", null=True, blank=True)
+    mr = models.ForeignKey(MedicalRepresentative, on_delete=models.SET_NULL, related_name='sales_invoices', null=True, blank=True, verbose_name="Medical Representative")
     patient_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Patient Name")
     patient_mobile = models.CharField(max_length=20, blank=True, null=True, verbose_name="Patient Mobile")
     doctor_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Doctor Name")
@@ -18,6 +19,8 @@ class SalesInvoice(TenantModel):
     gst_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="GST Amount (₹)")
     cn_adjusted = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, verbose_name="Credit Note Adjusted (₹)")
     net_amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Net Amount Receivable (₹)")
+    
+    eway_bill = models.CharField(max_length=50, blank=True, null=True, verbose_name="E-Way Bill Number")
     
     status = models.CharField(
         max_length=50,

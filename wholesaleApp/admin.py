@@ -2,6 +2,7 @@ from django.contrib import admin
 from wholesaleApp.models.supplier import (SupplierMaster)
 from wholesaleApp.models.customers import (AreaMaster, CustomerMaster, SubareaMaster)
 from wholesaleApp.models.tenant import (Tenant, TenantEmailConfig)
+from wholesaleApp.models.products import (CompanyMaster, MedicalRepresentative)
 
 # Register your models here.
 
@@ -11,4 +12,6 @@ admin.site.register(CustomerMaster)
 admin.site.register(SubareaMaster)
 admin.site.register(Tenant)
 admin.site.register(TenantEmailConfig)
+admin.site.register(CompanyMaster)
+admin.site.register(MedicalRepresentative)
 

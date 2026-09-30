@@ -286,6 +286,12 @@ def invoice_create(request):
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))
         net_amount = Decimal(request.POST.get('net_amount', 0))
+        eway_bill = request.POST.get('eway_bill', '').strip() or None
+        mr_id = request.POST.get('mr')
+        mr = None
+        if mr_id:
+            from wholesaleApp.models.products import MedicalRepresentative
+            mr = MedicalRepresentative.objects.filter(id=mr_id, status=True, is_deleted=False).first()
         
         # Extract item arrays
         product_ids = request.POST.getlist('product[]')
@@ -374,6 +380,8 @@ def invoice_create(request):
             gst_amount=gst_amount,
             cn_adjusted=cn_adjusted,
             net_amount=net_amount,
+            eway_bill=eway_bill,
+            mr=mr,
             is_retail=is_retail,
             created_by=request.user if request.user.is_authenticated else None
         )
@@ -441,11 +449,14 @@ def invoice_create(request):
     if saved_id:
         saved_invoice = SalesInvoice.objects.filter(id=saved_id).select_related('customer').first()
 
-    areas = AreaMaster.objects.filter(is_active=True).order_by('city')
+    areas = AreaMaster.objects.filter(is_active=True).prefetch_related('subareas').order_by('city')
+    from wholesaleApp.models.products import MedicalRepresentative
+    mrs = MedicalRepresentative.objects.filter(status=True, is_deleted=False).select_related('company')
     context = {
         'customers': customers,
         'products': products,
         'areas': areas,
+        'mrs': mrs,
         'page_title': 'Create Sales Invoice (Bill)',
         'saved_invoice': saved_invoice,
         'user_perms': get_user_permissions_context(request.user)
@@ -779,6 +790,12 @@ def invoice_edit(request, pk):
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))
         net_amount = Decimal(request.POST.get('net_amount', 0))
+        eway_bill = request.POST.get('eway_bill', '').strip() or None
+        mr_id = request.POST.get('mr')
+        mr = None
+        if mr_id:
+            from wholesaleApp.models.products import MedicalRepresentative
+            mr = MedicalRepresentative.objects.filter(id=mr_id, status=True, is_deleted=False).first()
         is_retail = request.POST.get('is_retail') == 'true' or request.POST.get('is_retail') == '1' or request.POST.get('is_retail') == 'on'
         
         # Extract item arrays from POST
@@ -854,6 +871,8 @@ def invoice_edit(request, pk):
         invoice.gst_amount = gst_amount
         invoice.cn_adjusted = cn_adjusted
         invoice.net_amount = net_amount
+        invoice.eway_bill = eway_bill
+        invoice.mr = mr
         invoice.is_retail = is_retail
         invoice.save()
         
@@ -925,12 +944,15 @@ def invoice_edit(request, pk):
     import json
     existing_items_json = json.dumps(items_data)
 
-    areas = AreaMaster.objects.filter(is_active=True).order_by('city')
+    areas = AreaMaster.objects.filter(is_active=True).prefetch_related('subareas').order_by('city')
+    from wholesaleApp.models.products import MedicalRepresentative
+    mrs = MedicalRepresentative.objects.filter(status=True, is_deleted=False).select_related('company')
     context = {
         'invoice': invoice,
         'customers': customers,
         'products': products,
         'areas': areas,
+        'mrs': mrs,
         'existing_items_json': existing_items_json,
         'page_title': f'Edit Sales Invoice {invoice.invoice_number}',
         'user_perms': get_user_permissions_context(request.user)

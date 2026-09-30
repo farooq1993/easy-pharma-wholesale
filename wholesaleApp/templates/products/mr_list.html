@@ -1,0 +1,65 @@
+{% extends 'includes/base.html' %}
+{% load permission_tags %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm border-0 rounded-4">
+    <div class="card-header bg-white py-3 border-bottom-0 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-primary fw-bold"><i class="bi bi-people-fill"></i> Medical Representatives (MR)</h5>
+        {% if 'product_create' in user_perms %}
+        <a href="{% url 'mr_create' %}" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> Add New MR
+        </a>
+        {% endif %}
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">MR Name</th>
+                        <th>Company</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mr in mrs %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-dark">{{ mr.name }}</td>
+                        <td>{{ mr.company.name }}</td>
+                        <td>{{ mr.phone|default:'-' }}</td>
+                        <td>
+                            {% if mr.status %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3">Active</span>
+                            {% else %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if 'product_edit' in user_perms %}
+                            <a href="{% url 'mr_edit' mr.id %}" class="btn btn-sm btn-outline-primary rounded-circle" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% endif %}
+                            {% if 'product_delete' in user_perms %}
+                            <a href="{% url 'mr_delete' mr.id %}" class="btn btn-sm btn-outline-danger rounded-circle ms-1" title="Delete" onclick="return confirm('Are you sure you want to delete this MR?');">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">No Medical Representatives found. Click "Add New MR" to create one.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

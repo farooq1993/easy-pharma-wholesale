@@ -1127,3 +1127,112 @@ def report_profit_loss(request):
 
 
 
+
+
+@login_required
+
+@login_required
+def report_mr_sales(request):
+    """Month-wise sales report for Medical Representatives (MR)."""
+    import json
+    from collections import defaultdict
+    from django.db.models.functions import TruncMonth
+    from django.db.models import Sum, Count
+    from wholesaleApp.models.products import MedicalRepresentative
+    
+    today = timezone.now().date()
+    start_date_str = request.GET.get('start_date', (today - timedelta(days=180)).strftime('%Y-%m-%d'))
+    end_date_str = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
+    mr_id = request.GET.get('mr', 'all')
+    
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        start_date = today - timedelta(days=180)
+        end_date = today
+
+    mrs = MedicalRepresentative.objects.filter(is_deleted=False).select_related('company').order_by('name')
+    
+    # Filter invoices
+    invoices = SalesInvoice.objects.filter(invoice_date__range=[start_date, end_date], mr__isnull=False)
+    if mr_id != 'all' and mr_id:
+        invoices = invoices.filter(mr_id=mr_id)
+        
+    invoices = invoices.select_related('mr', 'mr__company').order_by('invoice_date')
+
+    # Calculate month-wise data for graph
+    monthly_data = invoices.annotate(month=TruncMonth('invoice_date')).values('month', 'mr__name', 'mr__company__name').annotate(
+        total_sales=Sum('net_amount')
+    ).order_by('month')
+
+    graph_labels_set = set()
+    mr_series_dict = defaultdict(dict)
+    
+    for entry in monthly_data:
+        month_label = entry['month'].strftime('%b %Y')
+        graph_labels_set.add(month_label)
+        mr_key = f"{entry['mr__name']} ({entry['mr__company__name']})"
+        mr_series_dict[mr_key][month_label] = float(entry['total_sales'] or 0)
+        
+    graph_labels = sorted(list(graph_labels_set), key=lambda d: datetime.strptime(d, '%b %Y'))
+    
+    datasets = []
+    import random
+    for mr_key, data_dict in mr_series_dict.items():
+        color = f"rgba({random.randint(50, 200)}, {random.randint(50, 200)}, {random.randint(50, 200)}, 0.7)"
+        data_points = [data_dict.get(label, 0) for label in graph_labels]
+        datasets.append({
+            'label': mr_key,
+            'data': data_points,
+            'backgroundColor': color,
+            'borderColor': color,
+            'borderWidth': 1
+        })
+        
+    graph_data_json = json.dumps({
+        'labels': graph_labels,
+        'datasets': datasets
+    })
+
+    # Summary table calculation
+    summary_qs = invoices.values('mr__id', 'mr__name', 'mr__company__name', 'mr__monthly_target', 'mr__commission_percentage').annotate(
+        total_invoices=Count('id'),
+        total_gross=Sum('gross_amount'),
+        total_net=Sum('net_amount')
+    ).order_by('-total_net')
+    
+    summary = []
+    total_sales = 0
+    total_count = 0
+    
+    for row in summary_qs:
+        item = dict(row)
+        t_net = float(item['total_net'] or 0)
+        t_target = float(item['mr__monthly_target'] or 0)
+        t_comm_pct = float(item['mr__commission_percentage'] or 0)
+        
+        if t_target > 0:
+            item['achieved_pct'] = (t_net / t_target) * 100
+            
+        if t_comm_pct > 0:
+            item['commission_amount'] = (t_net * t_comm_pct) / 100
+            
+        summary.append(item)
+        total_sales += t_net
+        total_count += item['total_invoices']
+
+
+    context = {
+        'page_title': 'MR Sales Report (Month-wise)',
+        'mrs': mrs,
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'selected_mr': mr_id,
+        'summary': summary,
+        'total_sales': total_sales,
+        'total_count': total_count,
+        'graph_data_json': graph_data_json,
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'reports/mr_sales.html', context)

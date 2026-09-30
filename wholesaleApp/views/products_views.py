@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, get_object_or_404
+﻿from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
@@ -689,4 +689,114 @@ def schedule_delete(request, pk):
     log_activity(request, "DELETE", "ScheduleMaster", schedule.name, object_id=schedule.id, description=f"Schedule '{schedule.name}' soft deleted.")
     messages.success(request, f"Schedule '{schedule.name}' deleted successfully!")
     return redirect('schedule_list')
+
+
+# ==================== MR (MEDICAL REPRESENTATIVE) VIEWS ====================
+@login_required
+def mr_list(request):
+    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    if not has_feature_access(request.user, 'product_view'):
+        messages.error(request, "Access Denied: You do not have permission to view MR Masters.")
+        return redirect('home')
+        
+    from wholesaleApp.models.products import MedicalRepresentative
+    mrs = MedicalRepresentative.objects.filter(is_deleted=False).select_related('company')
+    context = {
+        'mrs': mrs,
+        'page_title': 'MR (Medical Representative) Master',
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'products/mr_list.html', context)
+
+
+@login_required
+def mr_create(request):
+    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    if not has_feature_access(request.user, 'product_create'):
+        messages.error(request, "Access Denied: You do not have permission to create MRs.")
+        return redirect('mr_list')
+        
+    from wholesaleApp.models.products import MedicalRepresentative
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        company_id = request.POST.get('company')
+        phone = request.POST.get('phone', '').strip()
+        status = request.POST.get('status') == 'on'
+        monthly_target = request.POST.get('monthly_target')
+        commission_percentage = request.POST.get('commission_percentage')
+        
+        company = get_object_or_404(CompanyMaster, pk=company_id)
+        
+        mr = MedicalRepresentative.objects.create(
+            name=name,
+            company=company,
+            phone=phone,
+            status=status,
+            monthly_target=monthly_target if monthly_target else None,
+            commission_percentage=commission_percentage if commission_percentage else None,
+            created_by=request.user if request.user.is_authenticated else None
+        )
+        log_activity(request, "CREATE", "MedicalRepresentative", mr.name, object_id=mr.id, description=f"MR '{mr.name}' created.")
+        messages.success(request, f"MR '{name}' created successfully!")
+        return redirect('mr_list')
+        
+    companies = CompanyMaster.objects.filter(is_deleted=False)
+    context = {
+        'page_title': 'Create New MR',
+        'companies': companies,
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'products/mr_form.html', context)
+
+
+@login_required
+def mr_edit(request, pk):
+    from wholesaleApp.views.security_helpers import get_user_permissions_context
+    if not has_feature_access(request.user, 'product_edit'):
+        messages.error(request, "Access Denied: You do not have permission to edit MRs.")
+        return redirect('mr_list')
+        
+    from wholesaleApp.models.products import MedicalRepresentative
+    mr = get_object_or_404(MedicalRepresentative, pk=pk)
+    if request.method == 'POST':
+        mr.name = request.POST.get('name', '').strip()
+        company_id = request.POST.get('company')
+        mr.phone = request.POST.get('phone', '').strip()
+        mr.status = request.POST.get('status') == 'on'
+        
+        monthly_target = request.POST.get('monthly_target')
+        mr.monthly_target = monthly_target if monthly_target else None
+        
+        commission_percentage = request.POST.get('commission_percentage')
+        mr.commission_percentage = commission_percentage if commission_percentage else None
+        
+        mr.company = get_object_or_404(CompanyMaster, pk=company_id)
+        mr.save()
+        log_activity(request, "UPDATE", "MedicalRepresentative", mr.name, object_id=mr.id, description=f"MR '{mr.name}' updated.")
+        messages.success(request, f"MR '{mr.name}' updated successfully!")
+        return redirect('mr_list')
+        
+    companies = CompanyMaster.objects.filter(is_deleted=False)
+    context = {
+        'page_title': 'Edit MR',
+        'mr': mr,
+        'companies': companies,
+        'user_perms': get_user_permissions_context(request.user)
+    }
+    return render(request, 'products/mr_form.html', context)
+
+
+@login_required
+def mr_delete(request, pk):
+    if not has_feature_access(request.user, 'product_delete'):
+        messages.error(request, "Access Denied: You do not have permission to delete MRs.")
+        return redirect('mr_list')
+        
+    from wholesaleApp.models.products import MedicalRepresentative
+    mr = get_object_or_404(MedicalRepresentative, pk=pk)
+    mr.is_deleted = True
+    mr.save()
+    log_activity(request, "DELETE", "MedicalRepresentative", mr.name, object_id=mr.id, description=f"MR '{mr.name}' soft deleted.")
+    messages.success(request, f"MR '{mr.name}' deleted successfully!")
+    return redirect('mr_list')
 

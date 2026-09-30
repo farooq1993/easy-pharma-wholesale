@@ -258,16 +258,29 @@
                     <label class="form-label text-muted small fw-bold">Invoice Date <span class="text-danger">*</span></label>
                     <input type="date" name="invoice_date" id="invoiceDate" class="form-control" value="{{ invoice.invoice_date|date:'Y-m-d' }}" required>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label text-muted small fw-bold">Payment Type <span class="text-danger">*</span></label>
                     <select name="payment_type" id="paymentType" class="form-select" required>
                         <option value="Cash" {% if invoice.payment_type == 'Cash' %}selected{% endif %}>Cash (Immediate Paid)</option>
                         <option value="Credit" {% if invoice.payment_type == 'Credit' %}selected{% endif %}>Credit (Debtors)</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label class="form-label text-muted small fw-bold">E-Way Bill No.</label>
+                    <input type="text" name="eway_bill" class="form-control" placeholder="Optional" value="{{ invoice.eway_bill|default_if_none:'' }}">
+                </div>
+                <div class="col-md-2">
                     <label class="form-label text-muted small fw-bold">Billing Operator</label>
-                    <input type="text" class="form-control bg-light" value="{{ invoice.created_by.username|default:'Admin' }} (Online)" readonly>
+                    <input type="text" class="form-control bg-light" value="{{ invoice.created_by.username|default:'Admin' }}" readonly>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label text-muted small fw-bold">MR (Sales Rep)</label>
+                    <select name="mr" class="form-select">
+                        <option value="">-- None --</option>
+                        {% for mr in mrs %}
+                        <option value="{{ mr.id }}" {% if invoice.mr_id == mr.id %}selected{% endif %}>{{ mr.name }} ({{ mr.company.name }})</option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
 
@@ -527,51 +540,72 @@
             <form id="quickCustomerForm">
                 <div class="modal-body p-4">
                     <div class="row g-3">
+                        <!-- Group 1: Basic Info -->
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Customer / Firm Name <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Customer / Firm Name <span class="text-danger">*</span></label>
                             <input type="text" id="custName" class="form-control" required placeholder="e.g. Apollo Chemist">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Mobile Number <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Mobile Number <span class="text-danger">*</span></label>
                             <input type="text" id="custMobile" class="form-control" maxlength="15" required placeholder="10-digit mobile number">
                         </div>
+                        
+                        <!-- Group 2: Licenses -->
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Drug Licence Number (DL) <span class="text-danger">*</span></label>
-                            <input type="text" id="custDlNumber" class="form-control" maxlength="100" required placeholder="e.g. 20B/12345, 21B/12345">
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Drug Licence (DL) <span class="text-danger">*</span></label>
+                            <input type="text" id="custDlNumber" class="form-control font-monospace" maxlength="100" required placeholder="e.g. 20B/12345">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Area <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">GSTIN (Optional)</label>
+                            <input type="text" id="custGstin" class="form-control font-monospace text-uppercase" maxlength="15" placeholder="15-digit GSTIN">
+                        </div>
+                        
+                        <!-- Group 3: Location (Cascading Dropdowns) -->
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Main Area <span class="text-danger">*</span></label>
                             <select id="custArea" class="form-select" required onchange="onCustAreaChange(this)">
-                                <option value="">Select Area</option>
+                                <option value="">Select Main Area</option>
                                 {% for area in areas %}
-                                <option value="{{ area.id }}" data-city="{{ area.city }}">{{ area.city }}</option>
+                                <option value="{{ area.id }}" data-city="{{ area.city }}">{{ area.city }}{% if area.code %} ({{ area.code }}){% endif %}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">City <span class="text-danger">*</span></label>
-                            <input type="text" id="custCity" class="form-control" required placeholder="Enter city name">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">State</label>
-                            <input type="text" id="custState" class="form-control" placeholder="e.g. Uttar Pradesh">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">GSTIN (Optional)</label>
-                            <input type="text" id="custGstin" class="form-control font-monospace text-uppercase" maxlength="15" placeholder="15-digit GSTIN">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Customer Type</label>
-                            <select id="custType" class="form-select">
-                                <option value="Retailer" selected>Retailer / Chemist</option>
-                                <option value="Wholesaler">Wholesaler / Sub-distributor</option>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Sub Area (Optional)</label>
+                            <select id="custSubArea" class="form-select">
+                                <option value="">-- Select Sub Area --</option>
                             </select>
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">City <span class="text-danger">*</span></label>
+                            <input type="text" id="custCity" class="form-control bg-light" required placeholder="Auto-filled city" readonly>
+                        </div>
+                        
+                        <!-- Group 4: Extras -->
                         <div class="col-md-12">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.88rem;">Business Address</label>
-                            <textarea id="custAddress" class="form-control" rows="2" placeholder="Shop number, market, landmark..."></textarea>
+                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Business Address</label>
+                            <input type="text" id="custAddress" class="form-control" placeholder="Shop number, market, landmark...">
+                        </div>
+                        <div class="col-md-6 d-none">
+                            <input type="text" id="custState" value="Maharashtra">
+                            <select id="custType">
+                                <option value="Retailer" selected>Retailer</option>
+                            </select>
                         </div>
                     </div>
+                    
+                    <!-- JS Sub Area Data map -->
+                    <script>
+                        const subAreaMap = {
+                            {% for area in areas %}
+                            "{{ area.id }}": [
+                                {% for sub in area.subareas.all %}
+                                {"id": "{{ sub.id }}", "name": "{{ sub.name|escapejs }}"},
+                                {% endfor %}
+                            ],
+                            {% endfor %}
+                        };
+                    </script>
                 </div>
                 <div class="modal-footer bg-light border-top py-2.5 px-4">
                     <button type="button" class="btn btn-outline-secondary px-3 rounded-3" data-bs-dismiss="modal">Cancel</button>
@@ -2722,10 +2756,25 @@
     function onCustAreaChange(selectEl) {
         const selectedOpt = selectEl.options[selectEl.selectedIndex];
         const cityInput = document.getElementById("custCity");
+        
+        // Populate City
         if (cityInput && selectedOpt && selectedOpt.dataset && selectedOpt.dataset.city) {
-            if (!cityInput.value.trim() || cityInput.dataset.autoFilled === "true") {
-                cityInput.value = selectedOpt.dataset.city;
-                cityInput.dataset.autoFilled = "true";
+            cityInput.value = selectedOpt.dataset.city;
+            cityInput.dataset.autoFilled = "true";
+        }
+        
+        // Populate Sub Area Dropdown
+        const subAreaSelect = document.getElementById("custSubArea");
+        if (subAreaSelect && typeof subAreaMap !== 'undefined') {
+            subAreaSelect.innerHTML = '<option value="">-- Select Sub Area --</option>';
+            const areaId = selectEl.value;
+            if (areaId && subAreaMap[areaId]) {
+                subAreaMap[areaId].forEach(function(sub) {
+                    const opt = document.createElement("option");
+                    opt.value = sub.id;
+                    opt.textContent = sub.name;
+                    subAreaSelect.appendChild(opt);
+                });
             }
         }
     }
@@ -2914,22 +2963,7 @@
             }
         }, 100);
 
-        // Load Areas and options
-        fetch('/area/list/')
-            .then(res => res.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const areaSelect = document.getElementById("custArea");
-                
-                doc.querySelectorAll("table:first-of-type tbody tr").forEach(tr => {
-                    const idText = tr.querySelector("a") ? tr.querySelector("a").href.split('/').slice(-2)[0] : '';
-                    const city = tr.querySelector("td:first-child").textContent.trim();
-                    if (city && idText) {
-                        areaSelect.insertAdjacentHTML('beforeend', `<option value="${idText}">${city}</option>`);
-                    }
-                });
-            });
+
 
         fetch('/product/create/')
             .then(res => res.text())
@@ -2968,11 +3002,15 @@
         }
 
         const formData = new FormData();
+        const subAreaSelect = document.getElementById("custSubArea");
+        const subAreaId = subAreaSelect ? subAreaSelect.value : "";
+        
         formData.append("name", name);
         formData.append("customer_type", custType);
         formData.append("mobile", mobile);
         formData.append("dl_number_1", dlNumber);
         formData.append("area", areaId);
+        if (subAreaId) formData.append("subarea", subAreaId);
         formData.append("city", city);
         formData.append("state", state);
         formData.append("gstin", gstin);

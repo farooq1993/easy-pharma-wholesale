@@ -23,6 +23,30 @@ class CompanyMaster(TenantModel):
         return self.name
 
 
+# ==================== MR MASTER (MEDICAL REPRESENTATIVE) ====================
+class MedicalRepresentative(TenantModel):
+    name = models.CharField(max_length=255, verbose_name="MR Name")
+    company = models.ForeignKey(CompanyMaster, on_delete=models.CASCADE, related_name='mrs', verbose_name="Company")
+    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name="Phone Number")
+    monthly_target = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Monthly Sales Target (₹)")
+    commission_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name="Commission (%)")
+    status = models.BooleanField(default=True, verbose_name="Active")
+    is_deleted = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Medical Representative"
+        verbose_name_plural = "Medical Representatives"
+        ordering = ['name']
+        unique_together = ('tenant', 'name', 'company')
+
+    def __str__(self):
+        return f"{self.name} - {self.company.name}"
+
+
 # ==================== DRUG MASTER (GENERIC COMPOSITION) ====================
 class DrugMaster(TenantModel):
     name = models.CharField(max_length=255, verbose_name="Generic Composition")

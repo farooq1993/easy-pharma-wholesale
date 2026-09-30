@@ -29,7 +29,12 @@ from wholesaleApp.views.products_views import (
     product_list,
     product_create,
     product_edit,
-    product_delete
+    product_delete,
+    # MR CRUD
+    mr_list,
+    mr_create,
+    mr_edit,
+    mr_delete
 )
 
 urlpatterns = [
@@ -38,6 +43,12 @@ urlpatterns = [
     path('company/create/', company_create, name='company_create'),
     path('company/edit/<int:pk>/', company_edit, name='company_edit'),
     path('company/delete/<int:pk>/', company_delete, name='company_delete'),
+
+    # MR Master URLs
+    path('mr/list/', mr_list, name='mr_list'),
+    path('mr/create/', mr_create, name='mr_create'),
+    path('mr/edit/<int:pk>/', mr_edit, name='mr_edit'),
+    path('mr/delete/<int:pk>/', mr_delete, name='mr_delete'),
 
     # Drug Composition Master URLs
     path('drug/list/', drug_list, name='drug_list'),

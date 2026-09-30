@@ -224,6 +224,9 @@
                             <strong>Invoice No:</strong> <span class="font-monospace fw-bold">{{ invoice.invoice_number }}</span><br>
                             <strong>Date:</strong> {{ invoice.invoice_date|date:"d-m-Y" }}<br>
                             <strong>Payment Mode:</strong> <span class="fw-bold text-uppercase text-primary">{{ invoice.payment_type }}</span>
+                            {% if invoice.eway_bill %}
+                            <br><strong>E-Way Bill:</strong> <span class="fw-bold text-uppercase">{{ invoice.eway_bill }}</span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
