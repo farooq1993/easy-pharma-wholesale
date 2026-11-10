@@ -1668,6 +1668,51 @@ class SupplierStateCodeTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(SupplierMaster.objects.filter(mobile="9876543211").exists())
 
+    def test_supplier_edit_accepts_matching_state_and_gstin(self):
+        supplier = SupplierMaster.objects.create(
+            tenant=self.tenant,
+            name="UVI PHARMA",
+            mobile="7854141412",
+            city="MUMBAI",
+            state="Maharashtra",
+            state_code="27",
+        )
+
+        response = self.client.post(reverse("supplier_edit", args=[supplier.pk]), {
+            "name": "UVI PHARMA",
+            "mobile": "7854141412",
+            "city": "MUMBAI",
+            "state": "27",
+            "gstin": "27AAACC1450B1ZE",
+        })
+
+        self.assertRedirects(response, reverse("supplier_list"))
+        supplier.refresh_from_db()
+        self.assertEqual(supplier.gstin, "27AAACC1450B1ZE")
+        self.assertEqual(supplier.state_code, "27")
+
+    def test_supplier_edit_preserves_submitted_gstin_and_state_on_mismatch(self):
+        supplier = SupplierMaster.objects.create(
+            tenant=self.tenant,
+            name="UVI PHARMA",
+            mobile="7854141412",
+            city="MUMBAI",
+            state="Maharashtra",
+            state_code="27",
+        )
+
+        response = self.client.post(reverse("supplier_edit", args=[supplier.pk]), {
+            "name": "UVI PHARMA",
+            "mobile": "7854141412",
+            "city": "MUMBAI",
+            "state": "27",
+            "gstin": "29ABCDE1234F1Z5",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="29ABCDE1234F1Z5"')
+        self.assertContains(response, 'value="27" data-state-code="27" selected')
+
 
 class InvoiceEmailTests(TestCase):
     def setUp(self):
@@ -2443,6 +2488,5 @@ class PublicUserCreationTests(TestCase):
         
         # Verify session active tenant ID is set
         self.assertEqual(self.client.session.get('active_tenant_id'), tenant.id)
-
 
 

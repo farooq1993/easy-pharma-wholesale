@@ -297,15 +297,15 @@ def supplier_edit(request, pk):
         )
         if state_error:
             messages.error(request, state_error)
+            supplier.gstin = request.POST.get('gstin', supplier.gstin)
             return render(request, 'suppliers/supplier_form.html', {
                 'supplier': supplier,
                 'page_title': 'Edit Supplier',
                 'state_choices': GST_STATE_CHOICES,
                 'tenant_state_code': _tenant_state_code(request),
                 'supplier_state_code': gst_state_code(
-                    gstin=supplier.gstin,
-                    state_code=supplier.state_code,
-                    state_name=supplier.state,
+                    state_code=request.POST.get('state', ''),
+                    state_name=request.POST.get('state', ''),
                 ) or '',
             })
 
