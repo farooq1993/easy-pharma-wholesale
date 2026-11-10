@@ -48,6 +48,22 @@
 
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
+                    <label class="form-label text-muted small fw-bold" for="tenantCity">City</label>
+                    <input type="text" name="city" id="tenantCity" class="form-control" value="{{ city_value|default:'' }}" placeholder="e.g. Mumbai">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label text-muted small fw-bold" for="tenantState">State / UT <span class="text-danger">*</span></label>
+                    <select name="state_code" id="tenantState" class="form-select" required>
+                        <option value="">-- Select State / UT --</option>
+                        {% for code, state_name in state_choices %}
+                        <option value="{{ code }}" {% if selected_state_code == code %}selected{% endif %}>{{ state_name }} ({{ code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
                     <label class="form-label text-muted small fw-bold">Phone Number</label>
                     <input type="text" name="phone" class="form-control" value="{{ tenant.phone|default:'' }}" placeholder="e.g. +91 9999999999">
                 </div>
@@ -60,7 +76,7 @@
             <div class="row g-3 mb-4">
                 <div class="col-md-6">
                     <label class="form-label text-muted small fw-bold">GSTIN (Tax Registration)</label>
-                    <input type="text" name="gstin" class="form-control font-monospace" value="{{ tenant.gstin|default:'' }}" placeholder="15-digit GSTIN" maxlength="15">
+                    <input type="text" name="gstin" class="form-control font-monospace" value="{{ form_data.gstin|default:tenant.gstin|default:'' }}" placeholder="15-digit GSTIN" maxlength="15">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label text-muted small fw-bold">GST Dealer Type <span class="text-danger">*</span></label>
@@ -104,4 +120,18 @@
         </form>
     </div>
 </div>
+<script>
+    (() => {
+        const gstinInput = document.querySelector('input[name="gstin"]');
+        const stateSelect = document.getElementById('tenantState');
+        if (!gstinInput || !stateSelect) return;
+
+        gstinInput.addEventListener('input', () => {
+            const stateCode = gstinInput.value.trim().slice(0, 2);
+            if ([...stateSelect.options].some(option => option.value === stateCode)) {
+                stateSelect.value = stateCode;
+            }
+        });
+    })();
+</script>
 {% endblock %}

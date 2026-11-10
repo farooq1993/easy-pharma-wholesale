@@ -17,6 +17,30 @@ from wholesaleApp.models import (
     PurchaseEntryItem
 )
 
+
+def _supplier_state_context(request, supplier_queryset):
+    from wholesaleApp.utils.gst import GST_STATE_CHOICES, gst_state_code
+
+    suppliers = list(supplier_queryset)
+    for supplier in suppliers:
+        supplier.gst_state_code = gst_state_code(
+            gstin=supplier.gstin,
+            state_code=supplier.state_code,
+            state_name=supplier.state,
+        ) or ''
+
+    tenant = getattr(request, 'tenant', None)
+    tenant_state_code = gst_state_code(
+        gstin=getattr(tenant, 'gstin', None),
+        state_code=getattr(tenant, 'state_code', None),
+    ) or ''
+    return {
+        'suppliers': suppliers,
+        'state_choices': GST_STATE_CHOICES,
+        'tenant_state_code': tenant_state_code,
+    }
+
+
 # ==================== AJAX API ENDPOINTS ====================
 @login_required
 def get_product_details(request, pk):
@@ -333,7 +357,7 @@ def purchase_entry_create(request):
         return redirect('purchase_entry_list')
         
     context = {
-        'suppliers': suppliers,
+        **_supplier_state_context(request, suppliers),
         'products': products,
         'companies': companies,
         'product_types': product_types,
@@ -520,7 +544,7 @@ def purchase_entry_edit(request, pk):
         
     context = {
         'entry': entry,
-        'suppliers': suppliers,
+        **_supplier_state_context(request, suppliers),
         'products': products,
         'page_title': f'Edit Purchase Entry {entry.invoice_number}',
         'user_perms': get_user_permissions_context(request.user)
@@ -1312,4 +1336,3 @@ def api_batch_update(request, pk):
             'quantity': f"{batch.quantity:.2f}"
         }
     })
-

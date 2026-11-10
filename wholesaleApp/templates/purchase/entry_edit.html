@@ -762,9 +762,10 @@
         {% endfor %}
     ];
 
+    const tenantGstStateCode = "{{ tenant_state_code|default:'' }}";
     const supplierList = [
         {% for supplier in suppliers %}
-        { id: "{{ supplier.id }}", name: "{{ supplier.name }}", is_out_state: {% if supplier.is_out_state %}true{% else %}false{% endif %} },
+        { id: "{{ supplier.id }}", name: "{{ supplier.name }}", state_code: "{{ supplier.gst_state_code|default:'' }}", is_out_state: {% if supplier.is_out_state %}true{% else %}false{% endif %} },
         {% endfor %}
     ];
 
@@ -1261,7 +1262,9 @@
         // Determine if current supplier is out-of-state
         const selectedSuppId = document.getElementById("supplierSelect").value;
         const selectedSupp = supplierList.find(s => String(s.id) === String(selectedSuppId));
-        const isOutState = selectedSupp ? selectedSupp.is_out_state : false;
+        const isOutState = selectedSupp && selectedSupp.state_code && tenantGstStateCode
+            ? selectedSupp.state_code !== tenantGstStateCode
+            : Boolean(selectedSupp && selectedSupp.is_out_state);
 
         if (isOutState) {
             // Interstate: Show IGST (full GST amount)

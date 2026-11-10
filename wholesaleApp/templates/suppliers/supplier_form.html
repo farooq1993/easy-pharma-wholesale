@@ -59,19 +59,33 @@
                             <input type="text" name="city" class="form-control" value="{{ supplier.city|default:'' }}">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">State</label>
-                            <input type="text" name="state" class="form-control" value="{{ supplier.state|default:'' }}">
+                            <label class="form-label">State / UT <span class="text-danger">*</span></label>
+                            <select name="state" id="supplierState" class="form-select" required onchange="updateSupplierTaxType()">
+                                <option value="">Select State / UT</option>
+                                {% for code, name in state_choices %}
+                                <option value="{{ code }}" data-state-code="{{ code }}" {% if supplier_state_code == code %}selected{% endif %}>{{ code }} — {{ name }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Pincode</label>
                             <input type="text" name="pincode" class="form-control" value="{{ supplier.pincode|default:'' }}">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Out of State (IGST)</label>
-                            <select name="is_out_state" class="form-select">
-                                <option value="false" {% if not supplier.is_out_state %}selected{% endif %}>No — Intrastate (CGST + SGST)</option>
-                                <option value="true" {% if supplier.is_out_state %}selected{% endif %}>Yes — Interstate (IGST)</option>
+                            <label class="form-label">Purchase Tax Type</label>
+                            {% if tenant_state_code %}
+                            <select id="supplierTaxType" class="form-select" disabled>
+                                <option value="false">Intrastate — CGST + SGST</option>
+                                <option value="true">Interstate — IGST</option>
                             </select>
+                            <input type="hidden" name="is_out_state" id="supplierIsOutState" value="false">
+                            {% else %}
+                            <select name="is_out_state" id="supplierTaxType" class="form-select">
+                                <option value="false" {% if not supplier.is_out_state %}selected{% endif %}>Intrastate — CGST + SGST</option>
+                                <option value="true" {% if supplier.is_out_state %}selected{% endif %}>Interstate — IGST</option>
+                            </select>
+                            <div class="form-text text-warning">Add the business GSTIN in Tenant Settings for automatic state-code matching.</div>
+                            {% endif %}
                         </div>
                         <div class="col-12">
                             <label class="form-label">Full Address</label>
@@ -102,5 +116,23 @@
         </div>
     </div>
 </div>
+
+<script>
+    const tenantGstStateCode = "{{ tenant_state_code|default:'' }}";
+    function updateSupplierTaxType() {
+        const stateSelect = document.getElementById("supplierState");
+        const selectedOption = stateSelect.options[stateSelect.selectedIndex];
+        const supplierStateCode = selectedOption ? selectedOption.dataset.stateCode : "";
+        const taxType = document.getElementById("supplierTaxType");
+        const hiddenTaxType = document.getElementById("supplierIsOutState");
+        if (!taxType || !tenantGstStateCode || !supplierStateCode) return;
+
+        const isInterstate = supplierStateCode !== tenantGstStateCode;
+        taxType.value = String(isInterstate);
+        if (hiddenTaxType) hiddenTaxType.value = String(isInterstate);
+    }
+
+    document.addEventListener("DOMContentLoaded", updateSupplierTaxType);
+</script>
 
 {% endblock %}

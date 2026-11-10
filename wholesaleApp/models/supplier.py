@@ -17,6 +17,7 @@ class SupplierMaster(TenantModel):
     address = models.TextField(blank=True, null=True)
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
+    state_code = models.CharField(max_length=2, blank=True, default='')
     is_out_state = models.BooleanField(default=False, verbose_name="Out of State / Interstate (IGST)")
     pincode = models.CharField(max_length=6, blank=True, null=True)
     

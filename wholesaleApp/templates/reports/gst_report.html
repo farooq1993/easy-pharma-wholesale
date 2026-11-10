@@ -83,13 +83,22 @@
     <!-- Header of Report -->
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
         <div>
-            <h4 class="mb-0 fw-bold text-primary"><i class="bi bi-file-earmark-ruled"></i> Consolidated GST Tax Return Report</h4>
+            <h4 class="mb-0 fw-bold text-primary"><i class="bi bi-file-earmark-ruled"></i> GST Tax Summary (Review Only)</h4>
             <p class="text-muted small mb-0">Period: <strong class="text-dark">{{ start_date }}</strong> to <strong class="text-dark">{{ end_date }}</strong></p>
         </div>
         <div class="text-end">
             <span class="badge bg-primary fs-6 px-3 py-2 rounded-pill">GST Tax Dashboard</span>
         </div>
     </div>
+
+    {% if total_sales_unclassified or total_purchases_unclassified %}
+    <div class="alert alert-warning" role="alert">
+        <strong>GST review required:</strong>
+        ₹{{ total_sales_unclassified|floatformat:2 }} sales tax and
+        ₹{{ total_purchases_unclassified|floatformat:2 }} purchase tax could not be classified as CGST/SGST or IGST.
+        Confirm the tenant GSTIN and each customer/supplier state before using this report for a return.
+    </div>
+    {% endif %}
 
     <!-- Summary Metrics Cards -->
     <div class="row g-3 mb-4">
@@ -110,15 +119,15 @@
         <div class="col-md-4">
             {% if net_gst_payable >= 0 %}
             <div class="card shadow-sm border-0 rounded-4 metric-card p-3" style="border-left-color: #10b981;">
-                <div class="text-muted small fw-bold text-uppercase">Net Output GST Payable</div>
+                <div class="text-muted small fw-bold text-uppercase">Output GST Less Recorded Purchase GST</div>
                 <h3 class="fw-bold my-1 text-success">₹{{ net_gst_payable|floatformat:2 }}</h3>
-                <div class="small text-muted">To be paid this month</div>
+                <div class="small text-muted">Preliminary difference only; ITC eligibility and other adjustments are not validated.</div>
             </div>
             {% else %}
             <div class="card shadow-sm border-0 rounded-4 metric-card p-3" style="border-left-color: #f59e0b;">
-                <div class="text-muted small fw-bold text-uppercase">Excess ITC Credit Carryover</div>
+                <div class="text-muted small fw-bold text-uppercase">Recorded Purchase GST Exceeds Output GST</div>
                 <h3 class="fw-bold my-1 text-warning">₹{{ excess_itc|floatformat:2 }}</h3>
-                <div class="small text-muted">Input GST exceeds Output GST</div>
+                <div class="small text-muted">Not a verified or claimable ITC balance.</div>
             </div>
             {% endif %}
         </div>
@@ -133,12 +142,12 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="sales-tab" data-bs-toggle="tab" data-bs-target="#sales" type="button" role="tab">
-                <i class="bi bi-box-arrow-up"></i> Sales Output (GSTR-1) Details
+                <i class="bi bi-box-arrow-up"></i> Sales Output Details
             </button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="purchases-tab" data-bs-toggle="tab" data-bs-target="#purchases" type="button" role="tab">
-                <i class="bi bi-box-arrow-in-down"></i> Purchases Input (GSTR-2) Details
+                <i class="bi bi-box-arrow-in-down"></i> Purchase Register Details
             </button>
         </li>
     </ul>
@@ -152,7 +161,7 @@
                 <div class="col-md-6">
                     <div class="card shadow-sm border-0 rounded-4">
                         <div class="card-header bg-white py-3">
-                            <h6 class="mb-0 fw-bold text-primary"><i class="bi bi-arrow-up-right-circle"></i> Sales Output Tax (GSTR-1 Summary)</h6>
+                            <h6 class="mb-0 fw-bold text-primary"><i class="bi bi-arrow-up-right-circle"></i> Sales Output Tax Summary</h6>
                         </div>
                         <div class="card-body">
                             <table class="table table-hover align-middle">
@@ -162,6 +171,8 @@
                                         <th class="text-end">Taxable Value (₹)</th>
                                         <th class="text-end">CGST (₹)</th>
                                         <th class="text-end">SGST (₹)</th>
+                                        <th class="text-end">IGST (₹)</th>
+                                        <th class="text-end">Needs Review (₹)</th>
                                         <th class="text-end">Total GST (₹)</th>
                                     </tr>
                                 </thead>
@@ -172,11 +183,13 @@
                                         <td class="text-end">₹{{ row.taxable|floatformat:2 }}</td>
                                         <td class="text-end text-secondary">₹{{ row.cgst|floatformat:2 }}</td>
                                         <td class="text-end text-secondary">₹{{ row.sgst|floatformat:2 }}</td>
+                                        <td class="text-end text-secondary">₹{{ row.igst|floatformat:2 }}</td>
+                                        <td class="text-end text-warning">₹{{ row.unclassified|floatformat:2 }}</td>
                                         <td class="text-end fw-bold text-indigo">₹{{ row.gst|floatformat:2 }}</td>
                                     </tr>
                                     {% empty %}
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted py-3">No sales transactions in this period</td>
+                                        <td colspan="7" class="text-center text-muted py-3">No sales transactions in this period</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -186,6 +199,8 @@
                                         <td class="text-end">₹{{ total_sales_taxable|floatformat:2 }}</td>
                                         <td class="text-end text-secondary">₹{{ total_sales_cgst|floatformat:2 }}</td>
                                         <td class="text-end text-secondary">₹{{ total_sales_sgst|floatformat:2 }}</td>
+                                        <td class="text-end text-secondary">₹{{ total_sales_igst|floatformat:2 }}</td>
+                                        <td class="text-end text-warning">₹{{ total_sales_unclassified|floatformat:2 }}</td>
                                         <td class="text-end text-indigo">₹{{ total_sales_gst|floatformat:2 }}</td>
                                     </tr>
                                 </tfoot>
@@ -198,7 +213,7 @@
                 <div class="col-md-6">
                     <div class="card shadow-sm border-0 rounded-4">
                         <div class="card-header bg-white py-3">
-                            <h6 class="mb-0 fw-bold text-danger"><i class="bi bi-arrow-down-left-circle"></i> Purchase Input Tax (GSTR-2 Summary)</h6>
+                            <h6 class="mb-0 fw-bold text-danger"><i class="bi bi-arrow-down-left-circle"></i> Purchase Register Input Tax Summary</h6>
                         </div>
                         <div class="card-body">
                             <table class="table table-hover align-middle">
@@ -208,6 +223,8 @@
                                         <th class="text-end">Taxable Value (₹)</th>
                                         <th class="text-end">CGST (₹)</th>
                                         <th class="text-end">SGST (₹)</th>
+                                        <th class="text-end">IGST (₹)</th>
+                                        <th class="text-end">Needs Review (₹)</th>
                                         <th class="text-end">Total GST (₹)</th>
                                     </tr>
                                 </thead>
@@ -218,11 +235,13 @@
                                         <td class="text-end">₹{{ row.taxable|floatformat:2 }}</td>
                                         <td class="text-end text-secondary">₹{{ row.cgst|floatformat:2 }}</td>
                                         <td class="text-end text-secondary">₹{{ row.sgst|floatformat:2 }}</td>
+                                        <td class="text-end text-secondary">₹{{ row.igst|floatformat:2 }}</td>
+                                        <td class="text-end text-warning">₹{{ row.unclassified|floatformat:2 }}</td>
                                         <td class="text-end fw-bold text-rose">₹{{ row.gst|floatformat:2 }}</td>
                                     </tr>
                                     {% empty %}
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted py-3">No purchase transactions in this period</td>
+                                        <td colspan="7" class="text-center text-muted py-3">No purchase transactions in this period</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -232,6 +251,8 @@
                                         <td class="text-end">₹{{ total_purchases_taxable|floatformat:2 }}</td>
                                         <td class="text-end text-secondary">₹{{ total_purchases_cgst|floatformat:2 }}</td>
                                         <td class="text-end text-secondary">₹{{ total_purchases_sgst|floatformat:2 }}</td>
+                                        <td class="text-end text-secondary">₹{{ total_purchases_igst|floatformat:2 }}</td>
+                                        <td class="text-end text-warning">₹{{ total_purchases_unclassified|floatformat:2 }}</td>
                                         <td class="text-end text-danger">₹{{ total_purchases_gst|floatformat:2 }}</td>
                                     </tr>
                                 </tfoot>
@@ -246,7 +267,7 @@
         <div class="tab-pane fade" id="sales" role="tabpanel">
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-header bg-white py-3">
-                    <h6 class="mb-0 fw-bold text-primary"><i class="bi bi-box-arrow-up"></i> GSTR-1 Sales Invoice Level Logs</h6>
+                    <h6 class="mb-0 fw-bold text-primary"><i class="bi bi-box-arrow-up"></i> Sales Invoice Tax Details</h6>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -262,6 +283,7 @@
                                     <th class="text-end">Taxable (₹)</th>
                                     <th class="text-end">CGST (₹)</th>
                                     <th class="text-end">SGST (₹)</th>
+                                    <th class="text-end">IGST (₹)</th>
                                     <th class="text-end">Total GST (₹)</th>
                                     <th class="text-end">Invoice Amt</th>
                                 </tr>
@@ -278,12 +300,13 @@
                                     <td class="text-end">₹{{ detail.taxable|floatformat:2 }}</td>
                                     <td class="text-end text-secondary">₹{{ detail.cgst|floatformat:2 }}</td>
                                     <td class="text-end text-secondary">₹{{ detail.sgst|floatformat:2 }}</td>
+                                    <td class="text-end text-secondary">₹{{ detail.igst|floatformat:2 }}</td>
                                     <td class="text-end fw-semibold text-indigo">₹{{ detail.gst|floatformat:2 }}</td>
                                     <td class="text-end fw-bold">₹{{ detail.total|floatformat:2 }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="11" class="text-center text-muted py-4">No detailed sales records found</td>
+                                    <td colspan="12" class="text-center text-muted py-4">No detailed sales records found</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -297,7 +320,7 @@
         <div class="tab-pane fade" id="purchases" role="tabpanel">
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-header bg-white py-3">
-                    <h6 class="mb-0 fw-bold text-danger"><i class="bi bi-box-arrow-in-down"></i> GSTR-2 Purchase Invoice Level Logs</h6>
+                    <h6 class="mb-0 fw-bold text-danger"><i class="bi bi-box-arrow-in-down"></i> Purchase Register Invoice Details</h6>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -313,6 +336,7 @@
                                     <th class="text-end">Taxable (₹)</th>
                                     <th class="text-end">CGST (₹)</th>
                                     <th class="text-end">SGST (₹)</th>
+                                    <th class="text-end">IGST (₹)</th>
                                     <th class="text-end">Total GST (₹)</th>
                                     <th class="text-end">Invoice Amt</th>
                                 </tr>
@@ -329,12 +353,13 @@
                                     <td class="text-end">₹{{ detail.taxable|floatformat:2 }}</td>
                                     <td class="text-end text-secondary">₹{{ detail.cgst|floatformat:2 }}</td>
                                     <td class="text-end text-secondary">₹{{ detail.sgst|floatformat:2 }}</td>
+                                    <td class="text-end text-secondary">₹{{ detail.igst|floatformat:2 }}</td>
                                     <td class="text-end fw-semibold text-rose">₹{{ detail.gst|floatformat:2 }}</td>
                                     <td class="text-end fw-bold">₹{{ detail.total|floatformat:2 }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="11" class="text-center text-muted py-4">No detailed purchase records found</td>
+                                    <td colspan="12" class="text-center text-muted py-4">No detailed purchase records found</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

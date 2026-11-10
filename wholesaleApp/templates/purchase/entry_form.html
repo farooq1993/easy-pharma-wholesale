@@ -765,15 +765,29 @@
                             <input type="text" id="suppCity" class="form-control">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">State</label>
-                            <input type="text" id="suppState" class="form-control">
+                            <label class="form-label">State / UT <span class="text-danger">*</span></label>
+                            <select id="suppState" class="form-select" required onchange="updateQuickSupplierTaxType()">
+                                <option value="">Select State / UT</option>
+                                {% for code, name in state_choices %}
+                                <option value="{{ code }}" data-state-code="{{ code }}">{{ code }} — {{ name }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Out of State (IGST)</label>
+                            <label class="form-label">Purchase Tax Type</label>
+                            {% if tenant_state_code %}
+                            <select id="suppOutState" class="form-select" disabled>
+                                <option value="false" selected>No — Intrastate (CGST + SGST)</option>
+                                <option value="true">Yes — Interstate (IGST)</option>
+                            </select>
+                            <input type="hidden" id="suppOutStateValue" value="false">
+                            {% else %}
                             <select id="suppOutState" class="form-select">
                                 <option value="false" selected>No — Intrastate (CGST + SGST)</option>
                                 <option value="true">Yes — Interstate (IGST)</option>
                             </select>
+                            <div class="form-text text-warning">Add the business GSTIN to Tenant Settings for automatic state-code matching.</div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -851,9 +865,10 @@
 
 <script>
     // Global datasets
+    const tenantGstStateCode = "{{ tenant_state_code|default:'' }}";
     const supplierList = [
         {% for supplier in suppliers %}
-        { id: "{{ supplier.id }}", name: "{{ supplier.name|escapejs }}", is_out_state: {% if supplier.is_out_state %}true{% else %}false{% endif %} },
+        { id: "{{ supplier.id }}", name: "{{ supplier.name|escapejs }}", state_code: "{{ supplier.gst_state_code|default:'' }}", is_out_state: {% if supplier.is_out_state %}true{% else %}false{% endif %} },
         {% endfor %}
     ];
 
@@ -870,6 +885,19 @@
         },
         {% endfor %}
     };
+
+    function updateQuickSupplierTaxType() {
+        const stateSelect = document.getElementById("suppState");
+        const selectedOption = stateSelect.options[stateSelect.selectedIndex];
+        const supplierStateCode = selectedOption ? selectedOption.dataset.stateCode : "";
+        const taxType = document.getElementById("suppOutState");
+        const hiddenTaxType = document.getElementById("suppOutStateValue");
+        if (!taxType || !tenantGstStateCode || !supplierStateCode) return;
+
+        const isInterstate = supplierStateCode !== tenantGstStateCode;
+        taxType.value = String(isInterstate);
+        if (hiddenTaxType) hiddenTaxType.value = String(isInterstate);
+    }
 
     const productList = Object.entries(productCatalog).map(([id, prod]) => ({
         id: id,
@@ -1427,7 +1455,9 @@
         // Determine if current supplier is out-of-state
         const selectedSuppId = document.getElementById("supplierSelect").value;
         const selectedSupp = supplierList.find(s => String(s.id) === String(selectedSuppId));
-        const isOutState = selectedSupp ? selectedSupp.is_out_state : false;
+        const isOutState = selectedSupp && selectedSupp.state_code && tenantGstStateCode
+            ? selectedSupp.state_code !== tenantGstStateCode
+            : Boolean(selectedSupp && selectedSupp.is_out_state);
 
         if (isOutState) {
             // Interstate: Show IGST (full GST amount)
@@ -2033,15 +2063,13 @@
                 if (data.name) {
                     document.getElementById("suppName").value = data.name;
                 }
-                if (data.state) document.getElementById("suppState").value = data.state;
+                const stateSelect = document.getElementById("suppState");
+                const stateOption = Array.from(stateSelect.options).find(option => option.dataset.stateCode === data.state_code);
+                if (stateOption) stateSelect.value = stateOption.value;
+                updateQuickSupplierTaxType();
                 if (data.city) document.getElementById("suppCity").value = data.city;
                 if (data.mobile && document.getElementById("suppMobile") && !document.getElementById("suppMobile").value) {
                     document.getElementById("suppMobile").value = data.mobile;
-                }
-                // Auto-set Out of State based on API response
-                const outStateSelect = document.getElementById("suppOutState");
-                if (outStateSelect && data.is_out_state !== undefined) {
-                    outStateSelect.value = data.is_out_state ? "true" : "false";
                 }
                 showToast(`GSTIN Details Verified! State: ${data.state || 'India'}${data.name ? ' (' + data.name + ')' : ''}`, "success");
             } else {
@@ -2062,7 +2090,10 @@
             };
             const detectedState = stateMap[stateCode] || "";
             if (detectedState) {
-                document.getElementById("suppState").value = detectedState;
+                const stateSelect = document.getElementById("suppState");
+                const stateOption = Array.from(stateSelect.options).find(option => option.dataset.stateCode === stateCode);
+                if (stateOption) stateSelect.value = stateOption.value;
+                updateQuickSupplierTaxType();
                 showToast(`GSTIN State detected: ${detectedState}`, "info");
             } else {
                 showToast("GSTIN format verified.", "success");
@@ -2082,9 +2113,13 @@
         const name = document.getElementById("suppName").value.trim();
         const mobile = document.getElementById("suppMobile").value.trim();
         const city = document.getElementById("suppCity").value.trim();
-        const state = document.getElementById("suppState").value.trim();
+        const stateSelect = document.getElementById("suppState");
+        const state = stateSelect.value.trim();
+        const stateCode = stateSelect.options[stateSelect.selectedIndex].dataset.stateCode || "";
         const gstin = document.getElementById("suppGst").value.trim().toUpperCase();
-        const isOutState = document.getElementById("suppOutState").value === "true";
+        const isOutState = tenantGstStateCode && stateCode
+            ? stateCode !== tenantGstStateCode
+            : document.getElementById("suppOutState").value === "true";
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
         const formData = new FormData();
@@ -2103,7 +2138,12 @@
         .then(res => res.json())
         .then(data => {
             if (data.status === "success") {
-                supplierList.push({ id: data.id, name: data.name, is_out_state: data.is_out_state || false });
+                supplierList.push({
+                    id: data.id,
+                    name: data.name,
+                    state_code: data.state_code || stateCode,
+                    is_out_state: Boolean(data.is_out_state)
+                });
                 document.getElementById("supplierSelect").value = data.id;
                 document.getElementById("supplierSearch").value = data.name;
                 const modalEl = document.getElementById('addSupplierModal');

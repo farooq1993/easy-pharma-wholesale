@@ -6,6 +6,7 @@ import logging
 import os
 from wholesaleApp.models import SupplierMaster
 from wholesaleApp.views.security_helpers import has_feature_access, log_activity
+from wholesaleApp.utils.gst import GST_STATE_CODES, GST_STATE_CHOICES, gst_state_code
 
 logger = logging.getLogger(__name__)
 
@@ -45,18 +46,34 @@ def supplier_list(request):
     }
     return render(request, 'suppliers/supplier_list.html', context)
 
-STATE_CODE_MAP = {
-    '01': 'Jammu & Kashmir', '02': 'Himachal Pradesh', '03': 'Punjab', '04': 'Chandigarh',
-    '05': 'Uttarakhand', '06': 'Haryana', '07': 'Delhi', '08': 'Rajasthan',
-    '09': 'Uttar Pradesh', '10': 'Bihar', '11': 'Sikkim', '12': 'Arunachal Pradesh',
-    '13': 'Nagaland', '14': 'Manipur', '15': 'Mizoram', '16': 'Tripura',
-    '17': 'Meghalaya', '18': 'Assam', '19': 'West Bengal', '20': 'Jharkhand',
-    '21': 'Odisha', '22': 'Chhattisgarh', '23': 'Madhya Pradesh', '24': 'Gujarat',
-    '26': 'Dadra & Nagar Haveli', '27': 'Maharashtra', '28': 'Andhra Pradesh',
-    '29': 'Karnataka', '30': 'Goa', '31': 'Lakshadweep', '32': 'Kerala',
-    '33': 'Tamil Nadu', '34': 'Puducherry', '35': 'Andaman & Nicobar',
-    '36': 'Telangana', '37': 'Andhra Pradesh', '38': 'Ladakh'
-}
+STATE_CODE_MAP = GST_STATE_CODES
+
+
+def _tenant_state_code(request):
+    tenant = getattr(request, 'tenant', None)
+    return gst_state_code(
+        gstin=getattr(tenant, 'gstin', None),
+        state_code=getattr(tenant, 'state_code', None),
+    )
+
+
+def _supplier_tax_state(request, selected_state_code, gstin, fallback_is_out_state=False):
+    selected_state_code = (selected_state_code or '').strip()
+    gstin = (gstin or '').strip().upper()
+    if selected_state_code not in GST_STATE_CODES:
+        selected_state_code = gst_state_code(state_name=selected_state_code) or ''
+    gstin_state_code = gst_state_code(gstin=gstin)
+
+    if selected_state_code not in GST_STATE_CODES:
+        return None, None, None, "Select a valid State / UT from the list."
+    if gstin_state_code and selected_state_code and gstin_state_code != selected_state_code:
+        return None, None, None, "Supplier state does not match the state code in its GSTIN."
+
+    state_code = gstin_state_code or selected_state_code
+
+    tenant_state_code = _tenant_state_code(request)
+    is_out_state = state_code != tenant_state_code if tenant_state_code else fallback_is_out_state
+    return GST_STATE_CODES[state_code], state_code, is_out_state, None
 
 KNOWN_GSTIN_CATALOG = {
     '06AAACB8658E2ZO': {'name': 'BIO-LOGIC AND PSYCHOTROPICS INDIA P LTD', 'city': 'AMBALA', 'state': 'Haryana'},
@@ -118,9 +135,17 @@ def api_gst_lookup(request):
 
     state_code = gstin[:2]
     state_name = STATE_CODE_MAP.get(state_code, '')
+    if not state_name:
+        return JsonResponse({'status': 'error', 'message': 'GSTIN contains an unrecognized state code.'}, status=400)
 
     existing = SupplierMaster.objects.filter(gstin=gstin, is_deleted=False).first()
     if existing:
+        existing_state_code = gst_state_code(
+            gstin=existing.gstin,
+            state_code=existing.state_code,
+            state_name=existing.state,
+        )
+        tenant_state_code = _tenant_state_code(request)
         return JsonResponse({
             'status': 'success',
             'gstin': existing.gstin,
@@ -128,8 +153,13 @@ def api_gst_lookup(request):
             'mobile': existing.mobile or '',
             'city': existing.city or '',
             'state': existing.state or state_name,
+            'state_code': existing_state_code or state_code,
             'address': existing.address or '',
-            'is_out_state': existing.is_out_state,
+            'is_out_state': (
+                existing_state_code != tenant_state_code
+                if tenant_state_code and existing_state_code
+                else existing.is_out_state
+            ),
             'source': 'database'
         })
 
@@ -165,18 +195,16 @@ def api_gst_lookup(request):
             if ai_details.get('state'):
                 api_state = ai_details.get('state')
 
-    # Determine if out-of-state by comparing with tenant
-    tenant_state = ''
-    if hasattr(request, 'tenant') and request.tenant:
-        tenant_state = (request.tenant.state or '').strip().upper()
-    supplier_state_upper = (api_state or '').strip().upper()
-    is_out = bool(tenant_state and supplier_state_upper and tenant_state != supplier_state_upper)
+    supplier_state_code = gst_state_code(gstin=gstin, state_name=api_state)
+    tenant_state_code = _tenant_state_code(request)
+    is_out = bool(tenant_state_code and supplier_state_code and tenant_state_code != supplier_state_code)
 
     return JsonResponse({
         'status': 'success',
         'gstin': gstin,
         'name': api_name,
         'state': api_state,
+        'state_code': supplier_state_code or state_code,
         'city': api_city,
         'is_out_state': is_out,
         'source': 'api' if api_name else 'state_map'
@@ -188,13 +216,31 @@ def supplier_create(request):
         messages.error(request, "Access Denied: You do not have permission to add Supplier Master.")
         return redirect('supplier_list')
     if request.method == 'POST':
+        state, state_code, is_out_state, state_error = _supplier_tax_state(
+            request,
+            request.POST.get('state', ''),
+            request.POST.get('gstin', ''),
+            request.POST.get('is_out_state') in ('on', 'true'),
+        )
+        if state_error:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('json') == 'true':
+                return JsonResponse({'status': 'error', 'message': state_error}, status=400)
+            messages.error(request, state_error)
+            return render(request, 'suppliers/supplier_form.html', {
+                'page_title': 'Add New Supplier',
+                'state_choices': GST_STATE_CHOICES,
+                'tenant_state_code': _tenant_state_code(request),
+                'supplier_state_code': '',
+            })
+
         supplier = SupplierMaster(
             name=request.POST['name'],
             mobile=request.POST['mobile'],
             gstin=request.POST.get('gstin', ''),
             address=request.POST.get('address', ''),
             city=request.POST.get('city', ''),
-            state=request.POST.get('state', ''),
+            state=state,
+            state_code=state_code,
             pincode=request.POST.get('pincode', ''),
             opening_balance=request.POST.get('opening_balance', 0),
             credit_limit=request.POST.get('credit_limit', 0),
@@ -204,7 +250,7 @@ def supplier_create(request):
             dl_number_3=request.POST.get('dl_number_3', ''),
             alternate_mobile=request.POST.get('alternate_mobile', ''),
             email=request.POST.get('email', ''),
-            is_out_state=request.POST.get('is_out_state') == 'on' or request.POST.get('is_out_state') == 'true',
+            is_out_state=is_out_state,
             created_by=request.user if request.user.is_authenticated else None
         )
         supplier.save()
@@ -220,13 +266,19 @@ def supplier_create(request):
                 'mobile': supplier.mobile,
                 'gstin': supplier.gstin or '',
                 'state': supplier.state or '',
+                'state_code': supplier.state_code,
                 'is_out_state': supplier.is_out_state
             })
             
         messages.success(request, 'Supplier created successfully!')
         return redirect('supplier_list')
     
-    context = {'page_title': 'Add New Supplier'}
+    context = {
+        'page_title': 'Add New Supplier',
+        'state_choices': GST_STATE_CHOICES,
+        'tenant_state_code': _tenant_state_code(request),
+        'supplier_state_code': '',
+    }
     return render(request, 'suppliers/supplier_form.html', context)
 
 @login_required
@@ -237,11 +289,32 @@ def supplier_edit(request, pk):
     supplier = get_object_or_404(SupplierMaster, pk=pk, is_deleted=False)
     
     if request.method == 'POST':
+        state, state_code, is_out_state, state_error = _supplier_tax_state(
+            request,
+            request.POST.get('state', ''),
+            request.POST.get('gstin', ''),
+            request.POST.get('is_out_state') in ('on', 'true'),
+        )
+        if state_error:
+            messages.error(request, state_error)
+            return render(request, 'suppliers/supplier_form.html', {
+                'supplier': supplier,
+                'page_title': 'Edit Supplier',
+                'state_choices': GST_STATE_CHOICES,
+                'tenant_state_code': _tenant_state_code(request),
+                'supplier_state_code': gst_state_code(
+                    gstin=supplier.gstin,
+                    state_code=supplier.state_code,
+                    state_name=supplier.state,
+                ) or '',
+            })
+
         supplier.name = request.POST['name']
         supplier.mobile = request.POST['mobile']
         supplier.address = request.POST.get('address', '')
         supplier.city = request.POST.get('city', '')
-        supplier.state = request.POST.get('state', '')
+        supplier.state = state
+        supplier.state_code = state_code
         supplier.pincode = request.POST.get('pincode', '')
         supplier.opening_balance = request.POST.get('opening_balance', 0)
         supplier.credit_limit = request.POST.get('credit_limit', 0)
@@ -252,7 +325,7 @@ def supplier_edit(request, pk):
         supplier.dl_number_3 = request.POST.get('dl_number_3', '')
         supplier.alternate_mobile = request.POST.get('alternate_mobile', '')
         supplier.email = request.POST.get('email', '')
-        supplier.is_out_state = request.POST.get('is_out_state') == 'on' or request.POST.get('is_out_state') == 'true'
+        supplier.is_out_state = is_out_state
         supplier.save()
         log_activity(request, "UPDATE", "SupplierMaster", supplier.name, object_id=supplier.id, description=f"Supplier '{supplier.name}' updated.")
         from wholesaleApp.utils.list_helpers import invalidate_list_cache
@@ -260,7 +333,17 @@ def supplier_edit(request, pk):
         messages.success(request, 'Supplier updated successfully!')
         return redirect('supplier_list')
     
-    context = {'supplier': supplier, 'page_title': 'Edit Supplier'}
+    context = {
+        'supplier': supplier,
+        'page_title': 'Edit Supplier',
+        'state_choices': GST_STATE_CHOICES,
+        'tenant_state_code': _tenant_state_code(request),
+        'supplier_state_code': gst_state_code(
+            gstin=supplier.gstin,
+            state_code=supplier.state_code,
+            state_name=supplier.state,
+        ) or '',
+    }
     return render(request, 'suppliers/supplier_form.html', context)
 
 @login_required

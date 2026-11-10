@@ -1454,6 +1454,221 @@ from unittest.mock import patch
 from wholesaleApp.models.tenant import TenantEmailConfig
 from wholesaleApp.utils.email_utils import send_invoice_email, send_invoice_email_async
 
+
+class GSTTaxClassificationTests(TestCase):
+    def test_classifies_intrastate_tax_as_cgst_and_sgst(self):
+        from decimal import Decimal
+        from wholesaleApp.utils.gst import split_gst_amount
+
+        result = split_gst_amount(Decimal("12.00"), "27", "27")
+
+        self.assertEqual(result["cgst"], Decimal("6.00"))
+        self.assertEqual(result["sgst"], Decimal("6.00"))
+        self.assertEqual(result["igst"], Decimal("0.00"))
+        self.assertTrue(result["classified"])
+
+    def test_classifies_interstate_tax_as_igst(self):
+        from decimal import Decimal
+        from wholesaleApp.utils.gst import split_gst_amount
+
+        result = split_gst_amount(Decimal("12.00"), "27", "24")
+
+        self.assertEqual(result["cgst"], Decimal("0.00"))
+        self.assertEqual(result["sgst"], Decimal("0.00"))
+        self.assertEqual(result["igst"], Decimal("12.00"))
+        self.assertTrue(result["classified"])
+
+    def test_does_not_guess_tax_type_when_state_is_missing(self):
+        from decimal import Decimal
+        from wholesaleApp.utils.gst import split_gst_amount
+
+        result = split_gst_amount(Decimal("12.00"), "27", None)
+
+        self.assertEqual(result["cgst"], Decimal("0.00"))
+        self.assertEqual(result["sgst"], Decimal("0.00"))
+        self.assertEqual(result["igst"], Decimal("0.00"))
+        self.assertEqual(result["unclassified"], Decimal("12.00"))
+        self.assertFalse(result["classified"])
+
+    def test_resolves_state_code_from_gstin_or_state_name(self):
+        from wholesaleApp.utils.gst import gst_state_code
+
+        self.assertEqual(gst_state_code(gstin="27ABCDE1234F1Z5"), "27")
+        self.assertEqual(gst_state_code(state_name="Maharashtra"), "27")
+
+    def test_gst_report_classifies_interstate_sale_as_igst(self):
+        from datetime import date
+        from decimal import Decimal
+        from wholesaleApp.models.tenant import Tenant
+        from wholesaleApp.models.customers import AreaMaster, CustomerMaster
+        from wholesaleApp.models.products import CompanyMaster, ProductMaster, ProductTypeMaster
+        from wholesaleApp.models.purchase import ProductBatch, PurchaseEntry, PurchaseEntryItem
+        from wholesaleApp.models.supplier import SupplierMaster
+
+        user = User.objects.create_superuser(
+            username="gst_report_admin",
+            email="gst-report-admin@example.com",
+            password="test-pass-123",
+        )
+        tenant = Tenant.objects.create(
+            name="gst_report_tenant",
+            company_name="Maharashtra Wholesale",
+            gstin="27ABCDE1234F1Z5",
+        )
+        area = AreaMaster.objects.create(tenant=tenant, city="Bengaluru", code="BLR")
+        customer = CustomerMaster.objects.create(
+            tenant=tenant,
+            name="Interstate Chemist",
+            mobile="9876543210",
+            gstin="29ABCDE1234F1Z5",
+            area=area,
+            city="Bengaluru",
+            state="Karnataka",
+        )
+        company = CompanyMaster.objects.create(tenant=tenant, name="Test Pharma")
+        product_type = ProductTypeMaster.objects.create(tenant=tenant, name="Tablet")
+        product = ProductMaster.objects.create(
+            tenant=tenant,
+            name="Test Tablet",
+            company=company,
+            product_type=product_type,
+            pack_size="10",
+            gst_rate="12.00",
+        )
+        batch = ProductBatch.objects.create(
+            tenant=tenant,
+            product=product,
+            batch_number="GST-REPORT-1",
+            expiry_date=date(2028, 12, 31),
+            mrp="120.00",
+            purchase_rate="80.00",
+            sale_rate="100.00",
+            quantity=10,
+        )
+        invoice = SalesInvoice.objects.create(
+            tenant=tenant,
+            invoice_number="GST-REPORT-INV-1",
+            customer=customer,
+            invoice_date=date(2026, 11, 1),
+            gross_amount="100.00",
+            discount_amount="0.00",
+            gst_amount="12.00",
+            net_amount="112.00",
+        )
+        SalesInvoiceItem.objects.create(
+            tenant=tenant,
+            sales_invoice=invoice,
+            product=product,
+            batch=batch,
+            quantity="1",
+            sale_rate="100.00",
+            discount_percentage="0.00",
+            total_amount="112.00",
+        )
+        supplier = SupplierMaster.objects.create(
+            tenant=tenant,
+            name="Out-of-state Supplier",
+            mobile="9876543211",
+            city="Delhi",
+            state="Delhi",
+            state_code="07",
+            is_out_state=True,
+        )
+        purchase_entry = PurchaseEntry.objects.create(
+            tenant=tenant,
+            supplier=supplier,
+            invoice_number="GST-REPORT-PUR-1",
+            invoice_date=date(2026, 11, 2),
+            gross_amount="100.00",
+            discount_amount="0.00",
+            gst_amount="12.00",
+            net_amount="112.00",
+        )
+        PurchaseEntryItem.objects.create(
+            tenant=tenant,
+            purchase_entry=purchase_entry,
+            product=product,
+            batch_number="GST-REPORT-2",
+            expiry_date=date(2028, 12, 31),
+            mrp="120.00",
+            purchase_rate="100.00",
+            sale_rate="110.00",
+            quantity=1,
+            free_quantity=0,
+            discount_percentage="0.00",
+            total_amount="112.00",
+        )
+        self.client.force_login(user)
+        session = self.client.session
+        session["active_tenant_id"] = tenant.id
+        session.save()
+
+        response = self.client.get(reverse("report_gst"), {
+            "start_date": "2026-11-01",
+            "end_date": "2026-11-30",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_sales_igst"], Decimal("12.00"))
+        self.assertEqual(response.context["total_sales_cgst"], Decimal("0.00"))
+        self.assertEqual(response.context["total_sales_sgst"], Decimal("0.00"))
+        self.assertEqual(response.context["total_purchases_igst"], Decimal("12.00"))
+        self.assertEqual(response.context["total_purchases_cgst"], Decimal("0.00"))
+        self.assertEqual(response.context["total_purchases_sgst"], Decimal("0.00"))
+
+
+class SupplierStateCodeTests(TestCase):
+    def setUp(self):
+        from wholesaleApp.models.tenant import Tenant
+
+        self.user = User.objects.create_superuser(
+            username="supplier_state_admin",
+            email="supplier-state-admin@example.com",
+            password="test-pass-123",
+        )
+        self.tenant = Tenant.objects.create(
+            name="supplier_state_tenant",
+            company_name="Maharashtra Wholesale",
+            state_code="27",
+        )
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["active_tenant_id"] = self.tenant.id
+        session.save()
+
+    def test_supplier_state_dropdown_shows_codes(self):
+        response = self.client.get(reverse("supplier_create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "27 — Maharashtra")
+        self.assertContains(response, "29 — Karnataka")
+
+    def test_supplier_state_code_uses_tenant_state_without_gstin(self):
+        response = self.client.post(reverse("supplier_create"), {
+            "name": "Karnataka Distributor",
+            "mobile": "9876543210",
+            "state": "29",
+            "gstin": "29ABCDE1234F1Z5",
+        }, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+
+        self.assertEqual(response.status_code, 200)
+        supplier = SupplierMaster.objects.get(mobile="9876543210")
+        self.assertEqual(supplier.state, "Karnataka")
+        self.assertEqual(supplier.state_code, "29")
+        self.assertTrue(supplier.is_out_state)
+
+    def test_supplier_state_must_match_gstin_state_code(self):
+        response = self.client.post(reverse("supplier_create"), {
+            "name": "Mismatched Distributor",
+            "mobile": "9876543211",
+            "state": "29",
+            "gstin": "27ABCDE1234F1Z5",
+        }, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(SupplierMaster.objects.filter(mobile="9876543211").exists())
+
+
 class InvoiceEmailTests(TestCase):
     def setUp(self):
         from wholesaleApp.models.tenant import Tenant
@@ -1962,6 +2177,8 @@ class DualModeRetailWholesaleTests(TestCase):
             'name': 'new_dual_tenant',
             'company_name': 'New Dual Shop Ltd',
             'address': 'Some Address',
+            'city': 'Pusad',
+            'state_code': '12',
             'phone': '1234567890',
             'email': 'shop@firm.com',
             'gstin': '123456789012345',
@@ -1973,12 +2190,16 @@ class DualModeRetailWholesaleTests(TestCase):
         tenant = Tenant.objects.filter(name='new_dual_tenant').first()
         self.assertIsNotNone(tenant)
         self.assertEqual(tenant.business_mode, 'Dual')
+        self.assertEqual(tenant.city, 'Pusad')
+        self.assertEqual(tenant.state_code, '12')
 
         # Test edit tenant to Wholesale mode
         response = self.client.post(reverse('tenant_edit', kwargs={'pk': tenant.id}), {
             'name': 'new_dual_tenant',
             'company_name': 'New Dual Shop Ltd',
             'address': 'Some Address',
+            'city': 'Washim',
+            'state_code': '12',
             'phone': '1234567890',
             'email': 'shop@firm.com',
             'gstin': '123456789012345',
@@ -1989,6 +2210,26 @@ class DualModeRetailWholesaleTests(TestCase):
         self.assertEqual(response.status_code, 302)
         tenant.refresh_from_db()
         self.assertEqual(tenant.business_mode, 'Wholesale')
+        self.assertEqual(tenant.city, 'Washim')
+        self.assertEqual(tenant.state_code, '12')
+
+    def test_tenant_gstin_state_must_match_selected_state(self):
+        from django.urls import reverse
+        from wholesaleApp.models.tenant import Tenant
+
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('tenant_create'), {
+            'name': 'mismatched_state_tenant',
+            'company_name': 'Mismatch Firm',
+            'city': 'Pusad',
+            'state_code': '27',
+            'gstin': '123456789012345',
+            'business_mode': 'Wholesale',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'must match the state code in the GSTIN')
+        self.assertFalse(Tenant.objects.filter(name='mismatched_state_tenant').exists())
 
 
 class FinancialYearTests(TestCase):
@@ -2180,6 +2421,8 @@ class PublicUserCreationTests(TestCase):
             'name': 'creator_shop',
             'company_name': 'Creator Shop Ltd',
             'address': 'Creator Road',
+            'city': 'Pusad',
+            'state_code': '12',
             'phone': '1122334455',
             'email': 'creator@shop.com',
             'gstin': '123456789012345',
@@ -2200,13 +2443,6 @@ class PublicUserCreationTests(TestCase):
         
         # Verify session active tenant ID is set
         self.assertEqual(self.client.session.get('active_tenant_id'), tenant.id)
-
-
-
-
-
-
-
 
 
 

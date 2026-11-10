@@ -20,6 +20,8 @@ class Tenant(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="Tenant Name")
     company_name = models.CharField(max_length=200, verbose_name="Company Name")
     address = models.TextField(blank=True, null=True)
+    city = models.CharField(max_length=100, blank=True, default="")
+    state_code = models.CharField(max_length=2, blank=True, default="")
     phone = models.CharField(max_length=20, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     gstin = models.CharField(max_length=15, blank=True, null=True, verbose_name="GSTIN")
@@ -106,4 +108,3 @@ class TenantEmailConfig(models.Model):
 
     def __str__(self):
         return f"Email Config for {self.tenant.company_name}"
-

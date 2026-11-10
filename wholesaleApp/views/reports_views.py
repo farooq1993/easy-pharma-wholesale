@@ -372,12 +372,18 @@ def report_customer_sales(request):
 def report_gst(request):
     """Detailed B2B GST Report summarizing Input and Output GST taxes."""
     from wholesaleApp.models import SalesInvoiceItem, PurchaseEntryItem
+    from wholesaleApp.utils.gst import gst_state_code, split_gst_amount
     from django.db.models import Sum
     from datetime import datetime, timedelta
     from decimal import Decimal
     from django.utils import timezone
     
     today = timezone.now().date()
+    tenant = getattr(request, 'tenant', None)
+    taxpayer_state_code = gst_state_code(
+        gstin=getattr(tenant, 'gstin', None),
+        state_code=getattr(tenant, 'state_code', None),
+    )
     # Default range: current month
     start_date_str = request.GET.get('start_date', today.replace(day=1).strftime('%Y-%m-%d'))
     end_date_str = request.GET.get('end_date', today.strftime('%Y-%m-%d'))
@@ -396,6 +402,10 @@ def report_gst(request):
     
     total_sales_taxable = Decimal('0.00')
     total_sales_gst = Decimal('0.00')
+    total_sales_cgst = Decimal('0.00')
+    total_sales_sgst = Decimal('0.00')
+    total_sales_igst = Decimal('0.00')
+    total_sales_unclassified = Decimal('0.00')
     
     for item in sales_items:
         qty = Decimal(item.quantity)
@@ -407,12 +417,24 @@ def report_gst(request):
         disc_amt = base_taxable * (disc_pct / Decimal('100.00'))
         taxable = base_taxable - disc_amt
         gst_amt = taxable * (gst_pct / Decimal('100.00'))
-        cgst = gst_amt / Decimal('2.00')
-        sgst = gst_amt / Decimal('2.00')
+        customer = item.sales_invoice.customer
+        recipient_state_code = gst_state_code(
+            gstin=customer.gstin if customer else None,
+            state_name=customer.state if customer else None,
+        )
+        tax_split = split_gst_amount(gst_amt, taxpayer_state_code, recipient_state_code)
+        cgst = tax_split['cgst']
+        sgst = tax_split['sgst']
+        igst = tax_split['igst']
+        unclassified_gst = tax_split['unclassified']
         row_total = taxable + gst_amt
         
         total_sales_taxable += taxable
         total_sales_gst += gst_amt
+        total_sales_cgst += cgst
+        total_sales_sgst += sgst
+        total_sales_igst += igst
+        total_sales_unclassified += unclassified_gst
         
         gst_pct_str = f"{gst_pct:.1f}"
         if gst_pct_str not in sales_by_rate:
@@ -421,16 +443,19 @@ def report_gst(request):
                 'taxable': Decimal('0.00'),
                 'cgst': Decimal('0.00'),
                 'sgst': Decimal('0.00'),
+                'igst': Decimal('0.00'),
+                'unclassified': Decimal('0.00'),
                 'gst': Decimal('0.00'),
                 'total': Decimal('0.00')
             }
         sales_by_rate[gst_pct_str]['taxable'] += taxable
         sales_by_rate[gst_pct_str]['cgst'] += cgst
         sales_by_rate[gst_pct_str]['sgst'] += sgst
+        sales_by_rate[gst_pct_str]['igst'] += igst
+        sales_by_rate[gst_pct_str]['unclassified'] += unclassified_gst
         sales_by_rate[gst_pct_str]['gst'] += gst_amt
         sales_by_rate[gst_pct_str]['total'] += row_total
         
-        customer = item.sales_invoice.customer
         customer_name = customer.name if customer else (item.sales_invoice.patient_name or "Retail Counter")
         cust_gst = customer.gstin or "" if customer else ""
         if not cust_gst or cust_gst.strip().lower() in ['na', 'n/a', 'none', 'null', '']:
@@ -446,7 +471,9 @@ def report_gst(request):
             'taxable': taxable,
             'cgst': cgst,
             'sgst': sgst,
+            'igst': igst,
             'gst': gst_amt,
+            'tax_classified': tax_split['classified'],
             'total': row_total
         })
         
@@ -460,23 +487,40 @@ def report_gst(request):
     
     total_purchases_taxable = Decimal('0.00')
     total_purchases_gst = Decimal('0.00')
+    total_purchases_cgst = Decimal('0.00')
+    total_purchases_sgst = Decimal('0.00')
+    total_purchases_igst = Decimal('0.00')
+    total_purchases_unclassified = Decimal('0.00')
     
     for item in purchase_items:
         qty = Decimal(item.quantity)
         rate = Decimal(item.purchase_rate)
         disc_pct = Decimal(item.discount_percentage)
         gst_pct = Decimal(item.product.gst_rate)
+        supplier = item.purchase_entry.supplier
         
         base_taxable = qty * rate
         disc_amt = base_taxable * (disc_pct / Decimal('100.00'))
         taxable = base_taxable - disc_amt
         gst_amt = taxable * (gst_pct / Decimal('100.00'))
-        cgst = gst_amt / Decimal('2.00')
-        sgst = gst_amt / Decimal('2.00')
+        purchase_supplier_state_code = gst_state_code(
+            gstin=supplier.gstin,
+            state_code=supplier.state_code,
+            state_name=supplier.state,
+        )
+        tax_split = split_gst_amount(gst_amt, purchase_supplier_state_code, taxpayer_state_code)
+        cgst = tax_split['cgst']
+        sgst = tax_split['sgst']
+        igst = tax_split['igst']
+        unclassified_gst = tax_split['unclassified']
         row_total = taxable + gst_amt
         
         total_purchases_taxable += taxable
         total_purchases_gst += gst_amt
+        total_purchases_cgst += cgst
+        total_purchases_sgst += sgst
+        total_purchases_igst += igst
+        total_purchases_unclassified += unclassified_gst
         
         gst_pct_str = f"{gst_pct:.1f}"
         if gst_pct_str not in purchases_by_rate:
@@ -485,30 +529,36 @@ def report_gst(request):
                 'taxable': Decimal('0.00'),
                 'cgst': Decimal('0.00'),
                 'sgst': Decimal('0.00'),
+                'igst': Decimal('0.00'),
+                'unclassified': Decimal('0.00'),
                 'gst': Decimal('0.00'),
                 'total': Decimal('0.00')
             }
         purchases_by_rate[gst_pct_str]['taxable'] += taxable
         purchases_by_rate[gst_pct_str]['cgst'] += cgst
         purchases_by_rate[gst_pct_str]['sgst'] += sgst
+        purchases_by_rate[gst_pct_str]['igst'] += igst
+        purchases_by_rate[gst_pct_str]['unclassified'] += unclassified_gst
         purchases_by_rate[gst_pct_str]['gst'] += gst_amt
         purchases_by_rate[gst_pct_str]['total'] += row_total
         
-        supp_gst = item.purchase_entry.supplier.gstin or ""
+        supp_gst = supplier.gstin or ""
         if not supp_gst or supp_gst.strip().lower() in ['na', 'n/a', 'none', 'null', '']:
             supp_gst = 'URD (Unregistered)'
             
         purchase_details.append({
             'date': item.purchase_entry.invoice_date,
             'invoice_number': item.purchase_entry.invoice_number,
-            'supplier_name': item.purchase_entry.supplier.name,
+            'supplier_name': supplier.name,
             'supplier_gstin': supp_gst,
             'product_name': item.product.name,
             'gst_rate': gst_pct,
             'taxable': taxable,
             'cgst': cgst,
             'sgst': sgst,
+            'igst': igst,
             'gst': gst_amt,
+            'tax_classified': tax_split['classified'],
             'total': row_total
         })
         
@@ -520,11 +570,6 @@ def report_gst(request):
     sales_summary = sorted(sales_by_rate.values(), key=lambda x: x['rate'])
     purchases_summary = sorted(purchases_by_rate.values(), key=lambda x: x['rate'])
     
-    total_sales_cgst = total_sales_gst / Decimal('2.00')
-    total_sales_sgst = total_sales_gst / Decimal('2.00')
-    total_purchases_cgst = total_purchases_gst / Decimal('2.00')
-    total_purchases_sgst = total_purchases_gst / Decimal('2.00')
-    
     context = {
         'start_date': start_date_str,
         'end_date': end_date_str,
@@ -533,11 +578,15 @@ def report_gst(request):
         'total_sales_gst': total_sales_gst,
         'total_sales_cgst': total_sales_cgst,
         'total_sales_sgst': total_sales_sgst,
+        'total_sales_igst': total_sales_igst,
+        'total_sales_unclassified': total_sales_unclassified,
         
         'total_purchases_taxable': total_purchases_taxable,
         'total_purchases_gst': total_purchases_gst,
         'total_purchases_cgst': total_purchases_cgst,
         'total_purchases_sgst': total_purchases_sgst,
+        'total_purchases_igst': total_purchases_igst,
+        'total_purchases_unclassified': total_purchases_unclassified,
         
         'net_gst_payable': net_gst_payable,
         'excess_itc': excess_itc,

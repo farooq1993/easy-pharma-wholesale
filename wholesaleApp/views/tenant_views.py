@@ -4,6 +4,7 @@ from django.db.models import Q
 import logging
 from wholesaleApp.models.tenant import Tenant
 from wholesaleApp.views.security_helpers import get_user_permissions_context, tenant_owner_required, log_activity
+from wholesaleApp.utils.gst import GST_STATE_CODES, GST_STATE_CHOICES, gst_state_code
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,8 @@ def tenant_create(request):
         name = request.POST.get('name', '').strip()
         company_name = request.POST.get('company_name', '').strip()
         address = request.POST.get('address', '').strip()
+        city = request.POST.get('city', '').strip()
+        state_code = request.POST.get('state_code', '').strip()
         phone = request.POST.get('phone', '').strip()
         email = request.POST.get('email', '').strip()
         gstin = request.POST.get('gstin', '').strip()
@@ -42,6 +45,27 @@ def tenant_create(request):
         is_active = request.POST.get('is_active') == 'on'
         business_mode = request.POST.get('business_mode', 'Wholesale').strip()
         owner_user_id = request.POST.get('owner_user_id')
+
+        gstin_state_code = gst_state_code(gstin=gstin)
+        state_error = None
+        if state_code not in GST_STATE_CODES:
+            state_error = "Select a valid State / UT for the business address."
+        elif gstin_state_code and gstin_state_code != state_code:
+            state_error = "Business State / UT must match the state code in the GSTIN."
+
+        if state_error:
+            messages.error(request, state_error)
+            owner_users = User.objects.all().order_by('username')
+            return render(request, 'tenant/tenant_form.html', {
+                'tenant': Tenant(),
+                'owner_users': owner_users,
+                'page_title': 'Create New Tenant (Firm / Shop)',
+                'state_choices': GST_STATE_CHOICES,
+                'selected_state_code': state_code,
+                'city_value': city,
+                'form_data': request.POST,
+                'user_perms': get_user_permissions_context(request.user),
+            })
         
         owner_user = request.user
         if owner_user_id:
@@ -57,6 +81,8 @@ def tenant_create(request):
                 name=name,
                 company_name=company_name,
                 address=address,
+                city=city,
+                state_code=state_code,
                 phone=phone,
                 email=email,
                 gstin=gstin,
@@ -84,8 +110,12 @@ def tenant_create(request):
             
     owner_users = User.objects.all().order_by('username')
     context = {
+        'tenant': Tenant(),
         'owner_users': owner_users,
         'page_title': 'Create New Tenant (Firm / Shop)',
+        'state_choices': GST_STATE_CHOICES,
+        'selected_state_code': '',
+        'city_value': '',
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'tenant/tenant_form.html', context)
@@ -100,6 +130,8 @@ def tenant_edit(request, pk):
         name = request.POST.get('name', '').strip()
         company_name = request.POST.get('company_name', '').strip()
         address = request.POST.get('address', '').strip()
+        city = request.POST.get('city', '').strip()
+        state_code = request.POST.get('state_code', '').strip()
         phone = request.POST.get('phone', '').strip()
         email = request.POST.get('email', '').strip()
         gstin = request.POST.get('gstin', '').strip()
@@ -109,6 +141,27 @@ def tenant_edit(request, pk):
         is_active = request.POST.get('is_active') == 'on'
         business_mode = request.POST.get('business_mode', 'Wholesale').strip()
         owner_user_id = request.POST.get('owner_user_id')
+
+        gstin_state_code = gst_state_code(gstin=gstin)
+        state_error = None
+        if state_code not in GST_STATE_CODES:
+            state_error = "Select a valid State / UT for the business address."
+        elif gstin_state_code and gstin_state_code != state_code:
+            state_error = "Business State / UT must match the state code in the GSTIN."
+
+        if state_error:
+            messages.error(request, state_error)
+            owner_users = User.objects.all().order_by('username')
+            return render(request, 'tenant/tenant_form.html', {
+                'tenant': tenant,
+                'owner_users': owner_users,
+                'page_title': f"Edit Tenant: {tenant.name}",
+                'state_choices': GST_STATE_CHOICES,
+                'selected_state_code': state_code,
+                'city_value': city,
+                'form_data': request.POST,
+                'user_perms': get_user_permissions_context(request.user),
+            })
         
         if owner_user_id:
             target_user = User.objects.filter(id=owner_user_id).first()
@@ -126,6 +179,8 @@ def tenant_edit(request, pk):
             tenant.name = name
             tenant.company_name = company_name
             tenant.address = address
+            tenant.city = city
+            tenant.state_code = state_code
             tenant.phone = phone
             tenant.email = email
             tenant.gstin = gstin
@@ -144,6 +199,9 @@ def tenant_edit(request, pk):
         'tenant': tenant,
         'owner_users': owner_users,
         'page_title': f"Edit Tenant: {tenant.name}",
+        'state_choices': GST_STATE_CHOICES,
+        'selected_state_code': gst_state_code(gstin=tenant.gstin, state_code=tenant.state_code) or '',
+        'city_value': tenant.city,
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'tenant/tenant_form.html', context)
@@ -215,6 +273,3 @@ def tenant_email_settings(request):
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'tenant/email_settings.html', context)
-
-
-
