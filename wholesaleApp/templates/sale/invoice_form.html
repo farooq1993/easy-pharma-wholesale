@@ -577,19 +577,45 @@
                         
                         <!-- Group 3: Location (Cascading Dropdowns) -->
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Main Area <span class="text-danger">*</span></label>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <label for="custArea" class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Main Area <span class="text-danger">*</span></label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleCustomerAreaQuickAdd('area')" title="Shortcut: Alt+A">
+                                    <i class="bi bi-plus-circle"></i> Add New <span class="font-monospace">Alt+A</span>
+                                </button>
+                            </div>
                             <select id="custArea" class="form-select" required onchange="onCustAreaChange(this)">
                                 <option value="">Select Main Area</option>
                                 {% for area in areas %}
                                 <option value="{{ area.id }}" data-city="{{ area.city }}">{{ area.city }}{% if area.code %} ({{ area.code }}){% endif %}</option>
                                 {% endfor %}
                             </select>
+                            <div id="custAreaQuickAdd" class="border rounded-3 bg-light p-2 mt-2 d-none">
+                                <label for="newCustAreaCity" class="form-label small fw-semibold mb-1">New Area / City</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" id="newCustAreaCity" class="form-control" maxlength="100" placeholder="Area or city name">
+                                    <button type="button" id="saveCustAreaBtn" class="btn btn-primary" onclick="saveCustomerArea()">Save</button>
+                                </div>
+                                <div id="custAreaQuickAddStatus" class="small mt-1" role="status" aria-live="polite"></div>
+                            </div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Sub Area (Optional)</label>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <label for="custSubArea" class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">Sub Area (Optional)</label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="toggleCustomerAreaQuickAdd('subarea')" title="Shortcut: Alt+S">
+                                    <i class="bi bi-plus-circle"></i> Add New <span class="font-monospace">Alt+S</span>
+                                </button>
+                            </div>
                             <select id="custSubArea" class="form-select">
                                 <option value="">-- Select Sub Area --</option>
                             </select>
+                            <div id="custSubareaQuickAdd" class="border rounded-3 bg-light p-2 mt-2 d-none">
+                                <label for="newCustSubareaName" class="form-label small fw-semibold mb-1">New Sub Area</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" id="newCustSubareaName" class="form-control" maxlength="150" placeholder="Sub area or locality">
+                                    <button type="button" id="saveCustSubareaBtn" class="btn btn-primary" onclick="saveCustomerSubarea()">Save</button>
+                                </div>
+                                <div id="custSubareaQuickAddStatus" class="small mt-1" role="status" aria-live="polite"></div>
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-semibold text-secondary" style="font-size: 0.85rem;">City <span class="text-danger">*</span></label>
@@ -2732,6 +2758,9 @@
         if (cityInput && selectedOpt && selectedOpt.dataset && selectedOpt.dataset.city) {
             cityInput.value = selectedOpt.dataset.city;
             cityInput.dataset.autoFilled = "true";
+        } else if (cityInput) {
+            cityInput.value = "";
+            cityInput.dataset.autoFilled = "false";
         }
         
         // Populate Sub Area Dropdown
@@ -2750,11 +2779,151 @@
         }
     }
 
+    function toggleCustomerAreaQuickAdd(type) {
+        const isArea = type === "area";
+        const panel = document.getElementById(isArea ? "custAreaQuickAdd" : "custSubareaQuickAdd");
+        panel.classList.toggle("d-none");
+        if (!panel.classList.contains("d-none")) {
+            if (isArea) {
+                document.getElementById("custAreaQuickAddStatus").textContent = "";
+                document.getElementById("newCustAreaCity").focus();
+            } else if (!document.getElementById("custArea").value) {
+                document.getElementById("custSubareaQuickAddStatus").textContent = "Select a Main Area first.";
+                document.getElementById("custArea").focus();
+            } else {
+                document.getElementById("custSubareaQuickAddStatus").textContent = "";
+                document.getElementById("newCustSubareaName").focus();
+            }
+        }
+    }
+
+    function getCustomerQuickAddCsrfToken() {
+        const tokenInput = document.querySelector('#quickCustomerForm [name=csrfmiddlewaretoken], [name=csrfmiddlewaretoken]');
+        if (tokenInput) return tokenInput.value;
+        const cookie = document.cookie.split("; ").find(row => row.startsWith("csrftoken="));
+        return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+    }
+
+    function setCustomerQuickAddStatus(type, message, isError) {
+        const status = document.getElementById(type === "area" ? "custAreaQuickAddStatus" : "custSubareaQuickAddStatus");
+        status.textContent = message;
+        status.className = `small mt-1 ${isError ? "text-danger" : "text-success"}`;
+    }
+
+    function addCustomerAreaOption(area) {
+        const areaSelect = document.getElementById("custArea");
+        let option = Array.from(areaSelect.options).find(item => item.value === String(area.id));
+        if (!option) {
+            option = document.createElement("option");
+            option.value = area.id;
+            option.textContent = area.city + (area.code ? ` (${area.code})` : "");
+            option.dataset.city = area.city;
+            areaSelect.appendChild(option);
+        }
+        option.selected = true;
+        onCustAreaChange(areaSelect);
+    }
+
+    function saveCustomerArea() {
+        const cityInput = document.getElementById("newCustAreaCity");
+        const city = cityInput.value.trim();
+        const saveButton = document.getElementById("saveCustAreaBtn");
+        if (!city) {
+            setCustomerQuickAddStatus("area", "Enter an area or city name.", true);
+            cityInput.focus();
+            return;
+        }
+
+        const body = new FormData();
+        body.append("city", city);
+        body.append("ajax", "1");
+        saveButton.disabled = true;
+        setCustomerQuickAddStatus("area", "Saving area...", false);
+
+        fetch("{% url 'area_create' %}", {
+            method: "POST",
+            headers: { "X-CSRFToken": getCustomerQuickAddCsrfToken(), "X-Requested-With": "XMLHttpRequest" },
+            body
+        })
+        .then(response => response.json().then(data => ({ response, data })))
+        .then(({ response, data }) => {
+            if (data.status === "success") {
+                addCustomerAreaOption(data);
+                cityInput.value = "";
+                document.getElementById("custAreaQuickAdd").classList.add("d-none");
+                setCustomerQuickAddStatus("area", "", false);
+                document.getElementById("custSubareaQuickAddStatus").textContent = "";
+            } else if (data.id && data.city) {
+                addCustomerAreaOption(data);
+                setCustomerQuickAddStatus("area", `${data.message} Existing area selected.`, false);
+            } else {
+                setCustomerQuickAddStatus("area", data.message || `Unable to save area (HTTP ${response.status}).`, true);
+            }
+        })
+        .catch(() => setCustomerQuickAddStatus("area", "Unable to save area. Check your connection and try again.", true))
+        .finally(() => { saveButton.disabled = false; });
+    }
+
+    function saveCustomerSubarea() {
+        const areaId = document.getElementById("custArea").value;
+        const nameInput = document.getElementById("newCustSubareaName");
+        const name = nameInput.value.trim();
+        const saveButton = document.getElementById("saveCustSubareaBtn");
+        if (!areaId) {
+            setCustomerQuickAddStatus("subarea", "Select a Main Area first.", true);
+            document.getElementById("custArea").focus();
+            return;
+        }
+        if (!name) {
+            setCustomerQuickAddStatus("subarea", "Enter a sub area or locality name.", true);
+            nameInput.focus();
+            return;
+        }
+
+        const body = new FormData();
+        body.append("area", areaId);
+        body.append("name", name);
+        body.append("ajax", "1");
+        saveButton.disabled = true;
+        setCustomerQuickAddStatus("subarea", "Saving sub area...", false);
+
+        fetch("{% url 'subarea_create' %}", {
+            method: "POST",
+            headers: { "X-CSRFToken": getCustomerQuickAddCsrfToken(), "X-Requested-With": "XMLHttpRequest" },
+            body
+        })
+        .then(response => response.json().then(data => ({ response, data })))
+        .then(({ response, data }) => {
+            if (data.status === "success" || (data.id && String(data.area_id) === String(areaId))) {
+                const subs = subAreaMap[areaId] || (subAreaMap[areaId] = []);
+                let subarea = subs.find(item => String(item.id) === String(data.id));
+                if (!subarea) {
+                    subarea = { id: data.id, name: data.name };
+                    subs.push(subarea);
+                }
+                onCustAreaChange(document.getElementById("custArea"));
+                document.getElementById("custSubArea").value = data.id;
+                nameInput.value = "";
+                document.getElementById("custSubareaQuickAdd").classList.add("d-none");
+                setCustomerQuickAddStatus("subarea", "", false);
+            } else {
+                setCustomerQuickAddStatus("subarea", data.message || `Unable to save sub area (HTTP ${response.status}).`, true);
+            }
+        })
+        .catch(() => setCustomerQuickAddStatus("subarea", "Unable to save sub area. Check your connection and try again.", true))
+        .finally(() => { saveButton.disabled = false; });
+    }
+
     function openCustomerModal() {
         const form = document.getElementById("quickCustomerForm");
         if (form) form.reset();
         const cityInput = document.getElementById("custCity");
         if (cityInput) cityInput.dataset.autoFilled = "false";
+        document.getElementById("custAreaQuickAdd").classList.add("d-none");
+        document.getElementById("custSubareaQuickAdd").classList.add("d-none");
+        setCustomerQuickAddStatus("area", "", false);
+        setCustomerQuickAddStatus("subarea", "", false);
+        onCustAreaChange(document.getElementById("custArea"));
         const modalEl = document.getElementById('addCustomerModal');
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
@@ -2763,6 +2932,31 @@
             if (nameEl) nameEl.focus();
         }, 350);
     }
+
+    document.addEventListener("keydown", function(event) {
+        if (!event.altKey || event.ctrlKey || event.metaKey || !document.getElementById("addCustomerModal").classList.contains("show")) return;
+        const key = event.key.toLowerCase();
+        if (key === "a") {
+            event.preventDefault();
+            toggleCustomerAreaQuickAdd("area");
+        } else if (key === "s") {
+            event.preventDefault();
+            toggleCustomerAreaQuickAdd("subarea");
+        }
+    });
+
+    document.getElementById("newCustAreaCity").addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            saveCustomerArea();
+        }
+    });
+    document.getElementById("newCustSubareaName").addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            saveCustomerSubarea();
+        }
+    });
 
     function updateCustomerOutstandingDisplay(id) {
         const outBadge = document.getElementById("customerOutstandingBadge");

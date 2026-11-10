@@ -334,10 +334,17 @@ def subarea_create(request):
         area_id = request.POST.get('area')
         name = request.POST.get('name', '').strip()
         
-        if not name or not area_id:
+        if not name or not area_id or not area_id.isdigit():
             if is_ajax:
                 return JsonResponse({'status': 'error', 'message': "Parent Area and Subarea name are required."}, status=400)
             messages.error(request, "Area and Subarea name are required.")
+            return render(request, 'customers/subarea_form.html', {'areas': areas, 'page_title': 'Add New Subarea'})
+
+        area = AreaMaster.objects.filter(pk=area_id, is_active=True).first()
+        if not area:
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': "Select a valid Area / City."}, status=400)
+            messages.error(request, "Select a valid Area / City.")
             return render(request, 'customers/subarea_form.html', {'areas': areas, 'page_title': 'Add New Subarea'})
 
         if SubareaMaster.objects.filter(area_id=area_id, name__iexact=name).exists():
@@ -352,7 +359,7 @@ def subarea_create(request):
                 }, status=400)
             messages.error(request, f"Subarea '{name}' already exists in this area.")
         else:
-            subarea = SubareaMaster(area_id=area_id, name=name)
+            subarea = SubareaMaster(area=area, name=name)
             subarea.save()
             if is_ajax:
                 return JsonResponse({

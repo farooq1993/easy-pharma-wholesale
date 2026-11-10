@@ -343,9 +343,11 @@ class PermissionMatrixTests(TestCase):
             feature=self.sales_create_feature,
             defaults={'is_granted': True}
         )
-        
+
         response = self.client.get(reverse('invoice_create'))
         self.assertEqual(response.status_code, 200) # Access granted!
+        self.assertContains(response, "Need Help?")
+        self.assertContains(response, reverse('invoice_create'))
 
     def test_unauthorized_user_blocked_from_invoice_edit(self):
         self.client.force_login(self.employee)
@@ -555,7 +557,23 @@ class MultiTenancyTests(TestCase):
         set_current_tenant(None)
         # Should return both suppliers
         self.assertEqual(SupplierMaster.objects.count(), 2)
-        
+
+    def test_subarea_create_rejects_area_from_another_tenant(self):
+        other_area = AreaMaster.objects.create(tenant=self.tenant_b, city="Tenant B Area")
+        self.client.force_login(self.superuser)
+        session = self.client.session
+        session["active_tenant_id"] = self.tenant_a.id
+        session.save()
+
+        response = self.client.post(
+            reverse("subarea_create"),
+            {"area": str(other_area.id), "name": "Cross-tenant Locality", "ajax": "1"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(SubareaMaster.objects.filter(area=other_area).count(), 0)
+
     def test_switch_tenant_view(self):
         self.client.force_login(self.superuser)
         
@@ -2182,8 +2200,6 @@ class PublicUserCreationTests(TestCase):
         
         # Verify session active tenant ID is set
         self.assertEqual(self.client.session.get('active_tenant_id'), tenant.id)
-
-
 
 
 

@@ -231,6 +231,14 @@
                 </div>
             </li>
 
+            <!-- Help and keyboard shortcuts -->
+            <li class="nav-item">
+                <a class="nav-link text-white d-flex align-items-center" href="#" data-bs-toggle="modal" data-bs-target="#needHelpModal" title="Need Help and keyboard shortcuts">
+                    <i class="bi bi-headset me-2 fs-5"></i>
+                    <span class="menu-text">Need Help</span>
+                </a>
+            </li>
+
             <!-- Logout Option -->
             <li class="nav-item mt-3 border-top border-white border-opacity-10 pt-2">
                 <a href="{% url 'logout' %}" class="nav-link text-danger fw-bold d-flex align-items-center" title="Logout" style="color: #fca5a5 !important;">
@@ -242,7 +250,112 @@
     </div>
 </div>
 
+<div class="modal fade" id="needHelpModal" tabindex="-1" aria-labelledby="needHelpModalLabel" aria-hidden="true"
+     data-sales-url="{% if 'sales_create' in user_perms %}{% url 'invoice_create' %}{% endif %}"
+     data-purchase-url="{% if 'purchase_create' in user_perms %}{% url 'purchase_entry_create' %}{% endif %}">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header bg-primary text-white">
+                <div>
+                    <h5 class="modal-title fw-bold" id="needHelpModalLabel"><i class="bi bi-keyboard me-2"></i>Need Help?</h5>
+                    <div class="small text-white-50">Keyboard shortcuts for faster daily work</div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert alert-info py-2 small">
+                    Shortcuts work when no other modal is open. F2 is context-sensitive inside billing screens, as noted below.
+                </div>
+                <h6 class="fw-bold text-primary mb-2">Quick Navigation</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm align-middle">
+                        <tbody>
+                            {% if 'sales_create' in user_perms %}
+                            <tr><td><kbd>F1</kbd></td><td>Open New Sales Invoice</td></tr>
+                            {% endif %}
+                            {% if 'purchase_create' in user_perms %}
+                            <tr><td><kbd>F2</kbd></td><td>Open New Purchase Entry</td></tr>
+                            {% endif %}
+                            <tr><td><kbd>Esc</kbd></td><td>Close the current dialog or suggestion list</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h6 class="fw-bold text-primary mb-2">Sales Invoice</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm align-middle">
+                        <tbody>
+                            <tr><td><kbd>F2</kbd></td><td>Focus product entry / start a new invoice row</td></tr>
+                            <tr><td><kbd>F3</kbd> or <kbd>Alt</kbd>+<kbd>R</kbd></td><td>Switch the selling rate</td></tr>
+                            <tr><td><kbd>F4</kbd></td><td>Quick Add Customer / Retailer</td></tr>
+                            <tr><td><kbd>Enter</kbd></td><td>Move to the next field while entering invoice items</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h6 class="fw-bold text-primary mb-2">Purchase Entry</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm align-middle">
+                        <tbody>
+                            <tr><td><kbd>F2</kbd></td><td>Focus product entry (purchase page only; elsewhere opens New Purchase Entry)</td></tr>
+                            <tr><td><kbd>F3</kbd></td><td>Open Rates &amp; Margins</td></tr>
+                            <tr><td><kbd>F4</kbd></td><td>Quick Add Supplier when supplier search is focused; otherwise Quick Add Product</td></tr>
+                            <tr><td><kbd>Enter</kbd></td><td>Move through purchase entry fields / add the item</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h6 class="fw-bold text-primary mb-2">Useful Shortcuts</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm align-middle">
+                        <tbody>
+                            <tr><td><kbd>F4</kbd></td><td>Add the highlighted new item in product/customer/supplier search lists</td></tr>
+                            <tr><td><kbd>Alt</kbd>+<kbd>A</kbd></td><td>Quick Add Area in customer forms</td></tr>
+                            <tr><td><kbd>Alt</kbd>+<kbd>S</kbd></td><td>Quick Add Sub Area in customer forms</td></tr>
+                            <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd></td><td>Quick Add Company (Product form)</td></tr>
+                            <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd></td><td>Quick Add Dosage Form / Product Type (Product form)</td></tr>
+                            <tr><td><kbd>Alt</kbd>+<kbd>E</kbd></td><td>Record an expense (Expense list)</td></tr>
+                            <tr><td><kbd>Enter</kbd></td><td>Move to the next field in forms that support Enter navigation</td></tr>
+                            <tr><td><kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Enter</kbd></td><td>Navigate and choose items in search suggestions</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="rounded-3 bg-light p-3">
+                    <h6 class="fw-bold mb-2"><i class="bi bi-headset me-2 text-primary"></i>Support</h6>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a href="tel:+919657847644" class="text-decoration-none"><i class="bi bi-telephone me-1"></i>96578 47644</a>
+                        <a href="mailto:farooqaziz1993@gmail.com" class="text-decoration-none"><i class="bi bi-envelope me-1"></i>farooqaziz1993@gmail.com</a>
+                        <span class="text-muted"><i class="bi bi-clock me-1"></i>9:00 AM–8:00 PM</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">Got it</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    document.addEventListener("keydown", function(event) {
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        if (document.querySelector(".modal.show")) return;
+
+        const helpModal = document.getElementById("needHelpModal");
+        if (!helpModal) return;
+        const salesUrl = helpModal.dataset.salesUrl;
+        const purchaseUrl = helpModal.dataset.purchaseUrl;
+
+        if (event.key === "F1" && salesUrl) {
+            event.preventDefault();
+            window.location.assign(salesUrl);
+        } else if (event.key === "F2" && purchaseUrl && !document.getElementById("invoiceForm") && !document.getElementById("entryForm")) {
+            event.preventDefault();
+            window.location.assign(purchaseUrl);
+        }
+    });
+
     document.addEventListener("DOMContentLoaded", function() {
         // Auto-close other accordion menus when any menu is opened (strict single-open accordion)
         document.querySelectorAll('.sidebar .collapse').forEach(collapseEl => {
