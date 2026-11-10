@@ -327,6 +327,7 @@ def purchase_entry_create(request):
         )
         from wholesaleApp.utils.list_helpers import invalidate_list_cache
         invalidate_list_cache('purchase_entries')
+        invalidate_list_cache('product_batches')
             
         messages.success(request, f"Purchase Entry #{entry.invoice_number} recorded successfully! Stock added for {len(product_ids)} items.")
         return redirect('purchase_entry_list')
@@ -512,6 +513,7 @@ def purchase_entry_edit(request, pk):
             
         from wholesaleApp.utils.list_helpers import invalidate_list_cache
         invalidate_list_cache('purchase_entries')
+        invalidate_list_cache('product_batches')
             
         messages.success(request, f"Purchase Entry {entry.invoice_number} updated successfully!")
         return redirect('purchase_entry_list')
@@ -572,6 +574,7 @@ def purchase_entry_delete(request, pk):
 
     from wholesaleApp.utils.list_helpers import invalidate_list_cache
     invalidate_list_cache('purchase_entries')
+    invalidate_list_cache('product_batches')
 
     messages.success(request, f"Purchase Entry {entry.invoice_number} deleted and stock reverted successfully!")
     return redirect('purchase_entry_list')
@@ -840,6 +843,8 @@ def purchase_return_create(request):
             description=f"Created purchase return {p_return.return_number} to {supplier.name} for ₹{total_net}"
         )
         
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('product_batches')
         messages.success(request, f"Purchase Return / Debit Note '{return_number}' created successfully. ₹{total_net} credited to supplier ledger.")
         return redirect('purchase_return_list')
         
@@ -905,6 +910,8 @@ def purchase_return_delete(request, pk):
     )
     
     p_return.delete()
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('product_batches')
     messages.success(request, "Purchase return deleted and stock restored.")
     return redirect('purchase_return_list')
 
@@ -1274,6 +1281,8 @@ def api_batch_update(request, pk):
             pass
 
     batch.save()
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('product_batches')
 
     # Log activity
     log_activity(
@@ -1303,6 +1312,4 @@ def api_batch_update(request, pk):
             'quantity': f"{batch.quantity:.2f}"
         }
     })
-
-
 

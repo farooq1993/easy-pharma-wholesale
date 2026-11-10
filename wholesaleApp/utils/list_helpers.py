@@ -1,11 +1,21 @@
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.cache import cache
+from wholesaleApp.models.tenant import get_current_tenant
 import hashlib
 import json
 import time
 
+
+def _resolve_tenant_id(tenant_id):
+    if tenant_id is not None:
+        return tenant_id
+    tenant = get_current_tenant()
+    return tenant.id if tenant else None
+
+
 def get_cache_version(prefix, tenant_id=None):
     """Retrieve or initialize the cache version for a specific list prefix and tenant."""
+    tenant_id = _resolve_tenant_id(tenant_id)
     v_key = f"{prefix}_ver_{tenant_id or 'all'}"
     version = cache.get(v_key)
     if not version:
@@ -15,6 +25,7 @@ def get_cache_version(prefix, tenant_id=None):
 
 def invalidate_list_cache(prefix, tenant_id=None):
     """Atomically bump cache version to invalidate all cached list queries for prefix."""
+    tenant_id = _resolve_tenant_id(tenant_id)
     v_key = f"{prefix}_ver_{tenant_id or 'all'}"
     current = cache.get(v_key)
     if current is not None and isinstance(current, int):
@@ -32,6 +43,7 @@ def invalidate_list_cache(prefix, tenant_id=None):
 
 def make_cache_key(prefix, tenant_id, params_dict):
     """Construct a deterministic cache key based on version and query parameters."""
+    tenant_id = _resolve_tenant_id(tenant_id)
     version = get_cache_version(prefix, tenant_id)
     # Sort keys for deterministic JSON serialization
     serialized = json.dumps(params_dict, sort_keys=True, default=str)

@@ -5,131 +5,606 @@
 
 {% block content %}
 
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="card shadow-sm">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">{{ page_title }}</h5>
-            </div>
-            <div class="card-body">
-                <form method="POST">
-                    {% csrf_token %}
-                    
-                    <div class="row g-4">
-                        <!-- Brand Name -->
-                        <div class="col-md-6">
-                            <label class="form-label">Brand Name / Medicine Name <span class="text-danger">*</span></label>
-                            <input type="text" name="name" class="form-control" value="{{ product.name|default:'' }}" placeholder="e.g., Crocin 650mg, Augmentin 625 Duo" required>
-                        </div>
-                        
-                        <!-- Pack Size -->
-                        <div class="col-md-6">
-                            <label class="form-label">Packaging / Pack Size <span class="text-danger">*</span></label>
-                            <input type="text" name="pack_size" class="form-control" value="{{ product.pack_size|default:'' }}" placeholder="e.g., 10 Tab, 15 Cap, 100ml Bottle, 1 Vial" required>
-                            <div class="form-text text-muted">Specify the pack configuration (e.g., "10 Tab" means 1 strip of 10 tablets).</div>
-                        </div>
+<style>
+    .product-editor {
+        --product-ink: #172033;
+        --product-muted: #64748b;
+        --product-line: #e7edf5;
+        --product-blue: #2563eb;
+        max-width: 1180px;
+        margin: 0 auto;
+        color: var(--product-ink);
+    }
+    .product-editor-hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    .product-editor-kicker {
+        color: var(--product-blue);
+        font-size: .73rem;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+    .product-editor-title {
+        margin: .2rem 0;
+        font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+        font-weight: 750;
+        letter-spacing: -.04em;
+    }
+    .product-editor-subtitle {
+        margin: 0;
+        color: var(--product-muted);
+        font-size: .9rem;
+    }
+    .product-editor-card {
+        overflow: hidden;
+        border: 1px solid var(--product-line);
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 16px 48px rgba(15, 23, 42, .07);
+    }
+    .product-editor-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--product-line);
+        background: linear-gradient(110deg, #fff 20%, #f8fbff);
+    }
+    .product-editor-status {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        padding: .35rem .7rem;
+        border: 1px solid #dbeafe;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: .76rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .product-editor-body {
+        padding: clamp(1rem, 3vw, 2rem);
+    }
+    .product-entry-tip {
+        display: flex;
+        align-items: flex-start;
+        gap: .7rem;
+        margin-bottom: 1.5rem;
+        padding: .8rem 1rem;
+        border: 1px solid #dbeafe;
+        border-radius: 12px;
+        background: #f5f9ff;
+        color: #475569;
+        font-size: .82rem;
+    }
+    .product-entry-tip > i {
+        color: var(--product-blue);
+        font-size: 1.1rem;
+    }
+    .product-section {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid #edf1f6;
+    }
+    .product-section:last-of-type {
+        margin-bottom: 0;
+        border-bottom: 0;
+    }
+    .product-section-heading {
+        display: flex;
+        align-items: center;
+        gap: .65rem;
+        margin-bottom: 1rem;
+        font-size: .94rem;
+        font-weight: 750;
+        letter-spacing: -.01em;
+    }
+    .product-section-icon {
+        display: inline-grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border-radius: 9px;
+        background: #eff6ff;
+        color: var(--product-blue);
+    }
+    .product-field label {
+        display: block;
+        margin-bottom: .42rem;
+        color: #344256;
+        font-size: .82rem;
+        font-weight: 700;
+    }
+    .product-field .form-control,
+    .product-field .form-select {
+        min-height: 44px;
+        border-color: #dbe3ee;
+        border-radius: 10px;
+        background-color: #fff;
+        font-size: .9rem;
+        transition: border-color .18s ease, box-shadow .18s ease;
+    }
+    .product-field .form-control:focus,
+    .product-field .form-select:focus {
+        border-color: #77a6ff;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, .11);
+    }
+    .product-field .form-text {
+        margin-top: .4rem;
+        color: var(--product-muted);
+        font-size: .74rem;
+        line-height: 1.45;
+    }
+    .product-quick-add {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        padding: 0;
+        color: var(--product-blue);
+        font-size: .76rem;
+        font-weight: 700;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .product-quick-add:hover { color: #1d4ed8; }
+    .product-quick-add kbd {
+        margin-left: .2rem;
+        padding: .1rem .3rem;
+        border: 1px solid #dbe3ee;
+        border-radius: 5px;
+        background: #f8fafc;
+        color: #64748b;
+        font-size: .62rem;
+        font-weight: 600;
+        box-shadow: none;
+    }
+    .product-editor-actions {
+        position: sticky;
+        bottom: .75rem;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin: 1.5rem -0.5rem -.5rem;
+        padding: .85rem;
+        border: 1px solid rgba(226, 232, 240, .9);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, .94);
+        box-shadow: 0 8px 26px rgba(15, 23, 42, .1);
+        backdrop-filter: blur(12px);
+    }
+    .product-editor-actions .btn {
+        min-height: 44px;
+        border-radius: 10px;
+        font-size: .88rem;
+        font-weight: 700;
+    }
+    .product-editor-actions .btn-primary {
+        box-shadow: 0 5px 12px rgba(37, 99, 235, .2);
+    }
+    @media (max-width: 767.98px) {
+        .product-editor-hero { align-items: flex-start; }
+        .product-editor-toolbar { padding: .85rem 1rem; }
+        .product-editor-body { padding: 1rem; }
+        .product-editor-actions { bottom: .35rem; margin-inline: -.35rem; }
+        .product-quick-add kbd { display: none; }
+    }
+</style>
 
-                        <!-- Company -->
-                        <div class="col-md-4">
-                            <label class="form-label">Company / Manufacturer <span class="text-danger">*</span></label>
-                            <select name="company" class="form-select" required>
+<div class="product-editor">
+    <header class="product-editor-hero">
+        <div>
+            <div class="product-editor-kicker">Product master</div>
+            <h1 class="product-editor-title">{{ page_title }}</h1>
+            <p class="product-editor-subtitle">Maintain product identity, classification and inventory settings in one place.</p>
+        </div>
+        <span class="product-editor-status"><i class="bi bi-shield-check"></i> Catalog details</span>
+    </header>
+
+    <section class="product-editor-card">
+        <div class="product-editor-toolbar">
+            <div class="d-flex align-items-center gap-2">
+                <span class="product-section-icon"><i class="bi bi-capsule"></i></span>
+                <div>
+                    <div class="fw-bold">{{ page_title }}</div>
+                    <div class="text-muted small">Fields marked <span class="text-danger">*</span> are required</div>
+                </div>
+            </div>
+            <span class="text-muted small d-none d-sm-inline"><i class="bi bi-lightning-charge text-warning me-1"></i>Fast entry enabled</span>
+        </div>
+
+        <div class="product-editor-body">
+            <form method="POST" id="productForm" data-enter-navigation>
+                {% csrf_token %}
+
+                <div class="product-entry-tip">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                    <div>
+                        <strong class="text-dark">Quick entry</strong>
+                        <span class="d-block d-sm-inline">Press <kbd>Enter</kbd> to move to the next field. Shortcuts: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> Company, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> Product Type.</span>
+                    </div>
+                </div>
+
+                <section class="product-section">
+                    <h2 class="product-section-heading"><span class="product-section-icon"><i class="bi bi-card-text"></i></span>Product identity</h2>
+                    <div class="row g-3">
+                        <div class="col-md-6 product-field">
+                            <label for="productName">Brand Name / Medicine Name <span class="text-danger">*</span></label>
+                            <input type="text" id="productName" name="name" class="form-control" value="{{ product.name|default:'' }}" placeholder="e.g., Crocin 650mg, Augmentin 625 Duo" required>
+                        </div>
+                        <div class="col-md-6 product-field">
+                            <label for="packSize">Packaging / Pack Size <span class="text-danger">*</span></label>
+                            <input type="text" id="packSize" name="pack_size" class="form-control" value="{{ product.pack_size|default:'' }}" placeholder="e.g., 10 Tab, 100ml Bottle, 1 Vial" required>
+                            <div class="form-text">Enter the sale pack configuration, such as 10 tablets per strip.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="product-section">
+                    <h2 class="product-section-heading"><span class="product-section-icon"><i class="bi bi-diagram-3"></i></span>Classification</h2>
+                    <div class="row g-3">
+                        <div class="col-md-4 product-field">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="mb-0" for="companySelect">Company / Manufacturer <span class="text-danger">*</span></label>
+                                <button type="button" class="product-quick-add btn btn-link" data-bs-toggle="modal" data-bs-target="#quickCompanyModal" title="Add company (Ctrl+Alt+C)">
+                                    <i class="bi bi-plus-circle"></i> New <kbd>Ctrl+Alt+C</kbd>
+                                </button>
+                            </div>
+                            <select name="company" id="companySelect" class="form-select" required>
                                 <option value="">Select Company</option>
                                 {% for company in companies %}
-                                <option value="{{ company.id }}" {% if product.company_id == company.id %}selected{% endif %}>
-                                    {{ company.name }}
-                                </option>
+                                <option value="{{ company.id }}" {% if product.company_id == company.id %}selected{% endif %}>{{ company.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-
-                        <!-- Product Type -->
-                        <div class="col-md-4">
-                            <label class="form-label">Product Type / Dosage Form <span class="text-danger">*</span></label>
-                            <select name="product_type" class="form-select" required>
+                        <div class="col-md-4 product-field">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="mb-0" for="productTypeSelect">Product Type / Dosage Form <span class="text-danger">*</span></label>
+                                <button type="button" class="product-quick-add btn btn-link" data-bs-toggle="modal" data-bs-target="#quickTypeModal" title="Add product type (Ctrl+Alt+T)">
+                                    <i class="bi bi-plus-circle"></i> New <kbd>Ctrl+Alt+T</kbd>
+                                </button>
+                            </div>
+                            <select name="product_type" id="productTypeSelect" class="form-select" required>
                                 <option value="">Select Dosage Form</option>
                                 {% for type in types %}
-                                <option value="{{ type.id }}" {% if product.product_type_id == type.id %}selected{% endif %}>
-                                    {{ type.name }}
-                                </option>
+                                <option value="{{ type.id }}" {% if product.product_type_id == type.id %}selected{% endif %}>{{ type.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-
-                        <!-- Drug Composition -->
-                        <div class="col-md-4">
-                            <label class="form-label">Drug Generic Composition (Salt)</label>
-                            <select name="drug_composition" class="form-select">
+                        <div class="col-md-4 product-field">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="mb-0" for="drugCompositionSelect">Drug Generic Composition (Salt)</label>
+                                <button type="button" class="product-quick-add btn btn-link" data-bs-toggle="modal" data-bs-target="#quickDrugModal" title="Add a new generic composition">
+                                    <i class="bi bi-plus-circle"></i> New Salt
+                                </button>
+                            </div>
+                            <select name="drug_composition" id="drugCompositionSelect" class="form-select">
                                 <option value="">Select Generic Salt (Optional)</option>
                                 {% for drug in drugs %}
-                                <option value="{{ drug.id }}" {% if product.drug_composition_id == drug.id %}selected{% endif %}>
-                                    {{ drug.name }}
-                                </option>
+                                <option value="{{ drug.id }}" {% if product.drug_composition_id == drug.id %}selected{% endif %}>{{ drug.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
+                    </div>
+                </section>
 
-                        <!-- HSN Code -->
-                        <div class="col-md-4">
-                            <label class="form-label">HSN Code</label>
-                            <input type="text" name="hsn_code" class="form-control" value="{{ product.hsn_code|default:'' }}" placeholder="e.g., 3004">
+                <section class="product-section">
+                    <h2 class="product-section-heading"><span class="product-section-icon"><i class="bi bi-receipt"></i></span>Tax &amp; compliance</h2>
+                    <div class="row g-3">
+                        <div class="col-md-4 product-field">
+                            <label for="hsnCode">HSN Code</label>
+                            <input type="text" id="hsnCode" name="hsn_code" class="form-control" value="{{ product.hsn_code|default:'' }}" placeholder="e.g., 3004">
                         </div>
-
-                        <!-- Dynamic GST Rate (Tax Master) -->
-                        <div class="col-md-4">
+                        <div class="col-md-4 product-field">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label mb-0">GST Tax Slab <span class="text-danger">*</span></label>
-                                <a href="{% url 'tax_create' %}" target="_blank" class="small text-decoration-none fw-semibold" title="Add new GST slab in Tax Master">
+                                <label class="mb-0" for="taxSlabSelect">GST Tax Slab <span class="text-danger">*</span></label>
+                                <button type="button" class="product-quick-add btn btn-link" data-bs-toggle="modal" data-bs-target="#quickTaxModal" title="Add new GST slab in Tax Master">
                                     <i class="bi bi-plus-circle"></i> New Slab
-                                </a>
+                                </button>
                             </div>
                             <select name="tax_slab" id="taxSlabSelect" class="form-select" required>
                                 <option value="">Select GST Rate Slab</option>
                                 {% for tax in tax_slabs %}
-                                <option value="{{ tax.id }}" data-rate="{{ tax.rate }}" {% if product %}{% if product.tax_slab_id == tax.id or not product.tax_slab_id and product.gst_rate == tax.rate %}selected{% endif %}{% elif tax.is_default %}selected{% endif %}>
-                                    {{ tax.name }} ({{ tax.rate }}%)
-                                </option>
+                                <option value="{{ tax.id }}" data-rate="{{ tax.rate }}" {% if product %}{% if product.tax_slab_id == tax.id or not product.tax_slab_id and product.gst_rate == tax.rate %}selected{% endif %}{% elif tax.is_default %}selected{% endif %}>{{ tax.name }} ({{ tax.rate }}%)</option>
                                 {% empty %}
                                 <option value="" selected>12% (Standard Pharma)</option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text text-muted">Dynamically pulled from Tax Master.</div>
+                            <div class="form-text">GST rates are managed from your Tax Master.</div>
                         </div>
-
-                        <!-- Drug Schedule Master -->
-                        <div class="col-md-4">
+                        <div class="col-md-4 product-field">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label mb-0">Drug Schedule (Rx Classification)</label>
-                                <a href="{% url 'schedule_create' %}" target="_blank" class="small text-decoration-none fw-semibold" title="Add new Schedule in Schedule Master">
+                                <label class="mb-0" for="scheduleSelect">Drug Schedule (Rx Classification)</label>
+                                <button type="button" class="product-quick-add btn btn-link" data-bs-toggle="modal" data-bs-target="#quickScheduleModal" title="Add new Schedule in Schedule Master">
                                     <i class="bi bi-plus-circle"></i> New Schedule
-                                </a>
+                                </button>
                             </div>
-                            <select name="schedule" class="form-select">
+                            <select name="schedule" id="scheduleSelect" class="form-select">
                                 <option value="">Select Drug Schedule (Optional)</option>
                                 {% for s in schedules %}
-                                <option value="{{ s.id }}" {% if product.schedule_id == s.id %}selected{% endif %}>
-                                    {{ s.name }} ({{ s.code }}) {% if s.requires_prescription %}[Rx]{% else %}[OTC]{% endif %}
-                                </option>
+                                <option value="{{ s.id }}" {% if product.schedule_id == s.id %}selected{% endif %}>{{ s.name }} ({{ s.code }}) {% if s.requires_prescription %}[Rx]{% else %}[OTC]{% endif %}</option>
                                 {% endfor %}
                             </select>
-                            <div class="form-text text-muted">Statutory warning &amp; Rx requirement.</div>
+                            <div class="form-text">Prescription classification and statutory warning.</div>
                         </div>
+                    </div>
+                </section>
 
-                        <!-- Min Stock Alert -->
-                        <div class="col-md-4">
-                            <label class="form-label">Minimum Stock Alert Level <span class="text-danger">*</span></label>
-                            <input type="number" name="min_stock" class="form-control" value="{{ product.min_stock|default:10 }}" min="0" required>
-                            <div class="form-text text-muted">Warns on dashboard when stock falls below this quantity.</div>
+                <section class="product-section">
+                    <h2 class="product-section-heading"><span class="product-section-icon"><i class="bi bi-boxes"></i></span>Inventory controls</h2>
+                    <div class="row g-3">
+                        <div class="col-md-4 product-field">
+                            <label for="minStock">Minimum Stock Alert Level <span class="text-danger">*</span></label>
+                            <input type="number" id="minStock" name="min_stock" class="form-control" value="{{ product.min_stock|default:10 }}" min="0" required>
+                            <div class="form-text">Get a low-stock warning when inventory drops below this level.</div>
                         </div>
                     </div>
-                    
-                    <div class="mt-5">
-                        <button type="submit" class="btn btn-primary btn-lg px-5">Save Product Item</button>
-                        <a href="{% url 'product_list' %}" class="btn btn-secondary btn-lg px-5">Cancel</a>
+                </section>
+
+                <div class="product-editor-actions">
+                    <span class="text-muted small d-none d-sm-inline"><i class="bi bi-info-circle me-1"></i>Changes are saved to the active firm</span>
+                    <div class="d-flex gap-2 ms-auto">
+                        <a href="{% url 'product_list' %}" class="btn btn-light border px-4">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-check2-circle me-1"></i>{% if product %}Update Product{% else %}Save Product{% endif %}
+                        </button>
                     </div>
-                </form>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+
+<div class="modal fade" id="quickDrugModal" tabindex="-1" aria-labelledby="quickDrugModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="quickDrugModalLabel"><i class="bi bi-capsule text-primary me-2"></i>Add Generic Composition</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            <form action="{% url 'drug_create' %}" onsubmit="submitQuickMaster(event, 'drug')">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" id="quickDrugAlert" role="alert"></div>
+                    <label class="form-label" for="quickDrugName">Composition / Salt Name <span class="text-danger">*</span></label>
+                    <input type="text" name="name" id="quickDrugName" class="form-control" required maxlength="255" placeholder="e.g., Paracetamol 500mg">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Composition</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
+<div class="modal fade" id="quickCompanyModal" tabindex="-1" aria-labelledby="quickCompanyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="quickCompanyModalLabel"><i class="bi bi-building text-primary me-2"></i>Add Company / Manufacturer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'company_create' %}" onsubmit="submitQuickMaster(event, 'company')" data-enter-navigation>
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" id="quickCompanyAlert" role="alert"></div>
+                    <div class="mb-3">
+                        <label class="form-label" for="quickCompanyName">Company Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="quickCompanyName" class="form-control" required maxlength="255" placeholder="e.g., Cipla Ltd">
+                    </div>
+                    <div>
+                        <label class="form-label" for="quickCompanyCode">Company Code (Optional)</label>
+                        <input type="text" name="code" id="quickCompanyCode" class="form-control" maxlength="50" placeholder="e.g., CIPLA">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Company</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="quickTypeModal" tabindex="-1" aria-labelledby="quickTypeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="quickTypeModalLabel"><i class="bi bi-box-seam text-primary me-2"></i>Add Product Type / Dosage Form</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'type_create' %}" onsubmit="submitQuickMaster(event, 'type')" data-enter-navigation>
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" id="quickTypeAlert" role="alert"></div>
+                    <label class="form-label" for="quickTypeName">Product Type / Dosage Form <span class="text-danger">*</span></label>
+                    <input type="text" name="name" id="quickTypeName" class="form-control" required maxlength="100" placeholder="e.g., Tablet, Capsule, Syrup">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Product Type</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="quickTaxModal" tabindex="-1" aria-labelledby="quickTaxModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="quickTaxModalLabel"><i class="bi bi-percent text-primary me-2"></i>Add GST Tax Slab</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'tax_create' %}" onsubmit="submitQuickMaster(event, 'tax')">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" id="quickTaxAlert" role="alert"></div>
+                    <div class="mb-3">
+                        <label class="form-label" for="quickTaxName">Tax Slab Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="quickTaxName" class="form-control" required maxlength="100" placeholder="e.g., 12% Standard Pharma">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="quickTaxRate">Total GST Rate (%) <span class="text-danger">*</span></label>
+                        <input type="number" name="rate" id="quickTaxRate" class="form-control" required step="0.01" min="0" max="100" placeholder="e.g., 12">
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="is_default" id="quickTaxDefault">
+                        <label class="form-check-label" for="quickTaxDefault">Set as default for new products</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Tax Slab</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="quickScheduleModal" tabindex="-1" aria-labelledby="quickScheduleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="quickScheduleModalLabel"><i class="bi bi-shield-shaded text-primary me-2"></i>Add Drug Schedule</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{% url 'schedule_create' %}" onsubmit="submitQuickMaster(event, 'schedule')">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" id="quickScheduleAlert" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label" for="quickScheduleName">Schedule Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" id="quickScheduleName" class="form-control" required maxlength="100" placeholder="e.g., Schedule H">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="quickScheduleCode">Short Code <span class="text-danger">*</span></label>
+                            <input type="text" name="code" id="quickScheduleCode" class="form-control" required maxlength="20" placeholder="e.g., H">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="requires_prescription" id="quickScheduleRx" checked>
+                                <label class="form-check-label" for="quickScheduleRx">Prescription required (Rx)</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="quickScheduleWarning">Statutory Warning (Optional)</label>
+                            <textarea name="warning_text" id="quickScheduleWarning" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Schedule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+async function submitQuickMaster(event, masterType) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const config = {
+        company: { alertId: 'quickCompanyAlert', modalId: 'quickCompanyModal', selectId: 'companySelect' },
+        type: { alertId: 'quickTypeAlert', modalId: 'quickTypeModal', selectId: 'productTypeSelect' },
+        drug: { alertId: 'quickDrugAlert', modalId: 'quickDrugModal', selectId: 'drugCompositionSelect' },
+        tax: { alertId: 'quickTaxAlert', modalId: 'quickTaxModal', selectId: 'taxSlabSelect' },
+        schedule: { alertId: 'quickScheduleAlert', modalId: 'quickScheduleModal', selectId: 'scheduleSelect' }
+    }[masterType];
+    const alertBox = document.getElementById(config.alertId);
+    const submitButton = form.querySelector('button[type="submit"]');
+
+    alertBox.textContent = '';
+    alertBox.classList.add('d-none');
+    submitButton.disabled = true;
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': form.querySelector('[name="csrfmiddlewaretoken"]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new FormData(form)
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.status !== 'success') {
+            throw new Error(data.message || 'Unable to save. Please check the details and try again.');
+        }
+
+        const select = document.getElementById(config.selectId);
+        const option = document.createElement('option');
+        option.value = data.id;
+        if (masterType === 'company') {
+            option.textContent = data.name;
+        } else if (masterType === 'type' || masterType === 'drug') {
+            option.textContent = data.name;
+        } else if (masterType === 'tax') {
+            option.textContent = `${data.name} (${data.rate}%)`;
+            option.dataset.rate = data.rate;
+        } else {
+            option.textContent = `${data.name} (${data.code}) ${data.requires_prescription ? '[Rx]' : '[OTC]'}`;
+        }
+        option.selected = true;
+        select.appendChild(option);
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById(config.modalId)).hide();
+        form.reset();
+        if (typeof showERPToast === 'function') {
+            showERPToast(`${data.name} added and selected.`, 'success');
+        }
+    } catch (error) {
+        alertBox.textContent = error.message || 'Server communication error. Please try again.';
+        alertBox.classList.remove('d-none');
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+
+document.addEventListener('keydown', function(event) {
+    if (!event.ctrlKey || !event.altKey || event.shiftKey || event.metaKey) return;
+    const shortcuts = { c: 'quickCompanyModal', t: 'quickTypeModal' };
+    const modalId = shortcuts[event.key.toLowerCase()];
+    if (!modalId) return;
+
+    event.preventDefault();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById(modalId)).show();
+});
+
+document.addEventListener('shown.bs.modal', function(event) {
+    const firstInput = event.target.querySelector('form input:not([type="hidden"]):not([type="checkbox"]), form select, form textarea');
+    if (firstInput) firstInput.focus();
+});
+
+document.addEventListener('keydown', function(event) {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.target.tagName === 'TEXTAREA') return;
+    const form = event.target.closest('form[data-enter-navigation]');
+    if (!form || !(event.target.matches('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select'))) return;
+
+    const fields = Array.from(form.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]), select, textarea'))
+        .filter(field => !field.disabled && field.getClientRects().length > 0);
+    const currentIndex = fields.indexOf(event.target);
+    if (currentIndex >= 0 && currentIndex < fields.length - 1) {
+        event.preventDefault();
+        fields[currentIndex + 1].focus();
+    }
+});
+</script>
 {% endblock %}

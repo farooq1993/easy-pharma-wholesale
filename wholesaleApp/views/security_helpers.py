@@ -313,6 +313,57 @@ def tenant_context_processor(request):
     }
 
 
+def navigation_context_processor(request):
+    """Provide a consistent parent/list destination for list and edit pages."""
+    route_name = getattr(getattr(request, 'resolver_match', None), 'url_name', None)
+    if not route_name:
+        return {}
+
+    parent_routes = {
+        'app_list': 'home',
+        'activity_log_list': 'home',
+        'user_list': 'home',
+        'tenant_list': 'home',
+        'customer_list': 'home',
+        'customer_payment_list': 'customer_list',
+        'area_list': 'home',
+        'supplier_list': 'home',
+        'company_list': 'product_list',
+        'mr_list': 'product_list',
+        'drug_list': 'product_list',
+        'type_list': 'product_list',
+        'tax_list': 'product_list',
+        'schedule_list': 'product_list',
+        'product_list': 'home',
+        'po_list': 'home',
+        'purchase_entry_list': 'home',
+        'batch_update_list': 'purchase_entry_list',
+        'supplier_payment_list': 'purchase_entry_list',
+        'purchase_return_list': 'purchase_entry_list',
+        'invoice_list': 'home',
+        'sales_return_list': 'invoice_list',
+        'scheme_list': 'product_list',
+        'financial_year_list': 'home',
+        'expense_list': 'home',
+    }
+
+    if route_name.endswith('_edit'):
+        list_route = f"{route_name[:-5]}_list"
+        if route_name == 'subarea_edit':
+            list_route = 'area_list'
+    elif route_name.endswith('_list'):
+        list_route = parent_routes.get(route_name, 'home')
+    else:
+        return {}
+
+    try:
+        from django.urls import NoReverseMatch, reverse
+        return {'page_back_url': reverse(list_route), 'show_page_back': True}
+    except NoReverseMatch:
+        logger.exception("Could not resolve back-navigation route '%s'.", list_route)
+        return {}
+
+
 import logging
 logger = logging.getLogger('wholesaleApp')
 
@@ -340,5 +391,3 @@ def log_activity(request, action, model_name, object_repr, object_id=None, descr
         )
     except Exception as e:
         logger.error(f"Error saving ActivityLog to database: {e}")
-
-

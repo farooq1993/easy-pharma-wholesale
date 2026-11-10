@@ -99,6 +99,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'wholesaleApp.views.security_helpers.user_perms_context_processor',
                 'wholesaleApp.views.security_helpers.tenant_context_processor',
+                'wholesaleApp.views.security_helpers.navigation_context_processor',
             ],
         },
     },
@@ -304,5 +305,4 @@ if not DEBUG:
     SECURE_HSTS_PRELOAD = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-
 

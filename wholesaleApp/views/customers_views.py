@@ -604,6 +604,8 @@ def customer_payment_delete(request, pk):
     
     # Delete payment
     payment.delete()
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('cust_outstanding_inv')
     
     messages.success(request, "Payment deleted and customer balance adjusted.")
     return redirect(f"/customer/ledger/?customer={customer.id}")
@@ -645,9 +647,16 @@ def customer_payment_list(request):
 def get_customer_outstanding_invoices(request, customer_id):
     """API endpoint to get outstanding credit invoices for a customer."""
     from django.core.cache import cache
+    from wholesaleApp.utils.list_helpers import make_cache_key
     exclude_payment_id = request.GET.get('exclude_payment_id', '')
     current_inv_id = request.GET.get('current_inv_id', '')
-    cache_key = f"cust_outstanding_inv_{customer_id}_{exclude_payment_id}_{current_inv_id}"
+    tenant = getattr(request, 'tenant', None)
+    tenant_id = tenant.id if tenant else None
+    cache_key = make_cache_key('cust_outstanding_inv', tenant_id, {
+        'customer_id': customer_id,
+        'exclude_payment_id': exclude_payment_id,
+        'current_invoice_id': current_inv_id,
+    })
     cached_data = cache.get(cache_key)
     if cached_data is not None:
         return JsonResponse(cached_data, safe=False)
@@ -738,6 +747,8 @@ def customer_payment_create(request):
             remarks=remarks,
             created_by=request.user if request.user.is_authenticated else None
         )
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('cust_outstanding_inv')
         
         # Deduct from customer balance
         customer.opening_balance -= amount
@@ -827,6 +838,8 @@ def customer_payment_edit(request, pk):
         payment.reference_no = reference_no
         payment.remarks = remarks
         payment.save()
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('cust_outstanding_inv')
         
         log_activity(
             request,

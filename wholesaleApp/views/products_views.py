@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 import logging
-from wholesaleApp.models import CompanyMaster, DrugMaster, ProductTypeMaster, ProductMaster, TaxMaster, ScheduleMaster
+from wholesaleApp.models import CompanyMaster, DrugMaster, ProductTypeMaster, ProductMaster, TaxMaster, ScheduleMaster, Tenant
 from wholesaleApp.views.security_helpers import has_feature_access, log_activity
 
 logger = logging.getLogger(__name__)
@@ -73,14 +73,23 @@ def company_list(request):
 
 @login_required
 def company_create(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if not has_feature_access(request.user, 'product_create'):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': 'Access Denied: You do not have permission to add Company Master.'}, status=403)
         messages.error(request, "Access Denied: You do not have permission to add Company Master.")
         return redirect('company_list')
     if request.method == 'POST':
-        name = request.POST.get('name')
-        code = request.POST.get('code', '')
+        name = (request.POST.get('name') or '').strip()
+        code = (request.POST.get('code') or '').strip()
         
-        if CompanyMaster.objects.filter(name__iexact=name, is_deleted=False).exists():
+        if not name:
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': 'Company name is required.'}, status=400)
+            messages.error(request, 'Company name is required.')
+        elif CompanyMaster.objects.filter(name__iexact=name, is_deleted=False).exists():
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': f"Company '{name}' already exists."}, status=400)
             messages.error(request, f"Company '{name}' already exists.")
         else:
             company = CompanyMaster(
@@ -92,6 +101,8 @@ def company_create(request):
             log_activity(request, "CREATE", "CompanyMaster", company.name, object_id=company.id, description=f"Company '{name}' created.")
             from wholesaleApp.utils.list_helpers import invalidate_list_cache
             invalidate_list_cache('companies')
+            if is_ajax:
+                return JsonResponse({'status': 'success', 'id': company.id, 'name': company.name, 'code': company.code or ''})
             messages.success(request, 'Company created successfully!')
             return redirect('company_list')
             
@@ -153,22 +164,58 @@ def drug_list(request):
 
 @login_required
 def drug_create(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if not has_feature_access(request.user, 'product_create'):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': 'Access Denied: You do not have permission to add Drug Compositions.'}, status=403)
         messages.error(request, "Access Denied: You do not have permission to add Drug Compositions.")
         return redirect('drug_list')
     if request.method == 'POST':
-        name = request.POST.get('name')
-        if DrugMaster.objects.filter(name__iexact=name, is_deleted=False).exists():
-            messages.error(request, f"Composition '{name}' already exists.")
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': 'Composition name is required.'}, status=400)
+            messages.error(request, 'Composition name is required.')
         else:
-            drug = DrugMaster(
-                name=name,
-                created_by=request.user if request.user.is_authenticated else None
-            )
-            drug.save()
-            log_activity(request, "CREATE", "DrugMaster", drug.name, object_id=drug.id, description=f"Drug composition '{name}' created.")
-            messages.success(request, 'Drug composition created successfully!')
-            return redirect('drug_list')
+            tenant = getattr(request, 'tenant', None)
+            if tenant is None and Tenant.objects.filter(is_active=True).exists():
+                message = 'Select an active tenant before adding a drug composition.'
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': message}, status=400)
+                messages.error(request, message)
+            else:
+                drugs_for_tenant = DrugMaster.objects.all()
+                if tenant is None:
+                    drugs_for_tenant = drugs_for_tenant.filter(tenant__isnull=True)
+                else:
+                    drugs_for_tenant = drugs_for_tenant.filter(tenant=tenant)
+                existing_drug = drugs_for_tenant.filter(name__iexact=name).first()
+
+                if existing_drug and not existing_drug.is_deleted:
+                    message = f"Composition '{name}' already exists."
+                    if is_ajax:
+                        return JsonResponse({'status': 'error', 'message': message}, status=400)
+                    messages.error(request, message)
+                else:
+                    if existing_drug:
+                        drug = existing_drug
+                        drug.is_deleted = False
+                        drug.status = True
+                        drug.save(update_fields=['is_deleted', 'status', 'updated_at'])
+                        log_activity(request, "RESTORE", "DrugMaster", drug.name, object_id=drug.id, description=f"Drug composition '{name}' restored for tenant '{tenant}'.")
+                    else:
+                        drug = DrugMaster(
+                            name=name,
+                            tenant=tenant,
+                            created_by=request.user if request.user.is_authenticated else None
+                        )
+                        drug.save()
+                        log_activity(request, "CREATE", "DrugMaster", drug.name, object_id=drug.id, description=f"Drug composition '{name}' created.")
+
+                    if is_ajax:
+                        return JsonResponse({'status': 'success', 'id': drug.id, 'name': drug.name})
+                    messages.success(request, 'Drug composition restored successfully!' if existing_drug else 'Drug composition created successfully!')
+                    return redirect('drug_list')
             
     context = {'page_title': 'Add New Generic Composition'}
     return render(request, 'drugs/drug_form.html', context)
@@ -221,12 +268,21 @@ def type_list(request):
 
 @login_required
 def type_create(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if not has_feature_access(request.user, 'product_create'):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': 'Access Denied: You do not have permission to add Product Types.'}, status=403)
         messages.error(request, "Access Denied: You do not have permission to add Product Types.")
         return redirect('type_list')
     if request.method == 'POST':
-        name = request.POST.get('name')
-        if ProductTypeMaster.objects.filter(name__iexact=name, is_deleted=False).exists():
+        name = (request.POST.get('name') or '').strip()
+        if not name:
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': 'Product type name is required.'}, status=400)
+            messages.error(request, 'Product type name is required.')
+        elif ProductTypeMaster.objects.filter(name__iexact=name, is_deleted=False).exists():
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': f"Product Type '{name}' already exists."}, status=400)
             messages.error(request, f"Product Type '{name}' already exists.")
         else:
             p_type = ProductTypeMaster(
@@ -235,6 +291,8 @@ def type_create(request):
             )
             p_type.save()
             log_activity(request, "CREATE", "ProductTypeMaster", p_type.name, object_id=p_type.id, description=f"Product type '{name}' created.")
+            if is_ajax:
+                return JsonResponse({'status': 'success', 'id': p_type.id, 'name': p_type.name})
             messages.success(request, 'Product Type created successfully!')
             return redirect('type_list')
             
@@ -526,7 +584,10 @@ def tax_list(request):
 
 @login_required
 def tax_create(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if not has_feature_access(request.user, 'product_create'):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': 'Access Denied: You do not have permission to add Tax Slabs.'}, status=403)
         messages.error(request, "Access Denied: You do not have permission to add Tax Slabs.")
         return redirect('tax_list')
     if request.method == 'POST':
@@ -555,12 +616,20 @@ def tax_create(request):
             tax.save()
             log_activity(request, "CREATE", "TaxMaster", tax.name, object_id=tax.id, description=f"Tax Slab '{name}' ({rate_val}%) created.")
             
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({'status': 'success', 'id': tax.id, 'name': tax.name, 'rate': float(tax.rate)})
+            if is_ajax:
+                return JsonResponse({
+                    'status': 'success',
+                    'id': tax.id,
+                    'name': tax.name,
+                    'rate': float(tax.rate),
+                    'is_default': tax.is_default,
+                })
             
             messages.success(request, f"Tax slab '{name}' created successfully!")
             return redirect('tax_list')
         except Exception as e:
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': f'Error creating tax slab: {str(e)}'}, status=400)
             messages.error(request, f"Error creating tax slab: {str(e)}")
 
     context = {'page_title': 'Add New Tax Slab (GST)'}
@@ -631,14 +700,31 @@ def schedule_list(request):
 
 @login_required
 def schedule_create(request):
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     if not has_feature_access(request.user, 'product_create'):
+        if is_ajax:
+            return JsonResponse({'status': 'error', 'message': 'Access Denied: You do not have permission to add Drug Schedules.'}, status=403)
         messages.error(request, "Access Denied: You do not have permission to add Drug Schedules.")
         return redirect('schedule_list')
     if request.method == 'POST':
-        name = request.POST.get('name')
-        code = request.POST.get('code')
+        name = (request.POST.get('name') or '').strip()
+        code = (request.POST.get('code') or '').strip()
         warning_text = request.POST.get('warning_text', '')
         requires_prescription = request.POST.get('requires_prescription') == 'on' or request.POST.get('requires_prescription') == 'true'
+
+        if not name or not code:
+            message = 'Schedule name and code are required.'
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': message}, status=400)
+            messages.error(request, message)
+            return render(request, 'schedule_master/schedule_form.html', {'page_title': 'Add New Drug Schedule'})
+
+        if ScheduleMaster.objects.filter(name__iexact=name, is_deleted=False).exists():
+            message = f"Schedule '{name}' already exists."
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': message}, status=400)
+            messages.error(request, message)
+            return render(request, 'schedule_master/schedule_form.html', {'page_title': 'Add New Drug Schedule'})
 
         schedule = ScheduleMaster(
             name=name,
@@ -650,8 +736,14 @@ def schedule_create(request):
         schedule.save()
         log_activity(request, "CREATE", "ScheduleMaster", schedule.name, object_id=schedule.id, description=f"Schedule '{name}' ({code}) created.")
         
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'status': 'success', 'id': schedule.id, 'name': schedule.name, 'code': schedule.code})
+        if is_ajax:
+            return JsonResponse({
+                'status': 'success',
+                'id': schedule.id,
+                'name': schedule.name,
+                'code': schedule.code,
+                'requires_prescription': schedule.requires_prescription,
+            })
             
         messages.success(request, f"Schedule '{name}' created successfully!")
         return redirect('schedule_list')
@@ -799,4 +891,3 @@ def mr_delete(request, pk):
     log_activity(request, "DELETE", "MedicalRepresentative", mr.name, object_id=mr.id, description=f"MR '{mr.name}' soft deleted.")
     messages.success(request, f"MR '{mr.name}' deleted successfully!")
     return redirect('mr_list')
-

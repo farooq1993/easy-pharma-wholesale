@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from collections import defaultdict
 from wholesaleApp.models import (
+    Tenant,
     ProductMaster,
     CustomerMaster,
     SalesInvoice,

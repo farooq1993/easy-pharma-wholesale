@@ -22,9 +22,14 @@ def get_product_batches(request, pk):
     """API endpoint to get active batches for a selected product in FEFO order."""
     from django.core.cache import cache
     from django.utils import timezone
+    from wholesaleApp.utils.list_helpers import make_cache_key
     today = timezone.now().date()
     include_all = request.GET.get('all') == 'true'
-    cache_key = f"product_batches_{pk}_all_{include_all}_{today.strftime('%Y%m%d')}"
+    cache_key = make_cache_key('product_batches', getattr(request, 'tenant', None).id if getattr(request, 'tenant', None) else None, {
+        'product_id': pk,
+        'include_all': include_all,
+        'date': today.strftime('%Y%m%d'),
+    })
     data = cache.get(cache_key)
     
     if data is None:
@@ -60,7 +65,13 @@ def get_product_batches(request, pk):
 def get_customer_product_sales_history(request, customer_id, product_id):
     """API endpoint to get past sales invoice history for a given customer and product."""
     from django.core.cache import cache
-    cache_key = f"cust_prod_history_{customer_id}_{product_id}"
+    from wholesaleApp.utils.list_helpers import make_cache_key
+    tenant = getattr(request, 'tenant', None)
+    tenant_id = tenant.id if tenant else None
+    cache_key = make_cache_key('cust_prod_history', tenant_id, {
+        'customer_id': customer_id,
+        'product_id': product_id,
+    })
     cached_data = cache.get(cache_key)
     if cached_data is not None:
         return JsonResponse(cached_data, safe=False)
@@ -93,9 +104,10 @@ def get_customer_product_sales_history(request, customer_id, product_id):
 def get_product_sales_history(request, product_id):
     """Return the five most recent customers and rates for a product."""
     from django.core.cache import cache
+    from wholesaleApp.utils.list_helpers import make_cache_key
     tenant = getattr(request, 'tenant', None)
     tenant_id = tenant.id if tenant else 0
-    cache_key = f"prod_sales_history_{tenant_id}_{product_id}"
+    cache_key = make_cache_key('prod_sales_history', tenant_id, {'product_id': product_id})
     cached_data = cache.get(cache_key)
     if cached_data is not None:
         return JsonResponse(cached_data, safe=False)
@@ -131,7 +143,10 @@ def get_product_sales_history(request, product_id):
 def get_customer_credit_notes(request, customer_id):
     """API endpoint to get active/unadjusted Credit Notes (Sales Returns) for a customer."""
     from django.core.cache import cache
-    cache_key = f"cust_credit_notes_{customer_id}"
+    from wholesaleApp.utils.list_helpers import make_cache_key
+    tenant = getattr(request, 'tenant', None)
+    tenant_id = tenant.id if tenant else None
+    cache_key = make_cache_key('cust_credit_notes', tenant_id, {'customer_id': customer_id})
     cached_data = cache.get(cache_key)
     if cached_data is not None:
         return JsonResponse(cached_data, safe=False)
@@ -421,11 +436,6 @@ def invoice_create(request):
             batch.quantity -= total_requested
             batch.save()
             
-        # Invalidate Redis/LocMem batch cache for affected products
-        from django.core.cache import cache
-        for pid in product_ids:
-            cache.delete(f"product_batches_{pid}")
-            
         # 4. Update Customer Outstanding Balance (Accounts Receivable)
         if payment_type == 'Credit' and customer_id:
             customer = CustomerMaster.objects.get(id=customer_id)
@@ -439,6 +449,10 @@ def invoice_create(request):
         # Invalidate Sales Invoices list cache
         from wholesaleApp.utils.list_helpers import invalidate_list_cache
         invalidate_list_cache('sales_invoices')
+        invalidate_list_cache('product_batches')
+        invalidate_list_cache('cust_prod_history')
+        invalidate_list_cache('prod_sales_history')
+        invalidate_list_cache('cust_outstanding_inv')
         
         messages.success(request, f"Sales Invoice {invoice_number} saved successfully.")
         request.session['print_invoice_id'] = invoice.id
@@ -915,6 +929,10 @@ def invoice_edit(request, pk):
         # Invalidate Sales Invoices list cache
         from wholesaleApp.utils.list_helpers import invalidate_list_cache
         invalidate_list_cache('sales_invoices')
+        invalidate_list_cache('product_batches')
+        invalidate_list_cache('cust_prod_history')
+        invalidate_list_cache('prod_sales_history')
+        invalidate_list_cache('cust_outstanding_inv')
         
         messages.success(request, f"Invoice {invoice.invoice_number} updated successfully!")
         request.session['print_invoice_id'] = invoice.id
@@ -993,6 +1011,10 @@ def invoice_delete(request, pk):
     # Invalidate Sales Invoices list cache
     from wholesaleApp.utils.list_helpers import invalidate_list_cache
     invalidate_list_cache('sales_invoices')
+    invalidate_list_cache('product_batches')
+    invalidate_list_cache('cust_prod_history')
+    invalidate_list_cache('prod_sales_history')
+    invalidate_list_cache('cust_outstanding_inv')
     
     messages.success(request, f"Invoice {invoice_number} has been deleted successfully, stock restored and customer balance reverted.")
     return redirect('invoice_list')
@@ -1098,6 +1120,9 @@ def sales_return_create(request):
         )
         
         messages.success(request, f"Sales Return '{return_number}' recorded successfully.")
+        from wholesaleApp.utils.list_helpers import invalidate_list_cache
+        invalidate_list_cache('product_batches')
+        invalidate_list_cache('cust_credit_notes')
         return redirect('sales_return_list')
         
     context = {
@@ -1144,6 +1169,9 @@ def sales_return_delete(request, pk):
     )
     
     s_return.delete()
+    from wholesaleApp.utils.list_helpers import invalidate_list_cache
+    invalidate_list_cache('product_batches')
+    invalidate_list_cache('cust_credit_notes')
     messages.success(request, "Sales return deleted, stock reverted and customer balance adjusted.")
     return redirect('sales_return_list')
 
@@ -1355,6 +1383,3 @@ def delivery_management(request):
         'user_perms': get_user_permissions_context(request.user)
     }
     return render(request, 'sale/delivery_management.html', context)
-
-
-
