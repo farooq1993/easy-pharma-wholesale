@@ -1844,7 +1844,7 @@ class DualModeRetailWholesaleTests(TestCase):
         # Net total = 470.40.
         # Discount is 0.
         response = self.client.post(reverse('invoice_create'), {
-            'customer': '',
+            'customer': 'undefined',
             'patient_name': 'Rahul Kumar',
             'patient_mobile': '9988776655',
             'doctor_name': 'Dr. Mehta',
@@ -1882,6 +1882,58 @@ class DualModeRetailWholesaleTests(TestCase):
         # Verify stock batch quantity reduced correctly: 50.0000 - 35.0000 = 15.0000
         self.batch.refresh_from_db()
         self.assertEqual(self.batch.quantity, Decimal('15.0000'))
+
+    def test_invoice_create_rejects_undefined_product_id_without_server_error(self):
+        from wholesaleApp.models.sales import SalesInvoice
+
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['active_tenant_id'] = self.tenant.id
+        session.save()
+
+        response = self.client.post(reverse('invoice_create'), {
+            'customer': 'undefined',
+            'patient_name': 'QA Patient',
+            'invoice_date': '2026-07-26',
+            'payment_type': 'Cash',
+            'gross_amount': '120.00',
+            'discount_amount': '0.00',
+            'gst_amount': '14.40',
+            'net_amount': '134.40',
+            'is_retail': 'true',
+            'product[]': ['undefined'],
+            'batch[]': [self.batch.id],
+            'sale_rate[]': ['120.00'],
+            'quantity[]': ['1'],
+            'free_quantity[]': ['0'],
+            'discount_percentage[]': ['0'],
+            'total_amount[]': ['134.40'],
+        })
+
+        self.assertRedirects(response, reverse('invoice_create'))
+        self.assertEqual(SalesInvoice.objects.filter(tenant=self.tenant).count(), 0)
+
+    def test_wholesale_invoice_rejects_undefined_customer_id_without_server_error(self):
+        from wholesaleApp.models.sales import SalesInvoice
+
+        self.client.force_login(self.user)
+        session = self.client.session
+        session['active_tenant_id'] = self.tenant.id
+        session.save()
+
+        response = self.client.post(reverse('invoice_create'), {
+            'customer': 'undefined',
+            'invoice_date': '2026-07-26',
+            'payment_type': 'Cash',
+            'gross_amount': '0.00',
+            'discount_amount': '0.00',
+            'gst_amount': '0.00',
+            'net_amount': '0.00',
+            'is_retail': '0',
+        })
+
+        self.assertRedirects(response, reverse('invoice_create'))
+        self.assertEqual(SalesInvoice.objects.filter(tenant=self.tenant).count(), 0)
 
     def test_tenant_crud_business_mode(self):
         from wholesaleApp.models.tenant import Tenant
@@ -2130,9 +2182,6 @@ class PublicUserCreationTests(TestCase):
         
         # Verify session active tenant ID is set
         self.assertEqual(self.client.session.get('active_tenant_id'), tenant.id)
-
-
-
 
 
 

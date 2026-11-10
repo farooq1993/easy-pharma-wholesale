@@ -16,6 +16,14 @@ from wholesaleApp.models import (
     SalesInvoiceItem
 )
 
+
+def _normalize_optional_posted_id(value):
+    value = (value or '').strip()
+    if value.lower() in {'undefined', 'null', 'none'}:
+        return ''
+    return value
+
+
 # ==================== AJAX API ENDPOINTS ====================
 @login_required
 def get_product_batches(request, pk):
@@ -278,9 +286,8 @@ def invoice_create(request):
     ).prefetch_related('batches').order_by('name')
     
     if request.method == 'POST':
-        customer_id = request.POST.get('customer')
-        if not customer_id:
-            customer_id = None
+        is_retail = request.POST.get('is_retail') in ('true', '1', 'on')
+        customer_id = _normalize_optional_posted_id(request.POST.get('customer'))
             
         patient_name = request.POST.get('patient_name', '').strip() or None
         patient_mobile = request.POST.get('patient_mobile', '').strip() or None
@@ -293,20 +300,30 @@ def invoice_create(request):
             return redirect('invoice_create')
         payment_type = request.POST.get('payment_type', 'Cash')
         if customer_id:
-            customer = get_object_or_404(CustomerMaster, id=customer_id, is_deleted=False)
+            if not customer_id.isdigit():
+                messages.error(request, "Please select a valid customer.")
+                return redirect('invoice_create')
+            customer = get_object_or_404(CustomerMaster, id=int(customer_id), is_deleted=False)
             if not (customer.dl_number_1 or '').strip():
                 messages.error(request, 'Customer Drug Licence Number is required before making a sale.')
                 return redirect('invoice_create')
+        elif not is_retail:
+            messages.error(request, "Please select a customer for a wholesale invoice.")
+            return redirect('invoice_create')
+        customer_id = customer_id or None
         gross_amount = Decimal(request.POST.get('gross_amount', 0))
         discount_amount = Decimal(request.POST.get('discount_amount', 0))
         gst_amount = Decimal(request.POST.get('gst_amount', 0))
         net_amount = Decimal(request.POST.get('net_amount', 0))
         eway_bill = request.POST.get('eway_bill', '').strip() or None
-        mr_id = request.POST.get('mr')
+        mr_id = _normalize_optional_posted_id(request.POST.get('mr'))
         mr = None
         if mr_id:
+            if not mr_id.isdigit():
+                messages.error(request, "Please select a valid medical representative.")
+                return redirect('invoice_create')
             from wholesaleApp.models.products import MedicalRepresentative
-            mr = MedicalRepresentative.objects.filter(id=mr_id, status=True, is_deleted=False).first()
+            mr = MedicalRepresentative.objects.filter(id=int(mr_id), status=True, is_deleted=False).first()
         
         # Extract item arrays
         product_ids = request.POST.getlist('product[]')
@@ -316,8 +333,22 @@ def invoice_create(request):
         free_quantities = request.POST.getlist('free_quantity[]')
         discounts = request.POST.getlist('discount_percentage[]')
         totals = request.POST.getlist('total_amount[]')
-        
-        is_retail = request.POST.get('is_retail') == 'true' or request.POST.get('is_retail') == '1' or request.POST.get('is_retail') == 'on'
+
+        line_arrays = (
+            product_ids, batch_ids, sale_rates, quantities,
+            free_quantities, discounts, totals,
+        )
+        if not product_ids or any(len(values) != len(product_ids) for values in line_arrays):
+            messages.error(request, "Add at least one complete product line before saving the invoice.")
+            return redirect('invoice_create')
+        if any(not value.isdigit() for value in product_ids + batch_ids):
+            messages.error(request, "A product or batch selection is invalid. Please select them again.")
+            return redirect('invoice_create')
+
+        adjusted_cn_id = _normalize_optional_posted_id(request.POST.get('adjusted_cn_id'))
+        if adjusted_cn_id and not adjusted_cn_id.isdigit():
+            messages.error(request, "Please select a valid credit note.")
+            return redirect('invoice_create')
 
         # Parse invoice_date to datetime.date object for calculations
         if isinstance(invoice_date, str):
@@ -326,13 +357,24 @@ def invoice_create(request):
             parsed_date = invoice_date
 
         # 1. Pre-validate stock availability & pharma compliance (no expired medicine sales)
+        validated_batches = []
         for i in range(len(product_ids)):
+            product_id = int(product_ids[i])
             batch_id = batch_ids[i]
             qty = Decimal(quantities[i])
             free_qty = Decimal(free_quantities[i]) if free_quantities[i] else Decimal('0.0000')
             total_requested = qty + free_qty
             
-            batch = get_object_or_404(ProductBatch, id=batch_id)
+            batch = ProductBatch.objects.select_related('product').filter(
+                id=int(batch_id),
+                product_id=product_id,
+                product__status=True,
+                product__is_deleted=False,
+            ).first()
+            if not batch:
+                messages.error(request, "A product and batch do not match or are no longer available. Please select them again.")
+                return redirect('invoice_create')
+            validated_batches.append(batch)
             if batch.expiry_date and batch.expiry_date < parsed_date:
                 messages.error(
                     request,
@@ -401,10 +443,9 @@ def invoice_create(request):
             created_by=request.user if request.user.is_authenticated else None
         )
         
-        adjusted_cn_id = request.POST.get('adjusted_cn_id')
         if adjusted_cn_id:
             from wholesaleApp.models import SalesReturn
-            SalesReturn.objects.filter(id=adjusted_cn_id).update(is_adjusted=True, adjusted_invoice=invoice)
+            SalesReturn.objects.filter(id=int(adjusted_cn_id), is_adjusted=False).update(is_adjusted=True, adjusted_invoice=invoice)
         
         # 3. Create items and deduct stock
         for i in range(len(product_ids)):
@@ -416,7 +457,7 @@ def invoice_create(request):
             disc_pct = Decimal(discounts[i]) if discounts[i] else Decimal('0.00')
             total_val = Decimal(totals[i])
             
-            batch = ProductBatch.objects.get(id=batch_id)
+            batch = validated_batches[i]
             total_requested = qty + free_qty
             
             # Create Sales Invoice Item
