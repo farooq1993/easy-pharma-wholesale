@@ -85,7 +85,7 @@
                             <select name="tax_slab" id="taxSlabSelect" class="form-select" required>
                                 <option value="">Select GST Rate Slab</option>
                                 {% for tax in tax_slabs %}
-                                <option value="{{ tax.id }}" data-rate="{{ tax.rate }}" {% if product.tax_slab_id == tax.id or (not product and tax.is_default) or (product and not product.tax_slab_id and product.gst_rate == tax.rate) %}selected{% endif %}>
+                                <option value="{{ tax.id }}" data-rate="{{ tax.rate }}" {% if product %}{% if product.tax_slab_id == tax.id or not product.tax_slab_id and product.gst_rate == tax.rate %}selected{% endif %}{% elif tax.is_default %}selected{% endif %}>
                                     {{ tax.name }} ({{ tax.rate }}%)
                                 </option>
                                 {% empty %}
